@@ -76,9 +76,8 @@ namespace GlyphTV
 
                 string searchUrl = $"{TMDB_BASE}/search/{type}?api_key={TMDB_API_KEY}&language=tr-TR&query={Uri.EscapeDataString(searchName)}{yearParam}";
 
-                string searchJson = "";
-                using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) })
-                    searchJson = await client.GetStringAsync(searchUrl);
+                EnsureTmdbHttpClient();
+                string searchJson = await _tmdbHttpClient!.GetStringAsync(searchUrl);
 
                 using var searchDoc = JsonDocument.Parse(searchJson);
                 var results = searchDoc.RootElement.GetProperty("results");
@@ -86,8 +85,7 @@ namespace GlyphTV
                 if (results.GetArrayLength() == 0 && year.HasValue)
                 {
                     searchUrl = $"{TMDB_BASE}/search/{type}?api_key={TMDB_API_KEY}&language=tr-TR&query={Uri.EscapeDataString(searchName)}";
-                    using var client2 = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                    searchJson = await client2.GetStringAsync(searchUrl);
+                    searchJson = await _tmdbHttpClient!.GetStringAsync(searchUrl);
                     using var doc2 = JsonDocument.Parse(searchJson);
                     results = doc2.RootElement.GetProperty("results");
                     if (results.GetArrayLength() == 0)
@@ -107,9 +105,7 @@ namespace GlyphTV
                 int tmdbId = results[0].GetProperty("id").GetInt32();
                 string detailUrl = $"{TMDB_BASE}/{type}/{tmdbId}?api_key={TMDB_API_KEY}&language=tr-TR&append_to_response=credits";
 
-                string detailJson = "";
-                using (var client3 = new HttpClient { Timeout = TimeSpan.FromSeconds(8) })
-                    detailJson = await client3.GetStringAsync(detailUrl);
+                string detailJson = await _tmdbHttpClient!.GetStringAsync(detailUrl);
 
                 using var detailDoc = JsonDocument.Parse(detailJson);
                 var detail = detailDoc.RootElement;
@@ -214,10 +210,10 @@ namespace GlyphTV
                     try
                     {
                         string posterUrl = TMDB_IMG + poster;
-                        using var posterClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-                        var posterBytes = await posterClient.GetByteArrayAsync(posterUrl);
+                        EnsureTmdbHttpClient();
+                        var posterBytes = await _tmdbHttpClient!.GetByteArrayAsync(posterUrl);
                         using var ms = new MemoryStream(posterBytes);
-                        var bitmap = new Bitmap(ms);
+                        var bitmap = Bitmap.DecodeToWidth(ms, 300);
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             VodInfoPoster.Background = Avalonia.Media.Brushes.Transparent;
@@ -227,7 +223,6 @@ namespace GlyphTV
                             if (seriesCard != null)
                             {
                                 seriesCard.LogoBitmap = bitmap;
-                                // Thread‑safe cache ekleme
                                 SetPosterCache(seriesCard.ShowName, bitmap);
                             }
                         });
@@ -258,7 +253,7 @@ namespace GlyphTV
                     {
                         var bytes = await Task.Run(() => File.ReadAllBytes(diskPath));
                         using var ms = new MemoryStream(bytes);
-                        var bmp = new Bitmap(ms);
+                        var bmp = Bitmap.DecodeToWidth(ms, 300);
                         SetPosterCache(card.ShowName, bmp);
                         await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = bmp);
                         await Task.Delay(1);
@@ -282,11 +277,11 @@ namespace GlyphTV
                     var posterUrl = await SearchTmdbPosterUrl(card.ShowName, "tv");
                     if (!string.IsNullOrEmpty(posterUrl))
                     {
-                        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                        var posterBytes = await client.GetByteArrayAsync(posterUrl);
+                        EnsureTmdbHttpClient();
+                        var posterBytes = await _tmdbHttpClient!.GetByteArrayAsync(posterUrl);
                         await File.WriteAllBytesAsync(GetPosterDiskPath(card.ShowName), posterBytes);
                         using var ms = new MemoryStream(posterBytes);
-                        var bitmap = new Bitmap(ms);
+                        var bitmap = Bitmap.DecodeToWidth(ms, 300);
                         SetPosterCache(card.ShowName, bitmap);
                         await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = bitmap);
                         await Task.Delay(1);
@@ -335,7 +330,7 @@ namespace GlyphTV
                         {
                             var bytes = await File.ReadAllBytesAsync(diskPath);
                             using var ms = new MemoryStream(bytes);
-                            var bmp = new Bitmap(ms);
+                            var bmp = Bitmap.DecodeToWidth(ms, 300);
                             SetPosterCache(searchKey, bmp);
                             await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bmp);
                             await Task.Delay(1);
@@ -347,11 +342,11 @@ namespace GlyphTV
                     var posterUrl = await SearchTmdbPosterUrl(searchKey, type);
                     if (!string.IsNullOrEmpty(posterUrl))
                     {
-                        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                        var posterBytes = await client.GetByteArrayAsync(posterUrl);
+                        EnsureTmdbHttpClient();
+                        var posterBytes = await _tmdbHttpClient!.GetByteArrayAsync(posterUrl);
                         await File.WriteAllBytesAsync(diskPath, posterBytes);
                         using var ms = new MemoryStream(posterBytes);
-                        var bitmap = new Bitmap(ms);
+                        var bitmap = Bitmap.DecodeToWidth(ms, 300);
                         SetPosterCache(searchKey, bitmap);
                         await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bitmap);
                         await Task.Delay(1);
@@ -379,15 +374,15 @@ namespace GlyphTV
 
                 string url = $"{TMDB_BASE}/search/{type}?api_key={TMDB_API_KEY}&language=tr-TR&query={Uri.EscapeDataString(searchName)}{yearParam}";
 
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-                var json = await client.GetStringAsync(url);
+                EnsureTmdbHttpClient();
+                var json = await _tmdbHttpClient!.GetStringAsync(url);
                 using var doc = JsonDocument.Parse(json);
                 var results = doc.RootElement.GetProperty("results");
 
                 if (results.GetArrayLength() == 0 && year.HasValue)
                 {
                     url = $"{TMDB_BASE}/search/{type}?api_key={TMDB_API_KEY}&language=tr-TR&query={Uri.EscapeDataString(searchName)}";
-                    json = await client.GetStringAsync(url);
+                    json = await _tmdbHttpClient!.GetStringAsync(url);
                     using var doc2 = JsonDocument.Parse(json);
                     results = doc2.RootElement.GetProperty("results");
                 }

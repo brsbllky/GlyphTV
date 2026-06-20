@@ -43,9 +43,6 @@ namespace GlyphTV
             FavoriPanel.IsVisible     = false;
             SeriesContentGrid.IsVisible = false;
 
-            // Canlı TV liste formatı koşulu:
-            //   – Normal Canlı TV sekmesi VEYA
-            //   – Favori sekmesinden açılmış canlı TV kategorisi
             bool showAsList = _currentTab == "Canlı" ||
                               (_currentTab == "Favori" && _favoriCategoryType == "Canlı");
 
@@ -108,9 +105,9 @@ namespace GlyphTV
         {
             if (sender is not Button btn || btn.Tag == null) return;
 
-            _currentCategory     = btn.Tag.ToString()!;
-            _favoriCategoryType  = "Canlı";
-            _viewState           = "Content";
+            _currentCategory    = btn.Tag.ToString()!;
+            _favoriCategoryType = "Canlı";
+            _viewState          = "Content";
             UpdateView();
         }
 
@@ -119,9 +116,22 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void Back_Click(object? sender, RoutedEventArgs e)
         {
-            _viewState       = "Categories";
+            _viewState = "Categories";
             _currentCategory = "";
+
+            // Kanal / VOD / Dizi listelerini önceden temizle ki ScrollViewer'ın
+            // içerik yüksekliği (Extent) hemen küçülsün ve eski scroll konumuna
+            // göre yeniden konumlandırma yapılmasın.
+            _displayContents.Clear();
+            ContentItemsGrid.IsVisible  = false;
+            VodContentGrid.ItemsSource  = null;
+            VodContentGrid.IsVisible    = false;
+            SeriesContentGrid.ItemsSource = null;
+            SeriesContentGrid.IsVisible = false;
+
             UpdateView();
+
+            ResetScrollToTop();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -179,18 +189,19 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void UpdateView()
         {
-            try
-            {
-                UpdateViewInternal();
-            }
+            try { UpdateViewInternal(); }
             catch { }
         }
 
         private void UpdateViewInternal()
         {
-            var historyByUrl = _watchHistory
-                .GroupBy(h => h.Url)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.LastWatched).First());
+            if (_watchHistoryByUrlCache == null)
+            {
+                _watchHistoryByUrlCache = _watchHistory
+                    .GroupBy(h => h.Url)
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.LastWatched).First());
+            }
+            var historyByUrl = _watchHistoryByUrlCache;
 
             string searchText = SearchBox.Text?.ToLower() ?? "";
 
@@ -252,20 +263,9 @@ namespace GlyphTV
             // ── Settings ──────────────────────────────────────────────
             if (_viewState == "Settings")
             {
-                PageTitle.Text = "Ayarlar";
+                PageTitle.Text    = "Ayarlar";
                 BackBtn.IsVisible = false;
                 SetGridVisibility(false, false, true);
-
-                int favCount = _allChannels.Count(c => c.IsFavorite);
-                FavCountText.Text = $"{favCount} favori içerik";
-
-                _hiddenContents.Clear();
-                var hiddenList = _allChannels.Where(c => c.IsHidden).ToList();
-                ReplaceCollection(_hiddenContents, hiddenList);
-
-                HiddenCountTitle.Text      = $"Gizli İçerikler ({hiddenList.Count})";
-                HiddenEmptyText.IsVisible  = hiddenList.Count == 0;
-                HiddenItemsList.IsVisible  = hiddenList.Count > 0;
                 return;
             }
 
@@ -278,7 +278,6 @@ namespace GlyphTV
                     PageTitle.Text    = "Favoriler";
                     BackBtn.IsVisible = false;
 
-                    // Diğer panelleri gizle, FavoriPanel'i aç
                     CategoriesGrid.IsVisible    = false;
                     ContentItemsGrid.IsVisible  = false;
                     VodContentGrid.IsVisible    = false;
@@ -286,7 +285,6 @@ namespace GlyphTV
                     SettingsPanel.IsVisible     = false;
                     FavoriPanel.IsVisible       = true;
 
-                    // Canlı TV: favori kanalların grup adlarını listele
                     var liveFavGroups = _allChannels
                         .Where(c => !c.IsHidden && c.IsFavorite && c.Type == "Canlı")
                         .Select(c => c.Group)
@@ -297,7 +295,6 @@ namespace GlyphTV
                     FavoriLiveSection.IsVisible = liveFavGroups.Count > 0;
                     FavoriLiveGrid.ItemsSource  = liveFavGroups;
 
-                    // Filmler: favori VOD kanalları
                     var vodFavs = _allChannels
                         .Where(c => !c.IsHidden && c.IsFavorite && c.Type == "VOD")
                         .ToList();
@@ -310,7 +307,6 @@ namespace GlyphTV
                     SafeRun(() => LoadLogosForChannelsAsync(vodFavs));
                     SafeRun(() => LoadTmdbPostersForChannels(vodFavs));
 
-                    // Diziler: favori olarak işaretlenmiş bölümlerin dizi kartları
                     var seriesFavEps = _allChannels
                         .Where(c => !c.IsHidden && c.IsFavorite && c.Type == "Dizi"
                                  && !string.IsNullOrEmpty(c.ShowName))
@@ -325,7 +321,6 @@ namespace GlyphTV
                     var favSeriesCards = new List<SeriesCard>();
                     foreach (var sn in favShowNames)
                     {
-                        // Kart için tüm bölümleri al (izleme geçmişi restore için)
                         var allEps = _allChannels
                             .Where(c => !c.IsHidden && c.Type == "Dizi" && c.ShowName == sn)
                             .ToList();
@@ -354,20 +349,14 @@ namespace GlyphTV
                     .Where(c => !c.IsHidden && c.Type == _currentTab)
                     .ToList();
 
-                var cats = filteredList
-                    .GroupBy(c => c.Group)
-                    .Where(g => string.IsNullOrEmpty(searchText) || g.Key.ToLower().Contains(searchText))
-                    .OrderBy(g => g.Key)
-                    .Select(g => new CategoryItem
-                    {
-                        Name  = g.Key,
-                        Count = _currentTab == "Dizi"
-                            ? g.Select(c => c.ShowName).Distinct().Count()
-                            : g.Count()
-                    })
-                    .ToList();
+                var groups = filteredList
+                    .Select(c => c.Group)
+                    .Distinct()
+                    .OrderBy(g => g);
 
-                ReplaceCollection(_displayCategories, cats);
+                foreach (var g in groups)
+                    _displayCategories.Add(g);
+
                 return;
             }
 
@@ -379,7 +368,6 @@ namespace GlyphTV
                 SetGridVisibility(false, true, false);
                 _displayContents.Clear();
 
-                // Favori + Canlı içerikler liste formatında; diğerleri VOD poster formatında
                 bool isFavoriLive = _currentTab == "Favori" && _favoriCategoryType == "Canlı";
                 bool isCanlı      = _currentTab == "Canlı" || isFavoriLive;
 
@@ -414,7 +402,6 @@ namespace GlyphTV
                         .Where(c => !c.IsHidden && c.Group == _currentCategory);
 
                     if (_currentTab == "Favori")
-                        // Favori sekmesinden geliyorsa: hem favori hem tür filtresi
                         filteredContents = filteredContents
                             .Where(c => c.IsFavorite && c.Type == _favoriCategoryType);
                     else
@@ -510,17 +497,15 @@ namespace GlyphTV
                         _seriesCardCache[$"Dizi_{_currentCategory}"] = _allFilteredCards;
                 }
             }
-        } // UpdateViewInternal sonu
+        }
 
         /// <summary>
         /// Async Task döndüren metodları fire-and-forget olarak çalıştırır.
-        /// Oluşan exception'lar uygulamayı çökertmez.
         /// </summary>
         private static async void SafeRun(Func<System.Threading.Tasks.Task> action)
         {
             try { await action(); }
             catch { }
         }
-
     }
 }

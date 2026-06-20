@@ -134,7 +134,7 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // HTTP istemcisi
+        // HTTP istemcileri
         // ─────────────────────────────────────────────────────────────
         private void EnsureLogoHttpClient()
         {
@@ -142,6 +142,14 @@ namespace GlyphTV
             var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
             _logoHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
             _logoHttpClient.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
+        }
+
+        private static void EnsureTmdbHttpClient()
+        {
+            if (_tmdbHttpClient != null) return;
+            var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
+            _tmdbHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+            _tmdbHttpClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.2.1");
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -181,6 +189,7 @@ namespace GlyphTV
                 }
             }
             catch { }
+            _watchHistoryByUrlCache = null;
         }
 
         private void SaveWatchHistory()
@@ -226,6 +235,7 @@ namespace GlyphTV
             if (_watchHistory.Count > 100)
                 _watchHistory = _watchHistory.OrderByDescending(h => h.LastWatched).Take(100).ToList();
 
+            _watchHistoryByUrlCache = null;
             SaveWatchHistory();
         }
 
@@ -253,7 +263,7 @@ namespace GlyphTV
             EnsureLogoHttpClient();
             string cacheDir = GetLogoCacheDir();
 
-            var semaphore = new SemaphoreSlim(4);
+            var semaphore = new SemaphoreSlim(6);
             var tasks = list.Select(async ch =>
             {
                 await semaphore.WaitAsync();
