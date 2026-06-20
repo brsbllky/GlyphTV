@@ -33,9 +33,9 @@
 
 ## Gereksinimler
 
-- Windows 10 veya üzeri
-- .NET 10 SDK (yalnızca kaynak koddan derlemek için)
-- VLC Media Player veya LibVLC kütüphanesi (NuGet ile otomatik gelir)
+- [Windows 10](https://www.microsoft.com/tr-tr/windows) veya üzeri
+- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (yalnızca kaynak koddan derlemek için)
+- [VLC Media Player](https://www.videolan.org/vlc/) veya LibVLC kütüphanesi (NuGet ile otomatik gelir)
 
 ---
 
@@ -139,10 +139,10 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 
 | Teknoloji | Versiyon | Kullanım Amacı |
 |-----------|----------|----------------|
-| Avalonia UI | 11.3.13 | Arayüz çerçevesi |
-| LibVLCSharp | 3.9.6 | Video oynatma |
-| TMDB API | v3 | Film/dizi bilgileri |
-| .NET | 10 | Uygulama çerçevesi |
+| [Avalonia UI](https://avaloniaui.net/) | 11.3.13 | Arayüz çerçevesi |
+| [LibVLCSharp](https://github.com/videolan/libvlcsharp) | 3.9.6 | Video oynatma |
+| [TMDB API](https://www.themoviedb.org/documentation/api) | v3 | Film/dizi bilgileri |
+| [.NET](https://dotnet.microsoft.com/) | 10 | Uygulama çerçevesi |
 
 ---
 
