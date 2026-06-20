@@ -35,7 +35,6 @@ namespace GlyphTV
         // Logo URL (M3U tvg-logo özelliğinden)
         public string LogoUrl { get; set; } = "";
         public string XuiId { get; set; } = "";
-        public string PlayButtonText { get; set; } = "Oynat";
 
         private bool _hasResume = false;
         [JsonIgnore]

@@ -12,10 +12,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace GlyphTV
@@ -313,116 +310,5 @@ namespace GlyphTV
             await FetchTmdbInfo(card.ShowName, "Dizi", card);
         }
 
-        // FetchXtreamSeriesInfo – değişiklik yok
-        private async Task FetchXtreamSeriesInfo(Channel episode, SeriesCard card, TvSource source)
-        {
-            try
-            {
-                string streamId = episode.XuiId;
-                if (string.IsNullOrEmpty(streamId)) return;
-                if (string.IsNullOrEmpty(source.Username) || string.IsNullOrEmpty(source.Password)) return;
-
-                string encodedUser = System.Uri.EscapeDataString(source.Username);
-                string encodedPass = System.Uri.EscapeDataString(source.Password);
-
-                string[] actions  = { "get_series_info", "get_vod_info" };
-                string[] idParams = { "series_id", "vod_id" };
-
-                for (int i = 0; i < actions.Length; i++)
-                {
-                    try
-                    {
-                        string apiUrl = $"{source.PathOrUrl}/player_api.php?username={encodedUser}&password={encodedPass}&action={actions[i]}&{idParams[i]}={streamId}";
-
-                        string apiContent = "";
-                        using (var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true })
-                        using (var client = new HttpClient(handler) { Timeout = System.TimeSpan.FromSeconds(10) })
-                        {
-                            client.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
-                            apiContent = await client.GetStringAsync(apiUrl);
-                        }
-
-                        if (string.IsNullOrEmpty(apiContent) || !apiContent.TrimStart().StartsWith("{")) continue;
-
-                        using var doc  = JsonDocument.Parse(apiContent);
-                        var root = doc.RootElement;
-
-                        string SafeGet(JsonElement parent, string key)
-                        {
-                            if (!parent.TryGetProperty(key, out var val)) return "";
-                            return val.ValueKind switch
-                            {
-                                JsonValueKind.String => val.GetString() ?? "",
-                                JsonValueKind.Number => val.GetRawText(),
-                                _                    => ""
-                            };
-                        }
-
-                        bool foundData = false;
-                        if (root.TryGetProperty("info", out var info) && info.ValueKind == JsonValueKind.Object)
-                        {
-                            string genre    = SafeGet(info, "genre");
-                            string xDir     = SafeGet(info, "director");
-                            string xCast    = SafeGet(info, "cast");
-                            if (string.IsNullOrEmpty(xCast)) xCast = SafeGet(info, "actors");
-                            string xDur     = SafeGet(info, "episode_run_time");
-                            if (string.IsNullOrEmpty(xDur)) xDur = SafeGet(info, "duration");
-                            string xDate    = SafeGet(info, "release_date");
-                            if (string.IsNullOrEmpty(xDate)) xDate = SafeGet(info, "releasedate");
-                            string xPlot    = SafeGet(info, "plot");
-                            if (string.IsNullOrEmpty(xPlot)) xPlot = SafeGet(info, "description");
-                            string xAge     = SafeGet(info, "age");
-                            string xOrig    = SafeGet(info, "o_name");
-                            if (string.IsNullOrEmpty(xOrig)) xOrig = SafeGet(info, "name");
-
-                            if (!string.IsNullOrEmpty(xDir) || !string.IsNullOrEmpty(xCast) ||
-                                !string.IsNullOrEmpty(xPlot) || !string.IsNullOrEmpty(xOrig))
-                            {
-                                foundData = true;
-                                await Dispatcher.UIThread.InvokeAsync(() =>
-                                {
-                                    if (!string.IsNullOrEmpty(genre))   VodInfoGenre.Text = genre;
-                                    if (!string.IsNullOrEmpty(xOrig))   { VodInfoOrigName.Text  = xOrig;        VodInfoOrigRow.IsVisible  = true; }
-                                    if (!string.IsNullOrEmpty(xDir))    { VodInfoDirector.Text  = xDir;         VodInfoDirRow.IsVisible   = true; }
-                                    if (!string.IsNullOrEmpty(xCast))   { VodInfoCast.Text      = xCast;        VodInfoCastRow.IsVisible  = true; }
-                                    if (!string.IsNullOrEmpty(xDur))    { VodInfoDuration.Text  = xDur + " dk"; VodInfoDurRow.IsVisible   = true; }
-                                    if (!string.IsNullOrEmpty(xDate))   { VodInfoDate.Text      = xDate;        VodInfoDateRow.IsVisible  = true; }
-                                    if (!string.IsNullOrEmpty(xAge))    { VodInfoAge.Text       = xAge + "+";   VodInfoAgeRow.IsVisible   = true; }
-                                    if (!string.IsNullOrEmpty(xPlot))   { VodInfoPlot.Text      = xPlot;        VodInfoPlotRow.IsVisible  = true; }
-                                });
-                            }
-
-                            string coverUrl = SafeGet(info, "cover_big");
-                            if (string.IsNullOrEmpty(coverUrl)) coverUrl = SafeGet(info, "cover");
-                            if (string.IsNullOrEmpty(coverUrl)) coverUrl = SafeGet(info, "movie_image");
-
-                            if (!string.IsNullOrEmpty(coverUrl))
-                            {
-                                foundData = true;
-                                try
-                                {
-                                    EnsureLogoHttpClient();
-                                    var bytes = await _logoHttpClient!.GetByteArrayAsync(coverUrl);
-                                    using var ms = new MemoryStream(bytes);
-                                    var bitmap = new Bitmap(ms);
-                                    await Dispatcher.UIThread.InvokeAsync(() =>
-                                    {
-                                        VodInfoPoster.Background = Avalonia.Media.Brushes.Transparent;
-                                        VodInfoPoster.Child = new Avalonia.Controls.Image
-                                            { Source = bitmap, Stretch = Avalonia.Media.Stretch.UniformToFill };
-                                        card.LogoBitmap = bitmap;
-                                    });
-                                }
-                                catch { }
-                            }
-                        }
-
-                        if (foundData) break;
-                    }
-                    catch { continue; }
-                }
-            }
-            catch { }
-        }
     }
 }

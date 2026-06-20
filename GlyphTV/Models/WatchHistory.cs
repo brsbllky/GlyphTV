@@ -18,14 +18,5 @@ namespace GlyphTV
         public string Season { get; set; } = "";
         public int EpisodeNumber { get; set; } = 0;
 
-        public string ProgressText
-        {
-            get
-            {
-                if (Duration <= 0) return "";
-                int percent = (int)((double)Position / Duration * 100);
-                return $"%{percent}";
-            }
-        }
     }
 }

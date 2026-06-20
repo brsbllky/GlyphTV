@@ -1,12 +1,13 @@
 // ============================================================
 // MainWindow.Sources.cs
-// Kaynak yönetimi: ekleme, silme, seçme, yenileme, dışa aktarma
-// M3U parse, Xtream Code, URL indirme, içerik türü tespiti
+// Kaynak yönetimi: ekleme, silme, seçme, yenileme
+// M3U parse, Xtream Code player_api.php, URL indirme, içerik türü tespiti
 // ============================================================
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +16,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GlyphTV
@@ -82,7 +84,6 @@ namespace GlyphTV
                     {
                         _allChannels = loaded;
 
-                        // Eski JSON'larda ShowName boş olabilir – parse et
                         foreach (var ch in _allChannels.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)))
                         {
                             var (showName, season, episode) = ParseShowInfo(ch.Name);
@@ -95,7 +96,6 @@ namespace GlyphTV
             }
             catch { }
 
-            // Cache'leri sıfırla (yeni kanal listesine göre yeniden oluşacak)
             _contentCache.Clear();
             _seriesCardCache.Clear();
 
@@ -141,9 +141,9 @@ namespace GlyphTV
             await RefreshSourceInternal(source);
         }
 
-        /// <summary>
-        /// Kaynağı yeniden indir ve parse et. Favori/gizli durumlarını URL bazlı korur.
-        /// </summary>
+        // ─────────────────────────────────────────────────────────────
+        // Kaynağı yenile — favori/gizli durumları URL bazlı korur
+        // ─────────────────────────────────────────────────────────────
         private async Task RefreshSourceInternal(TvSource source)
         {
             ShowToast($"'{source.Name}' yenileniyor, lütfen bekleyin...");
@@ -173,18 +173,7 @@ namespace GlyphTV
 
             try
             {
-                string content = source.Type switch
-                {
-                    "M3U" => File.Exists(source.PathOrUrl)
-                                ? await File.ReadAllTextAsync(source.PathOrUrl)
-                                : throw new FileNotFoundException("Kaynak dosyası mevcut değil."),
-                    "Link"   => await DownloadM3uContent(source.PathOrUrl),
-                    "Xtream" => await DownloadM3uContent(
-                                    $"{source.PathOrUrl}/get.php?username={Uri.EscapeDataString(source.Username)}&password={Uri.EscapeDataString(source.Password)}&type=m3u_plus&output=ts"),
-                    _ => throw new InvalidOperationException("Bilinmeyen kaynak türü.")
-                };
-
-                var newChannels = ParseM3u(content);
+                var newChannels = await FetchChannelsForSource(source);
 
                 int restoredFav = 0, restoredHidden = 0;
                 foreach (var ch in newChannels)
@@ -207,11 +196,248 @@ namespace GlyphTV
                     try { File.WriteAllText(GetChannelsPath(source.Id), JsonSerializer.Serialize(newChannels)); } catch { }
                 }
 
-                ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori, {restoredHidden} gizli korundu).");
+                ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori korundu).");
             }
             catch (HttpRequestException hre) { ShowToast($"Yenileme hatası: {hre.Message}"); }
             catch (TaskCanceledException)    { ShowToast("Yenileme zaman aşımına uğradı."); }
             catch (Exception ex)             { ShowToast($"Yenileme hatası: {ex.Message}"); }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Kaynak türüne göre kanal listesi çek  (YENİLEME için)
+        //
+        // Xtream için tek M3U isteği kullanılır — orijinal hız korunur.
+        // ParseXtreamApi (player_api.php, N+3 istek) yalnızca ilk kaynak
+        // eklemesinde çağrılır; yenileme her zaman bu hızlı yolu kullanır.
+        // ─────────────────────────────────────────────────────────────
+        private async Task<List<Channel>> FetchChannelsForSource(TvSource source)
+        {
+            return source.Type switch
+            {
+                "M3U"  => ParseM3u(File.Exists(source.PathOrUrl)
+                              ? await File.ReadAllTextAsync(source.PathOrUrl)
+                              : throw new FileNotFoundException("Kaynak dosyası mevcut değil.")),
+                "Link" => ParseM3u(await DownloadM3uContent(source.PathOrUrl)),
+
+                // Xtream: get.php → tek HTTP isteği, tüm içerik (canlı + VOD + dizi)
+                // Kaynak ekleme sırasında zaten ParseXtreamApi çalışmıştır;
+                // yenileme işlevi hızlı M3U yolunu kullanır.
+                "Xtream" => ParseM3u(await DownloadM3uContent(
+                                $"{source.PathOrUrl.TrimEnd('/')}/get.php" +
+                                $"?username={Uri.EscapeDataString(source.Username)}" +
+                                $"&password={Uri.EscapeDataString(source.Password)}" +
+                                $"&type=m3u_plus&output=ts")),
+
+                _ => throw new InvalidOperationException("Bilinmeyen kaynak türü.")
+            };
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Xtream Code – player_api.php entegrasyonu
+        // Canlı / VOD / Dizi içeriklerini ayrı ayrı çeker
+        // ─────────────────────────────────────────────────────────────
+        private async Task<List<Channel>> ParseXtreamApi(TvSource source)
+        {
+            var allChannels = new List<Channel>();
+            string server   = source.PathOrUrl.TrimEnd('/');
+            string userEnc  = Uri.EscapeDataString(source.Username);
+            string passEnc  = Uri.EscapeDataString(source.Password);
+            string baseApi  = $"{server}/player_api.php?username={userEnc}&password={passEnc}";
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            client.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+
+            // ── 1. Canlı TV ──────────────────────────────────────────
+            try
+            {
+                var liveCats = await GetXtreamCategoryMap(client, baseApi, "get_live_categories");
+                var json     = await client.GetStringAsync($"{baseApi}&action=get_live_streams");
+
+                using var doc = JsonDocument.Parse(json);
+                foreach (var s in doc.RootElement.EnumerateArray())
+                {
+                    string catId   = XtreamStr(s, "category_id");
+                    string catName = liveCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
+                    string stId    = s.TryGetProperty("stream_id", out var sid) ? sid.GetRawText() : "0";
+                    string ext     = XtreamStr(s, "container_extension", "ts");
+
+                    allChannels.Add(new Channel
+                    {
+                        Name    = XtreamStr(s, "name"),
+                        Url     = $"{server}/{source.Username}/{source.Password}/{stId}.{ext}",
+                        Group   = catName,
+                        Type    = "Canlı",
+                        LogoUrl = XtreamStr(s, "stream_icon")
+                    });
+                }
+            }
+            catch { /* Canlı yüklenemedi – devam et */ }
+
+            // ── 2. Filmler (VOD) ─────────────────────────────────────
+            try
+            {
+                var vodCats = await GetXtreamCategoryMap(client, baseApi, "get_vod_categories");
+                var json    = await client.GetStringAsync($"{baseApi}&action=get_vod_streams");
+
+                using var doc = JsonDocument.Parse(json);
+                foreach (var s in doc.RootElement.EnumerateArray())
+                {
+                    string catId   = XtreamStr(s, "category_id");
+                    string catName = vodCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
+                    string stId    = s.TryGetProperty("stream_id", out var sid) ? sid.GetRawText() : "0";
+                    string ext     = XtreamStr(s, "container_extension", "mp4");
+
+                    allChannels.Add(new Channel
+                    {
+                        Name    = XtreamStr(s, "name"),
+                        Url     = $"{server}/movie/{source.Username}/{source.Password}/{stId}.{ext}",
+                        Group   = catName,
+                        Type    = "VOD",
+                        LogoUrl = XtreamStr(s, "stream_icon")
+                    });
+                }
+            }
+            catch { /* VOD yüklenemedi – devam et */ }
+
+            // ── 3. Diziler ───────────────────────────────────────────
+            // Her dizi için ayrı bir API çağrısı gerekiyor (bölüm listesi için).
+            // Paralel fakat kontrollü: max 5 eş zamanlı istek.
+            try
+            {
+                var seriesCats = await GetXtreamCategoryMap(client, baseApi, "get_series_categories");
+                var seriesJson = await client.GetStringAsync($"{baseApi}&action=get_series");
+
+                using var seriesDoc = JsonDocument.Parse(seriesJson);
+                var seriesList = seriesDoc.RootElement.EnumerateArray().ToList();
+
+                int total     = seriesList.Count;
+                int done      = 0;
+                int lastToast = 0;
+
+                Dispatcher.UIThread.Post(() =>
+                    ShowToast($"Diziler yükleniyor: {total} dizi bulundu..."));
+
+                var semaphore = new SemaphoreSlim(5);
+                // Xtream client'ı paralel requestlere hazır, ayrı HttpClient kullanmıyoruz
+                var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                epClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+
+                var tasks = seriesList.Select(async series =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        string seriesId = series.TryGetProperty("series_id", out var sid)
+                            ? sid.GetRawText() : "";
+                        if (string.IsNullOrEmpty(seriesId)) return;
+
+                        string showName = XtreamStr(series, "name");
+                        string catId    = XtreamStr(series, "category_id");
+                        string catName  = seriesCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
+                        string logoUrl  = XtreamStr(series, "cover");
+
+                        try
+                        {
+                            var infoJson = await epClient.GetStringAsync(
+                                $"{baseApi}&action=get_series_info&series_id={seriesId}");
+                            using var infoDoc = JsonDocument.Parse(infoJson);
+
+                            if (infoDoc.RootElement.TryGetProperty("episodes", out var episodes))
+                            {
+                                foreach (var seasonProp in episodes.EnumerateObject())
+                                {
+                                    string season = $"S{seasonProp.Name.PadLeft(2, '0')}";
+
+                                    foreach (var ep in seasonProp.Value.EnumerateArray())
+                                    {
+                                        string epId  = ep.TryGetProperty("id",          out var eid)  ? eid.GetRawText()  : "0";
+                                        string epNum = ep.TryGetProperty("episode_num", out var eno)  ? eno.GetRawText()  : "0";
+                                        string ext   = XtreamStr(ep, "container_extension", "mkv");
+                                        string title = XtreamStr(ep, "title");
+
+                                        string epName = $"{showName} {season}E{epNum.PadLeft(2, '0')}";
+                                        if (!string.IsNullOrEmpty(title)) epName += $" - {title}";
+
+                                        lock (allChannels)
+                                        {
+                                            allChannels.Add(new Channel
+                                            {
+                                                Name          = epName,
+                                                Url           = $"{server}/series/{source.Username}/{source.Password}/{epId}.{ext}",
+                                                Group         = catName,
+                                                Type          = "Dizi",
+                                                LogoUrl       = logoUrl,
+                                                ShowName      = showName,
+                                                Season        = season,
+                                                EpisodeNumber = int.TryParse(epNum, out var en) ? en : 0
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch { /* Bu dizi bölümleri alınamadı – atla */ }
+
+                        int current = Interlocked.Increment(ref done);
+
+                        // Her %25'te bir veya son dizide toast göster
+                        int pct = current * 100 / Math.Max(1, total);
+                        if (pct / 25 > lastToast / 25 || current == total)
+                        {
+                            lastToast = pct;
+                            Dispatcher.UIThread.Post(() =>
+                                ShowToast($"Diziler yükleniyor... %{pct} ({current}/{total})"));
+                        }
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }).ToList();
+
+                await Task.WhenAll(tasks);
+                epClient.Dispose();
+            }
+            catch { /* Dizi listesi alınamadı – devam et */ }
+
+            return allChannels;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Xtream kategori haritası: category_id → category_name
+        // ─────────────────────────────────────────────────────────────
+        private async Task<Dictionary<string, string>> GetXtreamCategoryMap(
+            HttpClient client, string baseApi, string action)
+        {
+            var map = new Dictionary<string, string>();
+            try
+            {
+                var json = await client.GetStringAsync($"{baseApi}&action={action}");
+                using var doc = JsonDocument.Parse(json);
+                foreach (var cat in doc.RootElement.EnumerateArray())
+                {
+                    string id   = XtreamStr(cat, "category_id");
+                    string name = XtreamStr(cat, "category_name", "Diğer");
+                    if (!string.IsNullOrEmpty(id)) map[id] = name;
+                }
+            }
+            catch { }
+            return map;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Xtream JSON string okuma yardımcısı
+        // category_id bazen number, bazen string gelir – ikisini de destekler
+        // ─────────────────────────────────────────────────────────────
+        private static string XtreamStr(JsonElement el, string key, string fallback = "")
+        {
+            if (!el.TryGetProperty(key, out var val)) return fallback;
+            return val.ValueKind switch
+            {
+                JsonValueKind.String => val.GetString() ?? fallback,
+                JsonValueKind.Number => val.GetRawText(),
+                _                   => fallback
+            };
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -240,49 +466,6 @@ namespace GlyphTV
 
             LoadSources();
             ShowToast("Uygulama sıfırlandı.");
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // Favorileri M3U olarak dışa aktar
-        // ─────────────────────────────────────────────────────────────
-        private async void ExportJson_Click(object? sender, RoutedEventArgs e)
-        {
-            var favorites = _allChannels.Where(c => c.IsFavorite).ToList();
-            if (favorites.Count == 0) { ShowToast("Dışa aktarılacak favori içerik yok."); return; }
-
-            try
-            {
-                var topLevel = TopLevel.GetTopLevel(this);
-                if (topLevel == null) return;
-
-                var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-                {
-                    Title             = "Favorileri Kaydet",
-                    SuggestedFileName = $"GlyphTV_Favoriler_{DateTime.Now:yyyyMMdd}.m3u",
-                    DefaultExtension  = "m3u",
-                    FileTypeChoices   = new[]
-                    {
-                        new FilePickerFileType("M3U Playlist") { Patterns = new[] { "*.m3u", "*.m3u8" } }
-                    }
-                });
-
-                if (file == null) return;
-
-                var sb = new StringBuilder();
-                sb.AppendLine("#EXTM3U");
-                foreach (var ch in favorites)
-                {
-                    sb.AppendLine($"#EXTINF:-1 group-title=\"{ch.Group}\",{ch.Name}");
-                    sb.AppendLine(ch.Url);
-                }
-
-                await using var stream = await file.OpenWriteAsync();
-                using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-                await writer.WriteAsync(sb.ToString());
-
-                ShowToast($"{favorites.Count} favori içerik dışa aktarıldı.");
-            }
-            catch (Exception ex) { ShowToast($"Dışa aktarma hatası: {ex.Message}"); }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -356,8 +539,8 @@ namespace GlyphTV
             var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { AllowMultiple = false });
             if (files.Count >= 1)
             {
-                SelectedFilePath.Text     = files[0].Path.LocalPath;
-                SelectedFileName.Text     = "Seçilen Dosya: " + files[0].Name;
+                SelectedFilePath.Text      = files[0].Path.LocalPath;
+                SelectedFileName.Text      = "Seçilen Dosya: " + files[0].Name;
                 SelectedFileName.IsVisible = true;
             }
         }
@@ -376,15 +559,15 @@ namespace GlyphTV
                 if (_selectedSourceType == "M3U")
                 {
                     string path = SelectedFilePath.Text ?? "";
-                    if (string.IsNullOrEmpty(path))     { ShowToast("Lütfen bir M3U dosyası seçin."); return; }
-                    if (!File.Exists(path))              { ShowToast("Seçilen dosya bulunamadı.");     return; }
+                    if (string.IsNullOrEmpty(path))  { ShowToast("Lütfen bir M3U dosyası seçin."); return; }
+                    if (!File.Exists(path))           { ShowToast("Seçilen dosya bulunamadı.");     return; }
                     newSource.PathOrUrl = path;
                     ParseAndLoadM3u(await File.ReadAllTextAsync(path), newSource);
                 }
                 else if (_selectedSourceType == "Link")
                 {
                     string url = M3uUrlInput.Text?.Trim() ?? "";
-                    if (string.IsNullOrEmpty(url))       { ShowToast("Lütfen bir link girin."); return; }
+                    if (string.IsNullOrEmpty(url))    { ShowToast("Lütfen bir link girin."); return; }
                     if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                         !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                         url = "http://" + url;
@@ -408,8 +591,10 @@ namespace GlyphTV
                     newSource.Username  = user;
                     newSource.Password  = pass;
 
-                    string apiUrl = $"{server}/get.php?username={Uri.EscapeDataString(user)}&password={Uri.EscapeDataString(pass)}&type=m3u_plus&output=ts";
-                    ParseAndLoadM3u(await DownloadM3uContent(apiUrl), newSource);
+                    // player_api.php ile tam içerik çekimi
+                    var channels = await ParseXtreamApi(newSource);
+                    _allChannels = channels;
+                    FinishAddingSource(newSource);
                 }
             }
             catch (HttpRequestException hre) { ShowToast($"Bağlantı hatası: {hre.Message}"); }
@@ -426,7 +611,7 @@ namespace GlyphTV
             using var handler = new HttpClientHandler
             {
                 ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-                AllowAutoRedirect = true,
+                AllowAutoRedirect    = true,
                 MaxAutomaticRedirections = 10
             };
             using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(90) };
@@ -472,12 +657,12 @@ namespace GlyphTV
                     string type = DetermineContentType(currentName, currentGroup, line);
                     var channel = new Channel
                     {
-                        Name     = currentName,
-                        Url      = line.Trim(),
-                        Group    = currentGroup,
-                        Type     = type,
-                        LogoUrl  = currentLogo,
-                        XuiId    = currentXuiId
+                        Name    = currentName,
+                        Url     = line.Trim(),
+                        Group   = currentGroup,
+                        Type    = type,
+                        LogoUrl = currentLogo,
+                        XuiId   = currentXuiId
                     };
 
                     if (type == "Dizi")
@@ -489,7 +674,7 @@ namespace GlyphTV
                     }
 
                     result.Add(channel);
-                    currentName = "Bilinmeyen Kanal";
+                    currentName  = "Bilinmeyen Kanal";
                     currentGroup = "Diğer";
                     currentLogo  = "";
                     currentXuiId = "";
@@ -500,42 +685,65 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // İçerik türü tespiti (öncelik bazlı)
-        // 1) Xtream URL path  2) S##E## regex  3) group-title  4) dosya uzantısı  5) default: Canlı
+        // İçerik türü tespiti — öncelik sırası:
+        //   1) URL path  (/series/, /movie/, /live/)
+        //   2) Grup adı  (Series/Dizi → VOD ÖNCESİ Canlı kontrol edilir)
+        //   3) Kanal adı S##E## deseni  (grup yoksa yardımcı)
+        //   4) URL uzantısı (.mp4 vb.)
+        //   5) Varsayılan: Canlı
+        //
+        // Düzeltme notları:
+        //   • Grup kontrolü S##E## regex'inden ÖNCE yapılıyor.
+        //     → "Film S01E01" adlı bir içerik, grubu "Movies" ise artık VOD olarak sınıflanır.
+        //   • "Canlı" grubu VOD grubundan ÖNCE kontrol ediliyor.
+        //     → "4K Sports" gibi gruplar yanlışlıkla VOD'a düşmez.
+        //   • "vod" sözcüğü \b ile sınır kontrollü aranıyor.
+        //     → "avoidance" gibi yanlış eşleşmeler engellenir.
+        //   • "4k" yalnızca başka hiçbir Canlı anahtar kelimesi yoksa VOD'a düşer.
         // ─────────────────────────────────────────────────────────────
         private string DetermineContentType(string channelName, string groupTitle, string url)
         {
             string lowerUrl   = url.ToLower();
             string lowerGroup = groupTitle.ToLower();
 
-            if (lowerUrl.Contains("/series/"))                                   return "Dizi";
-            if (lowerUrl.Contains("/movie/") || lowerUrl.Contains("/movies/"))  return "VOD";
-            if (lowerUrl.Contains("/live/"))                                     return "Canlı";
+            // ── 1. URL path — en güvenilir kaynak ────────────────────
+            if (lowerUrl.Contains("/series/"))                                  return "Dizi";
+            if (lowerUrl.Contains("/movie/") || lowerUrl.Contains("/movies/")) return "VOD";
+            if (lowerUrl.Contains("/live/"))                                    return "Canlı";
 
-            if (Regex.IsMatch(channelName, @"\bS\d{1,2}\s*[.\-_]?\s*E\d{1,3}\b", RegexOptions.IgnoreCase))
-                return "Dizi";
+            // ── 2. Grup adı — S##E## regex'inden önce bakılmalı ──────
 
+            // Dizi
             if (lowerGroup.Contains("series") || lowerGroup.Contains("dizi")  ||
                 lowerGroup.Contains("sezon")  || lowerGroup.Contains("season"))
                 return "Dizi";
 
-            if (lowerGroup.Contains("movie") || lowerGroup.Contains("film") ||
-                lowerGroup.Contains("cinema") || lowerGroup.Contains("vod") ||
-                lowerGroup.Contains("sinema") || lowerGroup.Contains("4k"))
-                return "VOD";
-
-            if (lowerGroup.Contains("live")   || lowerGroup.Contains("canlı") ||
-                lowerGroup.Contains("news")   || lowerGroup.Contains("haber") ||
-                lowerGroup.Contains("spor")   || lowerGroup.Contains("sport") ||
-                lowerGroup.Contains("kids")   || lowerGroup.Contains("çocuk") ||
-                lowerGroup.Contains("music")  || lowerGroup.Contains("müzik") ||
+            // Canlı — VOD'dan ÖNCE kontrol: "4K Sports" gibi gruplar burada yakalanır
+            if (lowerGroup.Contains("live")    || lowerGroup.Contains("canlı") ||
+                lowerGroup.Contains("news")    || lowerGroup.Contains("haber") ||
+                lowerGroup.Contains("spor")    || lowerGroup.Contains("sport") ||
+                lowerGroup.Contains("kids")    || lowerGroup.Contains("çocuk") ||
+                lowerGroup.Contains("music")   || lowerGroup.Contains("müzik") ||
                 lowerGroup.Contains("belgesel")|| lowerGroup.Contains("documentary"))
                 return "Canlı";
 
+            // VOD — "4k" tek başına kaldıysa (Canlı anahtar kelimesi yoktu) film grubuna alır
+            if (lowerGroup.Contains("movie")  || lowerGroup.Contains("film")   ||
+                lowerGroup.Contains("cinema") || lowerGroup.Contains("sinema") ||
+                Regex.IsMatch(lowerGroup, @"\bvod\b") ||
+                Regex.IsMatch(lowerGroup, @"\b4k\b"))
+                return "VOD";
+
+            // ── 3. Kanal adı — grup bilgisi yetersizse yardımcı kaynak
+            if (Regex.IsMatch(channelName, @"\bS\d{1,2}\s*[.\-_]?\s*E\d{1,3}\b", RegexOptions.IgnoreCase))
+                return "Dizi";
+
+            // ── 4. URL uzantısı ───────────────────────────────────────
             if (lowerUrl.EndsWith(".mp4") || lowerUrl.EndsWith(".mkv") ||
                 lowerUrl.EndsWith(".avi") || lowerUrl.EndsWith(".mov"))
                 return "VOD";
 
+            // ── 5. Varsayılan ─────────────────────────────────────────
             return "Canlı";
         }
 
@@ -544,7 +752,8 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private (string showName, string season, int episode) ParseShowInfo(string channelName)
         {
-            var match = Regex.Match(channelName, @"^(.+?)[\s\._\-]+S(\d{1,3})[\s\._\-]*E(\d{1,3})", RegexOptions.IgnoreCase);
+            var match = Regex.Match(channelName,
+                @"^(.+?)[\s\._\-]+S(\d{1,3})[\s\._\-]*E(\d{1,3})", RegexOptions.IgnoreCase);
             if (match.Success)
             {
                 string showName = match.Groups[1].Value.Trim();

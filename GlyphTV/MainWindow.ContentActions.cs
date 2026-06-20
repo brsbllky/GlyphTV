@@ -1,7 +1,7 @@
 // ============================================================
 // MainWindow.ContentActions.cs
 // İçerik üzerindeki kullanıcı aksiyonları:
-//   Favori ekle/çıkar, İçeriği gizle, Gizlilikten geri al
+//   Favori ekle/çıkar
 // ============================================================
 
 using Avalonia.Controls;
@@ -25,10 +25,6 @@ namespace GlyphTV
             var activeSource = _sources.FirstOrDefault(s => s.IsActive);
             if (activeSource != null) SaveChannelsForSource(activeSource.Id);
 
-            // Favori sekmesinde anında güncelle – ItemsSource'u yerinde filtrele.
-            // UpdateView() tam rebuild yaptığı için Avalonia'nın binding döngüsü
-            // henüz bitmemişken ItemsSource değişirse NullReferenceException çıkar.
-            // Bunun yerine sadece etkilenen grid'leri güncelliyoruz.
             if (_currentTab == "Favori" && _viewState == "Categories")
                 RefreshFavoriGrids();
 
@@ -74,49 +70,17 @@ namespace GlyphTV
                     .OrderBy(s => s)
                     .ToList();
 
-                // Mevcut kartları koru (LogoBitmap kaybolmasın), sadece listeyi filtrele
+                // Mevcut kartları koru (LogoBitmap kaybolmasın)
                 var currentCards = (FavoriSeriesGrid.ItemsSource as List<SeriesCard>)
                                    ?? new List<SeriesCard>();
                 var updatedCards = currentCards
                     .Where(c => favShowNames.Contains(c.ShowName))
                     .ToList();
 
-                FavoriSeriesGrid.ItemsSource   = updatedCards;
-                FavoriSeriesSection.IsVisible  = updatedCards.Count > 0;
+                FavoriSeriesGrid.ItemsSource  = updatedCards;
+                FavoriSeriesSection.IsVisible = updatedCards.Count > 0;
             }
             catch { }
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // İçeriği gizle
-        // ─────────────────────────────────────────────────────────────
-        private void HideContent_Click(object? sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.Tag is not Channel channel) return;
-
-            channel.IsHidden = true;
-
-            var activeSource = _sources.FirstOrDefault(s => s.IsActive);
-            if (activeSource != null) SaveChannelsForSource(activeSource.Id);
-
-            UpdateView();
-            ShowToast("İçerik gizlendi. Ayarlar'dan geri alabilirsiniz.");
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // Gizli içeriği geri getir (Ayarlar panelinden)
-        // ─────────────────────────────────────────────────────────────
-        private void RestoreHidden_Click(object? sender, RoutedEventArgs e)
-        {
-            if (sender is not Button btn || btn.Tag is not Channel channel) return;
-
-            channel.IsHidden = false;
-
-            var activeSource = _sources.FirstOrDefault(s => s.IsActive);
-            if (activeSource != null) SaveChannelsForSource(activeSource.Id);
-
-            UpdateView();
-            ShowToast("İçerik tekrar görünür yapıldı.");
         }
     }
 }
