@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="Assets/glyph_icon.png" alt="GlyphTV Logo" width="300"/>
+<img width="1794" height="592" alt="glyph_icon" src="https://github.com/user-attachments/assets/3fdd0d47-aa79-43b7-aa28-7f4685a4a77c" />
 
-  # GlyphTV
+  # GlyphTV 📺
 
   Modern, hafif ve kullanımı kolay bir IPTV oynatıcı. Avalonia UI ve LibVLCSharp kullanılarak geliştirilmiştir. Çapraz platform desteği sağlar. IPTV çalma listeleri için oynatma desteği sağlar.
 
@@ -147,6 +147,8 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 ---
 
 ## Ekran Görüntüleri
+> 📌 Not: GlyphTV herhangi bir çalma listesi veya dijital içerik sağlamaz. Ekran görüntülerindeki kanallar ve fotoğraflar sadece gösterim amaçlıdır.
+
 
 **Canlı TV — Kategori Listesi**
 ![Canlı TV](screenshots/canli.png)
@@ -182,7 +184,5 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 GlyphTV — Avalonia UI & LibVLCSharp ile geliştirilmiştir.
 
 **Designed by AkuLaTa**
-
-> 📌 Not: GlyphTV herhangi bir çalma listesi veya dijital içerik sağlamaz. Ekran görüntülerindeki kanallar ve fotoğraflar sadece gösterim amaçlıdır.
 
 </div>
