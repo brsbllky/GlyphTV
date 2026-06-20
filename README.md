@@ -1,6 +1,5 @@
 <div align="center">
-  <img width="1794" height="592" alt="glyph_icon" src="https://github.com/user-attachments/assets/30231ccc-6b8a-47e8-83d1-beca3c974bbf" />
-
+  <img src="Assets/glyph_icon.png" alt="GlyphTV Logo" width="300"/>
 
   # GlyphTV
 
@@ -80,9 +79,9 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 |------|-------|
 | Sürüm | v1.2.2 |
 | Dosya | GlyphTV.exe |
-| SHA256 | f174874b49e92282b4d0f8fec2d71c74af448723aeae9354d2d0ef55401d022a |
+| SHA256 | *(sürüm notlarında belirtilmiştir)* |
 | Sonuç | 0 / 72 tespit |
-| Rapor | https://www.virustotal.com/gui/file/f174874b49e92282b4d0f8fec2d71c74af448723aeae9354d2d0ef55401d022a?nocache=1 |
+| Rapor | *(sürüm notlarındaki bağlantıya bakın)* |
 
 ---
 
@@ -95,7 +94,7 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 
 ### Kaynak Koddan Derleme
 
-> ⚠️**TMDB API Key Gereklidir** — Poster ve film/dizi bilgileri için [themoviedb.org](https://www.themoviedb.org) adresinden ücretsiz bir API key alın. Aldığınız key'i `MainWindow.axaml.cs` dosyasındaki şu satıra girin:
+> **TMDB API Key Gereklidir** — Poster ve film/dizi bilgileri için [themoviedb.org](https://www.themoviedb.org) adresinden ücretsiz bir API key alın. Aldığınız key'i `MainWindow.axaml.cs` dosyasındaki şu satıra girin:
 
 ```csharp
 private const string TMDB_API_KEY = "buraya_api_keyinizi_girin";
@@ -149,9 +148,32 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 
 ## Ekran Görüntüleri
 
-> 📌 Not: GlyphTV herhangi bir çalma listesi veya dijital içerik sağlamaz. Ekran görüntülerindeki kanallar ve fotoğraflar sadece gösterim amaçlıdır.
+**Canlı TV — Kategori Listesi**
+![Canlı TV](screenshots/canli.png)
 
-*(Yakında eklenecek)*
+**Canlı TV — Kanal Listesi**
+![Canlı TV Kanal Listesi](screenshots/canli1.png)
+
+**Canlı TV — Player & Kanal Paneli**
+![Canlı TV Player](screenshots/canli2.png)
+
+**Filmler (VOD)**
+![Filmler](screenshots/vod.png)
+
+**Film Detay Modalı**
+![Film Detayı](screenshots/vod2.png)
+
+**Diziler**
+![Diziler](screenshots/dizi.png)
+
+**Dizi Player**
+![Dizi Player](screenshots/dizi2.png)
+
+**Favoriler**
+![Favoriler](screenshots/favoriler.png)
+
+**Ayarlar**
+![Ayarlar](screenshots/ayarlar.png)
 
 ---
 
@@ -160,5 +182,7 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 GlyphTV — Avalonia UI & LibVLCSharp ile geliştirilmiştir.
 
 **Designed by AkuLaTa**
+
+> 📌 Not: GlyphTV herhangi bir çalma listesi veya dijital içerik sağlamaz. Ekran görüntülerindeki kanallar ve fotoğraflar sadece gösterim amaçlıdır.
 
 </div>
