@@ -1,7 +1,7 @@
 <div align="center">
 <img width="1900" height="650" alt="glyph_icon" src="https://github.com/user-attachments/assets/3fdd0d47-aa79-43b7-aa28-7f4685a4a77c" />
 
-  # GlyphTV 📺
+  # GlyphTV <img width="36" height="36" alt="icon" src="https://github.com/user-attachments/assets/decd4ea3-4226-44cf-9dfb-9fd03a36942f" />
 
   Modern, hafif ve kullanımı kolay bir IPTV oynatıcı. Avalonia UI ve LibVLCSharp kullanılarak geliştirilmiştir. Çapraz platform desteği sağlar. IPTV çalma listeleri için oynatma desteği sağlar.
 
