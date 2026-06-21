@@ -1,5 +1,5 @@
 <div align="center">
-<img width="1794" height="592" alt="glyph_icon" src="https://github.com/user-attachments/assets/3fdd0d47-aa79-43b7-aa28-7f4685a4a77c" />
+<img width="1900" height="650" alt="glyph_icon" src="https://github.com/user-attachments/assets/3fdd0d47-aa79-43b7-aa28-7f4685a4a77c" />
 
   # GlyphTV 📺
 
