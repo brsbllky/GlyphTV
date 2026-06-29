@@ -162,13 +162,13 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 **Filmler (VOD)**
 ![Filmler](screenshots/vod.png)
 
-**Film Detay Modalı**
+**Film/Dizi Detay Modalı**
 ![Film Detayı](screenshots/vod2.png)
 
 **Diziler**
 ![Diziler](screenshots/dizi.png)
 
-**Dizi Player**
+**Film/Dizi Player**
 ![Dizi Player](screenshots/dizi2.png)
 
 **Favoriler**
