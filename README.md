@@ -61,7 +61,7 @@ SmartScreen, Microsoft'ta kayıtlı bir kod imzalama sertifikası bulunmayan uyg
 
 ---
 
-### ✅ VirusTotal Taraması
+### ✅ Kaspersky Taraması
 
 Her sürüm yayınlanmadan önce VirusTotal üzerinden taranmaktadır. Sonuçları kendiniz doğrulayabilirsiniz.
 
@@ -79,9 +79,9 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 |------|-------|
 | Sürüm | v1.0.3 |
 | Dosya | GlyphTV.exe |
-| SHA256 |  |
-| Sonuç |  /  tespit | (false positive)
-| Rapor |  |
+| SHA256 | F088AD1160B0167CB88F0B6835C1E671295616694A4376F88C7F62347257DB1F  |
+| Sonuç |  0  tespit | 
+| Rapor | https://opentip.kaspersky.com/F088AD1160B0167CB88F0B6835C1E671295616694A4376F88C7F62347257DB1F/results?tab=upload |
 
 ---
 
