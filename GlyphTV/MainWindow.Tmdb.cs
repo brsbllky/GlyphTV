@@ -13,12 +13,24 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GlyphTV
 {
     public partial class MainWindow
     {
+        // ─────────────────────────────────────────────────────────────
+        // Önceden derlenmiş Regex'ler — CleanNameForSearch
+        // ─────────────────────────────────────────────────────────────
+        private static readonly Regex _rxTmdbYear       = new(@"\((\d{4})\)|\[(\d{4})\]",   RegexOptions.Compiled);
+        private static readonly Regex _rxTmdbBrackets   = new(@"\[.*?\]",                    RegexOptions.Compiled);
+        private static readonly Regex _rxTmdbTechTags   = new(@"\b(4K|UHD|HDR|FHD|HD|SD|HEVC|H\.?265|H\.?264|BluRay|BRRip|WEB-?DL|WEBRip|DVDRip|HDTV|Dolby|Vision|Atmos|DTS|AAC|10bit|REMUX|DUAL|TR|ENG|Multi|Raw)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxTmdbEpCode     = new(@"\bS\d{1,2}E\d{1,2}\b",      RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxTmdbEpCode2    = new(@"\b\d{1,2}x\d{1,2}\b",       RegexOptions.Compiled);
+        private static readonly Regex _rxTmdbSeasonWord = new(@"\b(Season|Sezon|Episode|Bölüm)\s*\d+\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxTmdbSpaces     = new(@"\s+",                        RegexOptions.Compiled);
+
         // ─────────────────────────────────────────────────────────────
         // İsim temizleme (TMDb araması için)
         // ─────────────────────────────────────────────────────────────
@@ -27,19 +39,19 @@ namespace GlyphTV
             string name  = rawName;
             int?   year  = null;
 
-            var yearMatch = Regex.Match(name, @"\((\d{4})\)|\[(\d{4})\]");
+            var yearMatch = _rxTmdbYear.Match(name);
             if (yearMatch.Success)
             {
                 year = int.Parse(yearMatch.Groups[1].Success ? yearMatch.Groups[1].Value : yearMatch.Groups[2].Value);
                 name = name[..yearMatch.Index].Trim();
             }
 
-            name = Regex.Replace(name, @"\[.*?\]", "").Trim();
-            name = Regex.Replace(name, @"\b(4K|UHD|HDR|FHD|HD|SD|HEVC|H\.?265|H\.?264|BluRay|BRRip|WEB-?DL|WEBRip|DVDRip|HDTV|Dolby|Vision|Atmos|DTS|AAC|10bit|REMUX|DUAL|TR|ENG|Multi|Raw)\b", "", RegexOptions.IgnoreCase).Trim();
-            name = Regex.Replace(name, @"\bS\d{1,2}E\d{1,2}\b",                          "", RegexOptions.IgnoreCase).Trim();
-            name = Regex.Replace(name, @"\b\d{1,2}x\d{1,2}\b",                           "").Trim();
-            name = Regex.Replace(name, @"\b(Season|Sezon|Episode|Bölüm)\s*\d+\b",        "", RegexOptions.IgnoreCase).Trim();
-            name = Regex.Replace(name, @"\s+", " ").Trim();
+            name = _rxTmdbBrackets.Replace(name, "").Trim();
+            name = _rxTmdbTechTags.Replace(name, "").Trim();
+            name = _rxTmdbEpCode.Replace(name, "").Trim();
+            name = _rxTmdbEpCode2.Replace(name, "").Trim();
+            name = _rxTmdbSeasonWord.Replace(name, "").Trim();
+            name = _rxTmdbSpaces.Replace(name, " ").Trim();
             name = name.TrimEnd('-', '.', ',', ':', ' ');
 
             return (name, year);
@@ -90,15 +102,13 @@ namespace GlyphTV
                     results = doc2.RootElement.GetProperty("results");
                     if (results.GetArrayLength() == 0)
                     {
-                        lock (_posterCacheLock)
-                            _tmdbCache[cacheKey] = null;
+                        SetTmdbCache(cacheKey, null);
                         return;
                     }
                 }
                 else if (results.GetArrayLength() == 0)
                 {
-                    lock (_posterCacheLock)
-                        _tmdbCache[cacheKey] = null;
+                    SetTmdbCache(cacheKey, null);
                     return;
                 }
 
@@ -110,8 +120,7 @@ namespace GlyphTV
                 using var detailDoc = JsonDocument.Parse(detailJson);
                 var detail = detailDoc.RootElement;
 
-                lock (_posterCacheLock)
-                    _tmdbCache[cacheKey] = detail.Clone();
+                SetTmdbCache(cacheKey, detail.Clone());
 
                 await ApplyTmdbData(detail, contentType, seriesCard);
             }
@@ -235,45 +244,48 @@ namespace GlyphTV
 
         // ─────────────────────────────────────────────────────────────
         // Poster yükleme – SeriesCard listesi
+        // Daha önce tamamen seri (tek tek, aralarda sabit gecikmeyle)
+        // çalışıyordu. Logo yüklemedeki gibi sınırlı eşzamanlılık
+        // (SemaphoreSlim) kullanılarak büyük dizi kataloglarında poster
+        // yükleme süresi belirgin şekilde kısaltılıyor.
         // ─────────────────────────────────────────────────────────────
         private async Task LoadTmdbPostersForCards(List<SeriesCard> cards)
         {
-            // Önce disk cache (thread‑safe okuma)
-            foreach (var card in cards)
+            var semaphore = new SemaphoreSlim(4, 4);
+            try
             {
-                bool hasCached = false;
+            var tasks = cards.Select(async card =>
+            {
+                bool memHit;
+                Bitmap? memCached = null;
                 lock (_posterCacheLock)
-                    hasCached = _tmdbPosterCache.ContainsKey(card.ShowName);
-                if (hasCached) continue;
+                    memHit = _tmdbPosterCache.TryGetValue(card.ShowName, out memCached);
 
-                string diskPath = GetPosterDiskPath(card.ShowName);
-                if (File.Exists(diskPath))
+                if (memHit)
                 {
-                    try
-                    {
-                        var bytes = await Task.Run(() => File.ReadAllBytes(diskPath));
-                        using var ms = new MemoryStream(bytes);
-                        var bmp = Bitmap.DecodeToWidth(ms, 300);
-                        SetPosterCache(card.ShowName, bmp);
-                        await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = bmp);
-                        await Task.Delay(1);
-                    }
-                    catch { }
+                    if (memCached != null && card.LogoBitmap != memCached)
+                        await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = memCached);
+                    return;
                 }
-            }
 
-            var toFetch = cards.Where(c =>
-            {
-                bool hasCached;
-                lock (_posterCacheLock)
-                    hasCached = _tmdbPosterCache.ContainsKey(c.ShowName);
-                return !hasCached && !File.Exists(GetPosterDiskPath(c.ShowName));
-            }).ToList();
-
-            foreach (var card in toFetch)
-            {
+                await semaphore.WaitAsync();
                 try
                 {
+                    string diskPath = GetPosterDiskPath(card.ShowName);
+                    if (File.Exists(diskPath))
+                    {
+                        try
+                        {
+                            var bytes = await Task.Run(() => File.ReadAllBytes(diskPath));
+                            using var ms = new MemoryStream(bytes);
+                            var bmp = Bitmap.DecodeToWidth(ms, 300);
+                            SetPosterCache(card.ShowName, bmp);
+                            await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = bmp);
+                            return;
+                        }
+                        catch { /* disk cache bozuksa TMDb'den tekrar çekilecek */ }
+                    }
+
                     var posterUrl = await SearchTmdbPosterUrl(card.ShowName, "tv");
                     if (!string.IsNullOrEmpty(posterUrl))
                     {
@@ -284,45 +296,50 @@ namespace GlyphTV
                         var bitmap = Bitmap.DecodeToWidth(ms, 300);
                         SetPosterCache(card.ShowName, bitmap);
                         await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = bitmap);
-                        await Task.Delay(1);
                     }
                     else
                     {
                         SetPosterCache(card.ShowName, null);
                     }
-
-                    await Task.Delay(60);
                 }
-                catch { continue; }
+                catch { /* bu kart için poster alınamadı, devam */ }
+                finally { semaphore.Release(); }
+            }).ToList();
+
+            await Task.WhenAll(tasks);
             }
+            finally { semaphore.Dispose(); }
         }
 
         // ─────────────────────────────────────────────────────────────
         // Poster yükleme – Channel listesi (VOD/Film)
+        // Sınırlı eşzamanlılık (SemaphoreSlim) ile paralelleştirildi.
         // ─────────────────────────────────────────────────────────────
         private async Task LoadTmdbPostersForChannels(List<Channel> channels)
         {
-            foreach (var ch in channels)
+            var semaphore = new SemaphoreSlim(4, 4);
+            try
             {
+            var tasks = channels.Select(async ch =>
+            {
+                string searchKey = !string.IsNullOrEmpty(ch.ShowName) ? ch.ShowName : ch.Name;
+                string type = ch.Type == "Dizi" ? "tv" : "movie";
+
+                bool memHit;
+                Bitmap? cached = null;
+                lock (_posterCacheLock)
+                    memHit = _tmdbPosterCache.TryGetValue(searchKey, out cached);
+
+                if (memHit)
+                {
+                    if (cached != null && ch.LogoBitmap != cached)
+                        await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = cached);
+                    return;
+                }
+
+                await semaphore.WaitAsync();
                 try
                 {
-                    string searchKey = !string.IsNullOrEmpty(ch.ShowName) ? ch.ShowName : ch.Name;
-                    string type = ch.Type == "Dizi" ? "tv" : "movie";
-
-                    Bitmap? cached = null;
-                    lock (_posterCacheLock)
-                        _tmdbPosterCache.TryGetValue(searchKey, out cached);
-
-                    if (cached != null)
-                    {
-                        if (ch.LogoBitmap != cached)
-                        {
-                            await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = cached);
-                            await Task.Delay(1);
-                        }
-                        continue;
-                    }
-
                     string diskPath = GetPosterDiskPath(searchKey);
                     if (File.Exists(diskPath))
                     {
@@ -333,10 +350,9 @@ namespace GlyphTV
                             var bmp = Bitmap.DecodeToWidth(ms, 300);
                             SetPosterCache(searchKey, bmp);
                             await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bmp);
-                            await Task.Delay(1);
-                            continue;
+                            return;
                         }
-                        catch { }
+                        catch { /* disk cache bozuksa TMDb'den tekrar çekilecek */ }
                     }
 
                     var posterUrl = await SearchTmdbPosterUrl(searchKey, type);
@@ -349,13 +365,19 @@ namespace GlyphTV
                         var bitmap = Bitmap.DecodeToWidth(ms, 300);
                         SetPosterCache(searchKey, bitmap);
                         await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bitmap);
-                        await Task.Delay(1);
                     }
-
-                    await Task.Delay(60);
+                    else
+                    {
+                        SetPosterCache(searchKey, null);
+                    }
                 }
-                catch { continue; }
+                catch { /* bu içerik için poster alınamadı, devam */ }
+                finally { semaphore.Release(); }
+            }).ToList();
+
+            await Task.WhenAll(tasks);
             }
+            finally { semaphore.Dispose(); }
         }
 
         // ─────────────────────────────────────────────────────────────

@@ -51,12 +51,24 @@ namespace GlyphTV
                 FavoriLiveSection.IsVisible = liveFavGroups.Count > 0;
 
                 // Filmler: favori VOD kanalları
-                var vodFavs = _allChannels
+                // (Async poster/logo tetiklenmez; mevcut bitmap'ler korunur.
+                //  Sayfalama listesi de (_allFavoriVod) güncel favori durumuna
+                //  göre senkronize edilir ki sonraki scroll ile daha fazla
+                //  yükleme adımı tutarlı kalsın.)
+                var vodFavsAll = _allChannels
                     .Where(c => !c.IsHidden && c.IsFavorite && c.Type == "VOD")
                     .ToList();
+                _allFavoriVod = vodFavsAll;
 
-                FavoriVodGrid.ItemsSource  = vodFavs;
-                FavoriVodSection.IsVisible = vodFavs.Count > 0;
+                var stillFavoriteVodUrls = vodFavsAll.Select(c => c.Url).ToHashSet();
+                var currentVodCards = (FavoriVodGrid.ItemsSource as List<Channel>) ?? new List<Channel>();
+                var updatedVodCards = currentVodCards
+                    .Where(c => stillFavoriteVodUrls.Contains(c.Url))
+                    .ToList();
+
+                _favoriVodLoadedCount = updatedVodCards.Count;
+                FavoriVodGrid.ItemsSource  = updatedVodCards;
+                FavoriVodSection.IsVisible = updatedVodCards.Count > 0;
 
                 // Diziler: favori bölüm içeren dizi kartları
                 var seriesFavEps = _allChannels
@@ -76,6 +88,14 @@ namespace GlyphTV
                 var updatedCards = currentCards
                     .Where(c => favShowNames.Contains(c.ShowName))
                     .ToList();
+
+                // Sayfalama listesini (_allFavoriSeriesCards) de güncel favori
+                // duruma göre senkronize et — aksi halde scroll ile sonradan
+                // yüklenecek öğeler eski/yanlış bir listeden gelebilir.
+                _allFavoriSeriesCards   = _allFavoriSeriesCards
+                    .Where(c => favShowNames.Contains(c.ShowName))
+                    .ToList();
+                _favoriSeriesLoadedCount = updatedCards.Count;
 
                 FavoriSeriesGrid.ItemsSource  = updatedCards;
                 FavoriSeriesSection.IsVisible = updatedCards.Count > 0;

@@ -44,14 +44,23 @@ namespace GlyphTV
             if (_isDarkMode)
             {
                 if (SettingsThemeBtn != null) SettingsThemeBtn.Content = "☀️ Açık";
-                this.Resources["Bg"]        = Brush.Parse("#0d0d0f");
-                this.Resources["BgSidebar"] = Brush.Parse("#111113");
-                this.Resources["BgCard"]    = Brush.Parse("#18181b");
-                this.Resources["BgHover"]   = Brush.Parse("#222226");
-                this.Resources["BgActive"]  = Brush.Parse("#1e1e24");
-                this.Resources["Border"]    = Brush.Parse("#2a2a30");
+                this.Resources["Bg"]        = Brush.Parse("#1a1a1f");
+                this.Resources["BgSidebar"] = Brush.Parse("#1e1e24");
+                this.Resources["BgCard"]    = Brush.Parse("#242428");
+                this.Resources["BgHover"]   = Brush.Parse("#2e2e34");
+                this.Resources["BgActive"]  = Brush.Parse("#2a2a32");
+                this.Resources["Border"]    = Brush.Parse("#3a3a42");
                 this.Resources["Text"]      = Brush.Parse("#e4e4e7");
-                this.Resources["TextSec"]   = Brush.Parse("#8b8b95");
+                this.Resources["TextSec"]   = Brush.Parse("#9b9ba8");
+
+                // DÜZELTME: VOD/Dizi poster kartlarında logo yokken gösterilen
+                // placeholder ve poster üzerine binen overlay rengi karanlık
+                // temada BgCard'a (#18181b) çok yakın kalıp posterleri okunmaz
+                // yapıyordu. Placeholder artık accent tonunda daha belirgin,
+                // overlay ise saydam — poster zaten yeterince kontrastlı.
+                this.Resources["PosterPlaceholderBg"] = Brush.Parse("#4DA855F7");
+                this.Resources["PosterOverlayBg"]     = Brushes.Transparent;
+
                 Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
             }
             else
@@ -65,8 +74,28 @@ namespace GlyphTV
                 this.Resources["Border"]    = Brush.Parse("#d4d4d8");
                 this.Resources["Text"]      = Brush.Parse("#18181b");
                 this.Resources["TextSec"]   = Brush.Parse("#6b6b73");
+
+                this.Resources["PosterPlaceholderBg"] = Brush.Parse("#1A4f8bff");
+                this.Resources["PosterOverlayBg"]     = Brush.Parse("#0A000000");
+
                 Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // İzleme geçmişini temizle
+        // ─────────────────────────────────────────────────────────────
+        private void ClearHistory_Click(object? sender, RoutedEventArgs e)
+        {
+            _watchHistory.Clear();
+            _watchHistoryByUrlCache = null;
+
+            // Açık içerik kartlarındaki "Devam Et" butonlarını gizle
+            foreach (var ch in _allChannels)
+                ch.HasResume = false;
+
+            SaveWatchHistory();
+            ShowToast("İzleme geçmişi temizlendi.");
         }
 
         // ─────────────────────────────────────────────────────────────

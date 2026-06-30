@@ -67,7 +67,11 @@ namespace GlyphTV
             }
 
             VodInfoOverlay.IsVisible = true;
-            await FetchTmdbInfo(channel.Name, channel.Type ?? "VOD");
+
+            // Canlı kanallar TMDb'de film/dizi olarak aranamaz — anlamsız
+            // sonuç + gereksiz ağ isteğine yol açtığından burada atlanır.
+            if (channel.Type != "Canlı")
+                await FetchTmdbInfo(channel.Name, channel.Type ?? "VOD");
         }
 
         // ─────────────────────────────────────────────────────────────

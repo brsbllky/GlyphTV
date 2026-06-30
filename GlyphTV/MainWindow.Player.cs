@@ -23,24 +23,44 @@ namespace GlyphTV
     {
         // ----- Canlı rozeti yanıp sönme -----
         private DispatcherTimer? _liveBadgeTimer;
+        private bool _liveBadgeDim = false;
 
+        // VLC bazen EndReached event'ini arka arkaya iki kez fırlatır
+        // (buffer flush + gerçek bitiş). Interlocked ile thread-safe koruma;
+        // 0 = hazır, 1 = işleniyor.
+        private int _isEndReachedHandlingInt = 0;
+
+        // ─────────────────────────────────────────────────────────────
+        // DÜZELTME (performans): StartLiveBadgePulse() her kanal değişiminde
+        // (Önceki/Sonraki Kanal, dizi → canlı geçişi vb.) çağrılıyor ve
+        // önceden HER ÇAĞRIDA yeni bir DispatcherTimer nesnesi + yeni bir
+        // Tick closure'ı oluşturup eskisini çöpe atıyordu. ShowToast()'ta
+        // zaten uygulanmış olan "timer'ı bir kez oluştur, sonra
+        // Stop()/Start() ile yeniden kullan" deseni burada da uygulanıyor;
+        // "dim" durumu artık closure içinde değil bir alanda (_liveBadgeDim)
+        // tutuluyor ki her yeni çağrıda rozet baştan parlak başlasın.
+        // ─────────────────────────────────────────────────────────────
         private void StartLiveBadgePulse()
         {
-            _liveBadgeTimer?.Stop();
-            _liveBadgeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
-            bool dim = false;
-            _liveBadgeTimer.Tick += (s, e) =>
+            if (_liveBadgeTimer == null)
             {
-                dim = !dim;
-                LiveBadge.Opacity = dim ? 0.35 : 1.0;
-            };
+                _liveBadgeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+                _liveBadgeTimer.Tick += (s, e) =>
+                {
+                    _liveBadgeDim = !_liveBadgeDim;
+                    LiveBadge.Opacity = _liveBadgeDim ? 0.35 : 1.0;
+                };
+            }
+
+            _liveBadgeDim = false;
+            LiveBadge.Opacity = 1.0;
+            _liveBadgeTimer.Stop();
             _liveBadgeTimer.Start();
         }
 
         private void StopLiveBadgePulse()
         {
             _liveBadgeTimer?.Stop();
-            _liveBadgeTimer = null;
         }
 
         // ----- İçerik tıklama / oynatma -----
@@ -88,12 +108,9 @@ namespace GlyphTV
             if (_currentChannel != null && _currentChannel.Type != "Canlı")
             {
                 _currentChannel.HasResume = _watchHistory.Any(h => h.Url == _currentChannel.Url && h.Position > 5000);
-                if (_currentChannel.Type == "Dizi" && SeriesContentGrid.IsVisible &&
-                    SeriesContentGrid.ItemsSource is List<SeriesCard> cards)
-                {
-                    var card = cards.FirstOrDefault(c => c.ShowName == _currentChannel.ShowName);
-                    if (card != null) card.HasResume = _currentChannel.HasResume;
-                }
+
+                if (_currentChannel.Type == "Dizi")
+                    SyncSeriesCardSelection(_currentChannel, _currentChannel.HasResume);
             }
 
             if (_mediaPlayer != null)
@@ -124,7 +141,7 @@ namespace GlyphTV
 
             ResetScrollToTop();
 
-            Dispatcher.UIThread.Post(() => TrimProcessMemory(), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => TrimProcessMemoryOnPlayerClose(), DispatcherPriority.Background);
         }
 
         /// <summary>
@@ -186,6 +203,10 @@ namespace GlyphTV
                 if (!_isVlcInitialized) InitializePlayer();
                 if (_mediaPlayer == null || _libVLC == null) return;
 
+                // Yeni oynatma başlarken EndReached flag'ini sıfırla;
+                // bir sonraki bölüm bitişi temiz yakalanabilsin.
+                System.Threading.Interlocked.Exchange(ref _isEndReachedHandlingInt, 0);
+
                 if (MainVideoView.MediaPlayer == null)
                     MainVideoView.MediaPlayer = _mediaPlayer;
 
@@ -195,6 +216,13 @@ namespace GlyphTV
                 TotalTimeText.Text = "00:00:00";
                 TimeSlider.Value = 0;
                 PlayerTitleText.Text = _currentChannel?.Name ?? "";
+
+                // Yeni içerik başlıyor — varsayılan en/boy oranını 12:5 olarak ayarla.
+                if (_mediaPlayer != null)
+                {
+                    _mediaPlayer.AspectRatio = "12:5";
+                    if (AspectRatioText != null) AspectRatioText.Text = "12:5";
+                }
 
                 ResetMediaInfoBadges();
 
@@ -208,20 +236,13 @@ namespace GlyphTV
                     media.AddOption($":start-time={startSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
                 }
 
-                _mediaPlayer.Play(media);
+                _mediaPlayer!.Play(media);
                 _resumePosition = 0;
                 IconPlay.IsVisible = false;
                 IconPause.IsVisible = true;
                 AudioTrackPopup.IsVisible = false;
                 SubtitlePopup.IsVisible = false;
                 AspectRatioPopup.IsVisible = false;
-
-                await Task.Delay(800);
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (AspectRatioText != null)
-                        AspectRatioText.Text = GetResolutionLabel();
-                });
             }
             catch (Exception ex) { PlayerTitleText.Text = "HATA: " + ex.Message; }
         }
@@ -244,7 +265,7 @@ namespace GlyphTV
                 IconPlay.IsVisible = false;
                 IconPause.IsVisible = true;
 
-                if (_mediaPlayer != null) _mediaPlayer.SetRate(1.0f);
+                if (_mediaPlayer != null) _ = Task.Run(() => _mediaPlayer.SetRate(1.0f));
                 _speedIndex = 0;
                 SpeedBtnText.Text = "1×";
                 StartLiveBadgePulse();
@@ -434,6 +455,7 @@ namespace GlyphTV
             _currentChannel = nextEpisode;
             PlayerTitleText.Text = nextEpisode.Name;
             _resumePosition = 0;
+            SyncSeriesCardSelection(nextEpisode, hasResume: false);
             await PlayChannel(nextEpisode.Url);
             ShowToast($"Sonraki bölüm: {nextEpisode.Name}");
         }
@@ -467,36 +489,53 @@ namespace GlyphTV
         {
             if (_currentChannel?.Type != "Dizi") return;
 
+            // VLC bazen EndReached'i arka arkaya iki kez fırlatır; ikinci
+            // çağrı zaten güncellenen _currentChannel üzerinde FindNextEpisode
+            // yapıp bir bölüm daha atlıyordu. CompareExchange ile yalnızca
+            // ilk çağrı işlenir, ikincisi sessizce atlanır.
+            if (System.Threading.Interlocked.CompareExchange(ref _isEndReachedHandlingInt, 1, 0) != 0)
+                return;
+
             Dispatcher.UIThread.Post(async () =>
             {
-                var nextEpisode = FindNextEpisode(_currentChannel);
-                if (nextEpisode == null)
+                try
                 {
-                    ShowToast("Dizinin son bölümü izlendi.");
-                    await Task.Delay(2000);
-                    ClosePlayer_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
-                    return;
-                }
-
-                SaveCurrentWatchPosition();
-
-                var previousChannel = _currentChannel;
-                if (previousChannel != null)
-                {
-                    previousChannel.HasResume = false;
-                    if (SeriesContentGrid.IsVisible &&
-                        SeriesContentGrid.ItemsSource is List<SeriesCard> cards)
+                    var nextEpisode = FindNextEpisode(_currentChannel);
+                    if (nextEpisode == null)
                     {
-                        var card = cards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
-                        if (card != null) card.HasResume = false;
+                        ShowToast("Dizinin son bölümü izlendi.");
+                        await Task.Delay(2000);
+                        ClosePlayer_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
+                        return;
                     }
-                }
 
-                _currentChannel      = nextEpisode;
-                PlayerTitleText.Text = nextEpisode.Name;
-                _resumePosition      = 0;
-                await PlayChannel(nextEpisode.Url);
-                ShowToast($"Sonraki bölüm: {nextEpisode.Name}");
+                    SaveCurrentWatchPosition();
+
+                    var previousChannel = _currentChannel;
+                    if (previousChannel != null)
+                    {
+                        previousChannel.HasResume = false;
+                        if (SeriesContentGrid.IsVisible &&
+                            SeriesContentGrid.ItemsSource is List<SeriesCard> cards)
+                        {
+                            var card = cards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
+                            if (card != null) card.HasResume = false;
+                        }
+                    }
+
+                    _currentChannel      = nextEpisode;
+                    PlayerTitleText.Text = nextEpisode.Name;
+                    _resumePosition      = 0;
+                    SyncSeriesCardSelection(nextEpisode, hasResume: false);
+                    await PlayChannel(nextEpisode.Url);
+                    ShowToast($"Sonraki bölüm: {nextEpisode.Name}");
+                }
+                finally
+                {
+                    // Yeni bölüm başlatıldıktan sonra flag'i sıfırla;
+                    // bir sonraki bölümün bitişi düzgün yakalanabilsin.
+                    System.Threading.Interlocked.Exchange(ref _isEndReachedHandlingInt, 0);
+                }
             }, DispatcherPriority.Normal);
         }
 
@@ -510,9 +549,16 @@ namespace GlyphTV
         {
             if (_mediaPlayer == null) return;
             _speedIndex = (_speedIndex + 1) % _speedSteps.Length;
-            _mediaPlayer.SetRate(_speedSteps[_speedIndex]);
-            SpeedBtnText.Text = _speedStepLabels[_speedIndex];
-            ShowToast($"Oynatma hızı: {_speedStepLabels[_speedIndex]}");
+            float rate = _speedSteps[_speedIndex];
+            string label = _speedStepLabels[_speedIndex];
+
+            // SetRate VLC native çağrısıdır; UI thread'inden yapılınca
+            // kısa süreli bloklamaya yol açabilir. Arka planda çalıştırılır.
+            var mp = _mediaPlayer;
+            _ = Task.Run(() => mp.SetRate(rate));
+
+            SpeedBtnText.Text = label;
+            ShowToast($"Oynatma hızı: {label}");
         }
 
         private void Fullscreen_Click(object? sender, PointerPressedEventArgs e)
@@ -535,20 +581,34 @@ namespace GlyphTV
 
         private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
         {
+            // VLC bu event'i çok sık tetikler (~200ms). Önceki güncelleme
+            // hâlâ Dispatcher kuyruğundaysa yeni bir InvokeAsync eklemeyip
+            // atlıyoruz; aksi halde kuyrukta gereksiz biriken çağrılar UI
+            // thread'ini yoğunlaştırabilir.
+            if (_timeChangedUpdatePending) return;
+            _timeChangedUpdatePending = true;
+
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (_mediaPlayer != null && _mediaPlayer.Length > 0)
+                try
                 {
-                    _isUpdatingSliderFromCode = true;
-                    TimeSlider.Value = ((double)_mediaPlayer.Time / _mediaPlayer.Length) * 100;
-                    _isUpdatingSliderFromCode = false;
+                    if (_mediaPlayer != null && _mediaPlayer.Length > 0)
+                    {
+                        _isUpdatingSliderFromCode = true;
+                        TimeSlider.Value = ((double)_mediaPlayer.Time / _mediaPlayer.Length) * 100;
+                        _isUpdatingSliderFromCode = false;
 
-                    var current = TimeSpan.FromMilliseconds(_mediaPlayer.Time);
-                    var total = TimeSpan.FromMilliseconds(_mediaPlayer.Length);
-                    CurrentTimeText.Text = current.ToString(@"hh\:mm\:ss");
-                    TotalTimeText.Text = total.ToString(@"hh\:mm\:ss");
+                        var current = TimeSpan.FromMilliseconds(_mediaPlayer.Time);
+                        var total = TimeSpan.FromMilliseconds(_mediaPlayer.Length);
+                        CurrentTimeText.Text = current.ToString(@"hh\:mm\:ss");
+                        TotalTimeText.Text = total.ToString(@"hh\:mm\:ss");
+                    }
                 }
-            });
+                finally
+                {
+                    _timeChangedUpdatePending = false;
+                }
+            }, DispatcherPriority.Background);
         }
 
         // ----- Ses -----
@@ -575,21 +635,68 @@ namespace GlyphTV
             AudioTrackPopup.IsVisible = false;
             SubtitlePopup.IsVisible = false;
             ChannelListPanel.IsVisible = false;
-            AspectRatioPopup.IsVisible = !AspectRatioPopup.IsVisible;
+            if (AspectRatioPopup.IsVisible) { AspectRatioPopup.IsVisible = false; return; }
+            PopulateAspectRatioOptions();
+            AspectRatioPopup.IsVisible = true;
         }
 
-        private void SetAspectRatio_Click(object? sender, RoutedEventArgs e)
+        private static readonly (string Tag, string Label)[] _aspectRatioOptions =
+        {
+            ("12:5",  "12:5 (Varsayılan)"),
+            ("16:9",  "16:9"),
+            ("4:3",   "4:3"),
+            ("21:9",  "21:9 (Sinema)"),
+            ("fill",  "Ekranı Doldur"),
+        };
+
+        private void PopulateAspectRatioOptions()
+        {
+            AspectRatioContainer.Children.Clear();
+
+            string currentLabel = AspectRatioText?.Text ?? "12:5";
+            var activeBg = Brush.Parse("#a855f7");
+
+            foreach (var (tag, label) in _aspectRatioOptions)
+            {
+                var t   = tag;
+                var lbl = label;
+
+                // Aktif seçimi etiketle eşleştir
+                bool isActive = lbl.StartsWith(currentLabel, StringComparison.OrdinalIgnoreCase)
+                             || currentLabel.StartsWith(t, StringComparison.OrdinalIgnoreCase);
+
+                var border = new Border
+                {
+                    CornerRadius = new CornerRadius(6),
+                    Background   = isActive ? activeBg : Brushes.Transparent,
+                    Padding      = new Thickness(10, 6),
+                    Cursor       = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                    Child        = new TextBlock { Text = lbl, Foreground = Brushes.White, FontSize = 13 }
+                };
+                border.PointerEntered += (s, ev) =>
+                {
+                    if (s is Border b && !ReferenceEquals(b.Background, activeBg))
+                        b.Background = Brush.Parse("#22ffffff");
+                };
+                border.PointerExited += (s, ev) =>
+                {
+                    if (s is Border b && !ReferenceEquals(b.Background, activeBg))
+                        b.Background = Brushes.Transparent;
+                };
+                border.PointerPressed += (s, ev) =>
+                {
+                    ev.Handled = true;
+                    ApplyAspectRatio(t, lbl);
+                };
+                AspectRatioContainer.Children.Add(border);
+            }
+        }
+
+        private void ApplyAspectRatio(string tag, string label)
         {
             if (_mediaPlayer == null) return;
-            string? ratio = (sender as Border)?.Tag as string ?? (sender as Button)?.Tag as string;
-            if (ratio == null) return;
 
-            if (string.IsNullOrEmpty(ratio))
-            {
-                _mediaPlayer.AspectRatio = null;
-                AspectRatioText.Text = GetResolutionLabel();
-            }
-            else if (ratio == "fill")
+            if (tag == "fill")
             {
                 _mediaPlayer.AspectRatio = null;
                 _mediaPlayer.Scale = 0;
@@ -597,9 +704,10 @@ namespace GlyphTV
             }
             else
             {
-                _mediaPlayer.AspectRatio = ratio;
-                AspectRatioText.Text = ratio;
+                _mediaPlayer.AspectRatio = tag;
+                AspectRatioText.Text = tag;
             }
+
             AspectRatioPopup.IsVisible = false;
             ShowToast($"En:Boy oranı: {AspectRatioText.Text}");
         }
@@ -612,13 +720,41 @@ namespace GlyphTV
                 _mediaPlayer?.Size(0, ref w, ref h);
                 if (w > 0 && h > 0)
                 {
+                    double ratio = (double)w / h;
+
+                    // Ham piksel boyutlarının (özellikle anamorfik/SAR'lı yayın
+                    // içeriklerinde veya kenar kırpma farklarında) tam GCD'sini
+                    // alıp sadece bir avuç "bilinen" oranla tam eşleşme aramak,
+                    // gerçek görüntü 16:9'a çok yakın olsa da "12:5" gibi
+                    // kullanıcıyı şaşırtan ham kesirler üretiyordu. Bunun yerine
+                    // ondalık oranı bilinen standart oranlara küçük bir tolerans
+                    // dahilinde yuvarlıyoruz; bu hem "tuhaf" sayıları önler hem
+                    // de bu etiketin oynatma sırasında (her yeni ses/altyazı
+                    // parçası algılandığında) tekrar tekrar hesaplanması
+                    // gerektiğinde tutarlı/aynı sonuca yakınsamasını sağlar.
+                    var knownRatios = new (string Label, double Value)[]
+                    {
+                        ("4:3",    4.0  / 3.0),
+                        ("16:10",  16.0 / 10.0),
+                        ("16:9",   16.0 / 9.0),
+                        ("12:5",   12.0 / 5.0),
+                        ("1.85:1", 1.85),
+                        ("21:9",   21.0 / 9.0),
+                        ("2.35:1", 2.35),
+                        ("1:1",    1.0),
+                    };
+
+                    const double tolerance = 0.03; // ~%3
+                    foreach (var (label, value) in knownRatios)
+                    {
+                        if (Math.Abs(ratio - value) < tolerance) return label;
+                    }
+
+                    // Bilinen bir orana yeterince yakın değilse (gerçekten
+                    // alışılmadık bir içerik olabilir), sadeleştirilmiş ham
+                    // kesri göstermeye devam et.
                     uint g = Gcd(w, h);
                     uint rw = w / g, rh = h / g;
-                    if ((rw == 16 && rh == 9) || (rw == 32 && rh == 18)) return "16:9";
-                    if ((rw == 4 && rh == 3) || (rw == 8 && rh == 6)) return "4:3";
-                    if (rw == 21 && rh == 9) return "21:9";
-                    if (rw == 16 && rh == 10) return "16:10";
-                    if (rw == 1 && rh == 1) return "1:1";
                     return $"{rw}:{rh}";
                 }
             }
@@ -658,17 +794,38 @@ namespace GlyphTV
             }
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // DÜZELTME (performans – bu turun en önemli bulgusu):
+        // ResetInactivityTimer(), PlayerContainer_PointerMoved üzerinden
+        // video üzerinde fare hareket ettirildiği SÜRE BOYUNCA, her
+        // PointerMoved olayında (saniyede onlarca kez) çağrılıyor. Önceki
+        // implementasyon her çağrıda yepyeni bir DispatcherTimer nesnesi +
+        // yepyeni bir Tick closure'ı oluşturup eskisini çöpe atıyordu —
+        // yani fareyi videonun üzerinde gezdirirken saniyede onlarca kez
+        // nesne tahsisi yapılıyordu. Bu, gözle görülür mikro-takılmalara
+        // ve gereksiz GC baskısına yol açabilir. ShowToast()'taki ile aynı
+        // desen: timer bir kez oluşturulur, sonradan sadece Stop()/Start()
+        // ile yeniden kullanılır.
+        // ─────────────────────────────────────────────────────────────
         private void ResetInactivityTimer()
         {
-            _inactivityTimer?.Stop();
-            if (PlayerContainer.Height <= 0) return;
-
-            _inactivityTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
-            _inactivityTimer.Tick += (s, ev) =>
+            if (PlayerContainer.Height <= 0)
             {
-                HidePlayerControls();
                 _inactivityTimer?.Stop();
-            };
+                return;
+            }
+
+            if (_inactivityTimer == null)
+            {
+                _inactivityTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+                _inactivityTimer.Tick += (s, ev) =>
+                {
+                    HidePlayerControls();
+                    _inactivityTimer!.Stop();
+                };
+            }
+
+            _inactivityTimer.Stop();
             _inactivityTimer.Start();
         }
 
@@ -754,12 +911,184 @@ namespace GlyphTV
         // ----- Scroll / lazy loading -----
         private void ContentScrollViewer_ScrollChanged(object? sender, ScrollChangedEventArgs e)
         {
+            UpdateCustomScrollThumb();
+            ShowCustomScrollThumbTemporarily();
+
             if (_isLoadingMore) return;
             var sv = ContentScrollViewer;
             double scrollPos = sv.Offset.Y + sv.Viewport.Height;
             double totalHeight = sv.Extent.Height;
             if (totalHeight > 0 && scrollPos >= totalHeight * 0.8)
                 LoadMoreItems();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Özel scroll çubuğu — sabit boyutlu thumb
+        //
+        // Avalonia'nın yerleşik ScrollBar'ı, Track kontrolü içinde thumb
+        // boyutunu viewport/extent oranına göre otomatik hesaplar; bu
+        // davranış ControlTemplate üzerinden ezilemez (Track.MeasureOverride
+        // her zaman oransal boyut üretir). Bu yüzden gerçek scroll çubuğu
+        // gizlenip (VerticalScrollBarVisibility="Hidden"), CustomScrollThumb
+        // adlı sabit boyutlu (40px) bir Border üzerine bindirilir. Thumb'ın
+        // DİKEY KONUMU scroll oranına göre hesaplanır ama YÜKSEKLİĞİ her
+        // zaman sabit kalır — kategoriden kategoriye boyut farkı oluşmaz.
+        //
+        // Görünürlük: thumb varsayılan olarak gizli (Opacity=0). Scroll
+        // sırasında veya thumb'ın üzerine gelindiğinde belirir; durakladığında
+        // ~900ms sonra otomatik solarak kaybolur. Sürükleme sırasında hep
+        // görünür kalır.
+        // ─────────────────────────────────────────────────────────────
+        private DispatcherTimer? _scrollThumbFadeTimer;
+        private bool _isDraggingScrollThumb = false;
+        private bool _isPointerOverScrollThumb = false;
+        private double _dragStartPointerY = 0;
+        private double _dragStartOffsetY  = 0;
+
+        // Thumb'ın dar (boşta) ve geniş (hover/sürükleme sırasında) genişlikleri.
+        // XAML'deki Width transition'ı sayesinde ikisi arası geçiş yumuşak olur.
+        // HorizontalAlignment="Right" + Margin Right=3 sabit olduğu için genişlik
+        // artışı sağa taşmaz, sadece sola doğru büyür (kenar sabit kalır).
+        private const double ThumbWidthNormal   = 6;
+        private const double ThumbWidthExpanded = 13;
+
+        private void SetCustomScrollThumbExpanded(bool expanded) =>
+            CustomScrollThumbVisual.Width = expanded ? ThumbWidthExpanded : ThumbWidthNormal;
+
+        private void UpdateCustomScrollThumb()
+        {
+            try
+            {
+                var sv = ContentScrollViewer;
+                double extent  = sv.Extent.Height;
+                double viewport = sv.Viewport.Height;
+
+                // İçerik viewport'tan küçükse veya henüz layout tamamlanmadıysa
+                // scroll çubuğuna gerek yok.
+                if (extent <= viewport || viewport <= 0)
+                {
+                    CustomScrollThumb.IsVisible = false;
+                    return;
+                }
+
+                CustomScrollThumb.IsVisible = true;
+
+                const double thumbHeight = 80;
+                const double topMargin   = 24;   // ScrollViewer Margin.Top ile aynı
+                const double bottomMargin = 24;
+
+                double trackHeight = viewport - topMargin - bottomMargin;
+                if (trackHeight < thumbHeight) trackHeight = thumbHeight;
+
+                double maxOffset = extent - viewport;
+                double scrollRatio = maxOffset > 0 ? sv.Offset.Y / maxOffset : 0;
+                scrollRatio = Math.Clamp(scrollRatio, 0, 1);
+
+                double thumbTravel = Math.Max(0, trackHeight - thumbHeight);
+                double thumbY = topMargin + (thumbTravel * scrollRatio);
+
+                CustomScrollThumb.Margin = new Thickness(0, thumbY, 3, 0);
+            }
+            catch { /* layout henüz hazır değilse sessizce atla */ }
+        }
+
+        /// <summary>
+        /// Thumb'ı görünür yapar ve belirli bir süre sonra (kullanıcı
+        /// sürüklemiyor/üzerinde değilse) otomatik olarak soldurur.
+        /// </summary>
+        private void ShowCustomScrollThumbTemporarily()
+        {
+            if (!CustomScrollThumb.IsVisible) return;
+
+            CustomScrollThumb.Opacity = 1;
+
+            if (_scrollThumbFadeTimer == null)
+            {
+                _scrollThumbFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+                _scrollThumbFadeTimer.Tick += (s, e) =>
+                {
+                    _scrollThumbFadeTimer!.Stop();
+                    if (!_isDraggingScrollThumb && !_isPointerOverScrollThumb)
+                        CustomScrollThumb.Opacity = 0;
+                };
+            }
+
+            _scrollThumbFadeTimer.Stop();
+            _scrollThumbFadeTimer.Start();
+        }
+
+        private void CustomScrollThumb_PointerEntered(object? sender, PointerEventArgs e)
+        {
+            _isPointerOverScrollThumb = true;
+            CustomScrollThumb.Opacity = 1;
+            SetCustomScrollThumbExpanded(true);
+            _scrollThumbFadeTimer?.Stop();
+        }
+
+        private void CustomScrollThumb_PointerExited(object? sender, PointerEventArgs e)
+        {
+            _isPointerOverScrollThumb = false;
+            if (!_isDraggingScrollThumb)
+            {
+                SetCustomScrollThumbExpanded(false);
+                ShowCustomScrollThumbTemporarily();
+            }
+        }
+
+        private void CustomScrollThumb_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(CustomScrollThumb).Properties.IsLeftButtonPressed) return;
+
+            _isDraggingScrollThumb = true;
+            _dragStartPointerY = e.GetPosition(ContentScrollViewer).Y;
+            _dragStartOffsetY  = ContentScrollViewer.Offset.Y;
+            e.Pointer.Capture(CustomScrollThumb);
+            CustomScrollThumb.Opacity = 1;
+            SetCustomScrollThumbExpanded(true);
+            _scrollThumbFadeTimer?.Stop();
+            e.Handled = true;
+        }
+
+        private void CustomScrollThumb_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isDraggingScrollThumb) return;
+
+            var sv = ContentScrollViewer;
+            double extent   = sv.Extent.Height;
+            double viewport = sv.Viewport.Height;
+            double maxOffset = extent - viewport;
+            if (maxOffset <= 0) return;
+
+            const double thumbHeight  = 40;
+            const double topMargin    = 24;
+            const double bottomMargin = 24;
+            double trackHeight = Math.Max(thumbHeight, viewport - topMargin - bottomMargin);
+            double thumbTravel = Math.Max(1, trackHeight - thumbHeight);
+
+            double currentPointerY = e.GetPosition(ContentScrollViewer).Y;
+            double deltaPointer    = currentPointerY - _dragStartPointerY;
+
+            // Pointer hareketini track uzunluğu üzerinden scroll offset'ine
+            // ölçekliyoruz: thumb 1px hareket ettiğinde içerik
+            // (maxOffset / thumbTravel) px kayar.
+            double deltaOffset = deltaPointer * (maxOffset / thumbTravel);
+            double newOffset   = Math.Clamp(_dragStartOffsetY + deltaOffset, 0, maxOffset);
+
+            sv.Offset = new Vector(sv.Offset.X, newOffset);
+            e.Handled = true;
+        }
+
+        private void CustomScrollThumb_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isDraggingScrollThumb) return;
+            _isDraggingScrollThumb = false;
+            e.Pointer.Capture(null);
+
+            if (!_isPointerOverScrollThumb)
+            {
+                SetCustomScrollThumbExpanded(false);
+                ShowCustomScrollThumbTemporarily();
+            }
         }
 
         private void LoadMoreItems()
@@ -1086,33 +1415,6 @@ namespace GlyphTV
                 container.Children.Add(border);
             }
         }
-        // ----- Aspect Ratio için PointerPressed handler (Border) -----
-        private void SetAspectRatio_PP(object? sender, PointerPressedEventArgs e)
-        {
-            e.Handled = true;
-            if (_mediaPlayer == null) return;
-            string? ratio = (sender as Border)?.Tag as string;
-            if (ratio == null) return;
-            if (string.IsNullOrEmpty(ratio))
-            {
-                _mediaPlayer.AspectRatio = null;
-                AspectRatioText.Text = GetResolutionLabel();
-            }
-            else if (ratio == "fill")
-            {
-                _mediaPlayer.AspectRatio = null;
-                _mediaPlayer.Scale = 0;
-                AspectRatioText.Text = "Fill";
-            }
-            else
-            {
-                _mediaPlayer.AspectRatio = ratio;
-                AspectRatioText.Text = ratio;
-            }
-            AspectRatioPopup.IsVisible = false;
-            ShowToast($"En:Boy oranı: {AspectRatioText.Text}");
-        }
-
         // ----- Kapat butonu hover efektleri -----
         private void CloseBtn_PointerEntered(object? sender, PointerEventArgs e)
         {
@@ -1196,6 +1498,9 @@ namespace GlyphTV
                         anyVisible = true;
                     }
                     else VideoCodecBadge.IsVisible = false;
+
+                    // Aspect ratio etiketi PlayChannel başlangıcında "12:5"
+                    // olarak ayarlanır; ESAdded burada ezmez.
                 }
                 else
                 {

@@ -26,11 +26,48 @@ namespace GlyphTV
 
         // ─────────────────────────────────────────────────────────────
         // Yardımcı: ObservableCollection'u toplu güncelle (performans)
+        //
+        // Clear() tek bir Reset bildirimi gönderir; ancak ardından gelen
+        // her Add() ayrı bir CollectionChanged tetikler. Binlerce kanallı
+        // listelerde bu yüzlerce gereksiz UI invalidation'a yol açar.
+        // Geçici listeye alıp Clear + toplu Add yerine, Clear'dan sonra
+        // tüm öğeleri arka arkaya ekleyip Avalonia'nın layout sisteminin
+        // sadece bir kez layout pass yapmasına izin veriyoruz — Add
+        // döngüsü kaçınılmaz ama en azından her Add arası
+        // Dispatcher.Yield çağrısı yoktur ve öğe sayısı değişmemişse
+        // ItemsControl kendi içinde diff yapabilir.
         // ─────────────────────────────────────────────────────────────
         private void ReplaceCollection<T>(ObservableCollection<T> col, IEnumerable<T> items)
         {
-            col.Clear();
-            foreach (var item in items) col.Add(item);
+            var list = items is IList<T> l ? l : items.ToList();
+
+            // Öğe sayısı aynıysa Clear + AddRange yerine yerinde güncelle:
+            // Reset bildirimi gönderilmez, sadece gerçekten değişen
+            // indekslerde Replace bildirimi gider — daha az UI iş yükü.
+            if (col.Count == list.Count)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (!ReferenceEquals(col[i], list[i]))
+                        col[i] = list[i];
+                }
+                return;
+            }
+
+            // Farklı boyutlarda: önce eşleşen konumları güncelle,
+            // fazla olanları sil ya da eksik olanları ekle.
+            int common = Math.Min(col.Count, list.Count);
+            for (int i = 0; i < common; i++)
+            {
+                if (!ReferenceEquals(col[i], list[i]))
+                    col[i] = list[i];
+            }
+            // Eski listede fazla öğe varsa sondan sil
+            while (col.Count > list.Count)
+                col.RemoveAt(col.Count - 1);
+            // Yeni listede fazla öğe varsa sona ekle
+            for (int i = common; i < list.Count; i++)
+                col.Add(list[i]);
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -38,17 +75,18 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void SetGridVisibility(bool categories, bool content, bool settings)
         {
-            CategoriesGrid.IsVisible  = categories;
-            SettingsPanel.IsVisible   = settings;
-            FavoriPanel.IsVisible     = false;
+            CategoriesGrid.IsVisible    = categories;
+            SettingsPanel.IsVisible     = settings;
+            FavoriPanel.IsVisible       = false;
             SeriesContentGrid.IsVisible = false;
 
-            bool showAsList = _currentTab == "Canlı" ||
-                              (_currentTab == "Favori" && _favoriCategoryType == "Canlı");
+            // ContentItemsGrid → yalnızca Canlı TV liste görünümü
+            // VodContentGrid   → VOD / Favori-VOD / Favori-Canlı içerik listesi
+            bool isCanlıList = _currentTab == "Canlı" ||
+                               (_currentTab == "Favori" && _favoriCategoryType == "Canlı");
 
-            bool isVodContent = content && !showAsList;
-            ContentItemsGrid.IsVisible = content && !isVodContent;
-            VodContentGrid.IsVisible   = isVodContent;
+            ContentItemsGrid.IsVisible = content && isCanlıList;
+            VodContentGrid.IsVisible   = content && !isCanlıList;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -139,7 +177,6 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void SearchBox_TextChanged(object? sender, Avalonia.Controls.TextChangedEventArgs e)
         {
-            _searchDebounceTimer?.Stop();
             if (_searchDebounceTimer == null)
             {
                 _searchDebounceTimer = new DispatcherTimer
@@ -150,6 +187,8 @@ namespace GlyphTV
                     UpdateView();
                 };
             }
+
+            _searchDebounceTimer.Stop();
             _searchDebounceTimer.Start();
         }
 
@@ -203,7 +242,7 @@ namespace GlyphTV
             }
             var historyByUrl = _watchHistoryByUrlCache;
 
-            string searchText = SearchBox.Text?.ToLower() ?? "";
+            string searchText = SearchBox.Text?.Trim() ?? "";
 
             // ── Global arama ──────────────────────────────────────────
             if (!string.IsNullOrWhiteSpace(searchText) && _viewState != "Settings")
@@ -217,7 +256,7 @@ namespace GlyphTV
                 FavoriPanel.IsVisible       = false;
 
                 var searchResults = _allChannels
-                    .Where(c => !c.IsHidden && c.Name.ToLower().Contains(searchText))
+                    .Where(c => !c.IsHidden && c.Name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
                     .Take(500)
                     .ToList();
 
@@ -230,6 +269,11 @@ namespace GlyphTV
 
                 foreach (var ch in nonSeriesResults)
                     ch.HasResume = historyByUrl.TryGetValue(ch.Url, out var h) && h.Position > 5000;
+
+                // Sadece VOD (film) içerikler için TMDb posteri aranır — Canlı
+                // kanallar TMDb'de aranamayacağı için (anlamsız sonuç + gereksiz
+                // ağ isteği) burada hariç tutulur.
+                var nonSeriesVod = nonSeriesResults.Where(c => c.Type == "VOD").ToList();
 
                 if (seriesResults.Count > 0)
                 {
@@ -250,12 +294,14 @@ namespace GlyphTV
                     ContentItemsGrid.IsVisible = false;
                     _ = LoadLogosForSeriesCards(seriesCards, seriesResults);
                     _ = LoadLogosForChannelsAsync(nonSeriesResults);
+                    _ = LoadTmdbPostersForChannels(nonSeriesVod);
                 }
                 else
                 {
                     SeriesContentGrid.IsVisible = false;
                     VodContentGrid.ItemsSource  = nonSeriesResults;
                     _ = LoadLogosForChannelsAsync(nonSeriesResults);
+                    _ = LoadTmdbPostersForChannels(nonSeriesVod);
                 }
                 return;
             }
@@ -302,10 +348,18 @@ namespace GlyphTV
                     foreach (var ch in vodFavs)
                         ch.HasResume = historyByUrl.TryGetValue(ch.Url, out var h) && h.Position > 5000;
 
+                    // Tüm favori filmleri tek seferde render etmek yerine
+                    // (sınırsız sayıda öğe = WrapPanel/StackPanel'de virtualizasyon
+                    // olmadığı için ciddi yavaşlama riski) ilk sayfayı gösterip
+                    // gerisini yatay scroll sonuna yaklaşıldığında yüklüyoruz.
+                    _allFavoriVod        = vodFavs;
+                    _favoriVodLoadedCount = Math.Min(FAVORI_PAGE_SIZE, vodFavs.Count);
+                    var vodFirstBatch     = vodFavs.Take(_favoriVodLoadedCount).ToList();
+
                     FavoriVodSection.IsVisible = vodFavs.Count > 0;
-                    FavoriVodGrid.ItemsSource  = vodFavs;
-                    SafeRun(() => LoadLogosForChannelsAsync(vodFavs));
-                    SafeRun(() => LoadTmdbPostersForChannels(vodFavs));
+                    FavoriVodGrid.ItemsSource  = vodFirstBatch;
+                    SafeRun(() => LoadLogosForChannelsAsync(vodFirstBatch));
+                    SafeRun(() => LoadTmdbPostersForChannels(vodFirstBatch));
 
                     var seriesFavEps = _allChannels
                         .Where(c => !c.IsHidden && c.IsFavorite && c.Type == "Dizi"
@@ -327,9 +381,17 @@ namespace GlyphTV
                         favSeriesCards.Add(BuildSeriesCard(sn, allEps, historyByUrl));
                     }
 
+                    // SeriesCard nesnelerinin tamamını oluşturmak ucuzdur (sadece
+                    // metadata, görsel yüklemesi yok); pahalı olan TMDb poster
+                    // yüklemesi ve görsel ağacının büyümesidir — bu yüzden sadece
+                    // ilk sayfa ItemsSource'a ve poster yüklemesine veriliyor.
+                    _allFavoriSeriesCards    = favSeriesCards;
+                    _favoriSeriesLoadedCount = Math.Min(FAVORI_PAGE_SIZE, favSeriesCards.Count);
+                    var seriesFirstBatch     = favSeriesCards.Take(_favoriSeriesLoadedCount).ToList();
+
                     FavoriSeriesSection.IsVisible = favSeriesCards.Count > 0;
-                    FavoriSeriesGrid.ItemsSource  = favSeriesCards;
-                    SafeRun(() => LoadTmdbPostersForCards(favSeriesCards));
+                    FavoriSeriesGrid.ItemsSource  = seriesFirstBatch;
+                    SafeRun(() => LoadTmdbPostersForCards(seriesFirstBatch));
 
                     return;
                 }
@@ -344,7 +406,6 @@ namespace GlyphTV
                 BackBtn.IsVisible = false;
                 SetGridVisibility(true, false, false);
 
-                _displayCategories.Clear();
                 var filteredList = _allChannels
                     .Where(c => !c.IsHidden && c.Type == _currentTab)
                     .ToList();
@@ -352,10 +413,10 @@ namespace GlyphTV
                 var groups = filteredList
                     .Select(c => c.Group)
                     .Distinct()
-                    .OrderBy(g => g);
+                    .OrderBy(g => g)
+                    .ToList();
 
-                foreach (var g in groups)
-                    _displayCategories.Add(g);
+                ReplaceCollection(_displayCategories, groups);
 
                 return;
             }
@@ -409,7 +470,7 @@ namespace GlyphTV
 
                     var allContents = filteredContents
                         .Where(c => string.IsNullOrEmpty(searchText) ||
-                                    c.Name.ToLower().Contains(searchText))
+                                    c.Name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
                         .ToList();
 
                     _allFilteredContents = allContents;
@@ -475,7 +536,8 @@ namespace GlyphTV
                     var showNames = seriesEpisodes
                         .Select(c => c.ShowName)
                         .Distinct()
-                        .Where(s => string.IsNullOrEmpty(searchText) || s.ToLower().Contains(searchText))
+                        .Where(s => string.IsNullOrEmpty(searchText) ||
+                                    s.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
                         .OrderBy(s => s)
                         .ToList();
 
@@ -506,6 +568,65 @@ namespace GlyphTV
         {
             try { await action(); }
             catch { }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Favoriler paneli – yatay scroll tetikli sayfalama
+        //
+        // FavoriVodGrid / FavoriSeriesGrid daha önce tüm favori listesini
+        // tek seferde ItemsSource'a veriyordu. Bu liste WrapPanel/StackPanel
+        // içinde UI virtualizasyonu olmadan render edildiği için yüzlerce
+        // favorisi olan kullanıcılarda gözle görülür bir donmaya yol
+        // açabiliyordu. Burada PAGE_SIZE mantığı (Content/Shows görünümleriyle
+        // aynı desen) favori listelerine de uygulanıyor.
+        // ─────────────────────────────────────────────────────────────
+        private void FavoriVodScroll_ScrollChanged(object? sender, Avalonia.Controls.ScrollChangedEventArgs e)
+        {
+            if (_isLoadingMoreFavoriVod) return;
+            if (sender is not ScrollViewer sv) return;
+
+            double scrollPos   = sv.Offset.X + sv.Viewport.Width;
+            double totalWidth  = sv.Extent.Width;
+            if (totalWidth <= 0 || scrollPos < totalWidth * 0.8) return;
+            if (_favoriVodLoadedCount >= _allFavoriVod.Count) return;
+
+            _isLoadingMoreFavoriVod = true;
+            try
+            {
+                var nextBatch = _allFavoriVod.Skip(_favoriVodLoadedCount).Take(FAVORI_PAGE_SIZE).ToList();
+                _favoriVodLoadedCount += nextBatch.Count;
+
+                var current = (FavoriVodGrid.ItemsSource as List<Channel>) ?? new List<Channel>();
+                FavoriVodGrid.ItemsSource = current.Concat(nextBatch).ToList();
+
+                _ = LoadLogosForChannelsAsync(nextBatch);
+                _ = LoadTmdbPostersForChannels(nextBatch);
+            }
+            finally { _isLoadingMoreFavoriVod = false; }
+        }
+
+        private void FavoriSeriesScroll_ScrollChanged(object? sender, Avalonia.Controls.ScrollChangedEventArgs e)
+        {
+            if (_isLoadingMoreFavoriSeries) return;
+            if (sender is not ScrollViewer sv) return;
+
+            double scrollPos   = sv.Offset.X + sv.Viewport.Width;
+            double totalWidth  = sv.Extent.Width;
+            if (totalWidth <= 0 || scrollPos < totalWidth * 0.8) return;
+            if (_favoriSeriesLoadedCount >= _allFavoriSeriesCards.Count) return;
+
+            _isLoadingMoreFavoriSeries = true;
+            try
+            {
+                var nextBatch = _allFavoriSeriesCards.Skip(_favoriSeriesLoadedCount).Take(FAVORI_PAGE_SIZE).ToList();
+                _favoriSeriesLoadedCount += nextBatch.Count;
+
+                var current = (FavoriSeriesGrid.ItemsSource as List<SeriesCard>) ?? new List<SeriesCard>();
+                FavoriSeriesGrid.ItemsSource = current.Concat(nextBatch).ToList();
+
+                _ = LoadTmdbPostersForCards(nextBatch);
+            }
+            finally { _isLoadingMoreFavoriSeries = false; }
         }
     }
 }

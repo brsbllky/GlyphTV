@@ -165,6 +165,62 @@ namespace GlyphTV
         private void SaveSeriesSelection(SeriesCard card) =>
             _seriesSelections[card.ShowName] = (card.SelectedSeasonIndex, card.SelectedEpisodeIndex);
 
+        // ─────────────────────────────────────────────────────────────
+        // DÜZELTME: Oynatma sırasında (Sonraki Bölüm butonu / otomatik bölüm
+        // geçişi) _currentChannel değişiyordu ama ekrandaki ya da önbellekteki
+        // SeriesCard nesnelerinin SelectedSeasonIndex/SelectedEpisodeIndex'i
+        // hiç güncellenmiyordu. Bu yüzden art arda birkaç bölüm izleyip
+        // player'ı kapattığınızda kart hâlâ ilk açılan bölümü seçili
+        // gösteriyor, "Devam Et" de yanlış bölümü oynatıyordu. Doğru seçim
+        // sadece uygulama yeniden başlatılıp BuildSeriesCard watch history'den
+        // seçimi yeniden hesapladığında ortaya çıkıyordu.
+        //
+        // Bu metod gerçek oynatılan bölümü; görünür gridlerdeki, sayfalama
+        // listelerindeki ve kategori/favori önbelleklerindeki TÜM SeriesCard
+        // kopyalarına anında yansıtır.
+        // ─────────────────────────────────────────────────────────────
+        private void SyncSeriesCardSelection(Channel? episode, bool? hasResume = null)
+        {
+            if (episode == null || episode.Type != "Dizi" || string.IsNullOrEmpty(episode.ShowName))
+                return;
+
+            void TryUpdate(SeriesCard card)
+            {
+                if (card.ShowName != episode.ShowName) return;
+
+                int seasonIdx = card.Seasons.IndexOf(episode.Season);
+                if (seasonIdx >= 0)
+                {
+                    var seasonEps = card.EpisodesBySeason.TryGetValue(episode.Season, out var eps)
+                        ? eps : new List<Channel>();
+                    int episodeIdx = seasonEps.FindIndex(e => e.Url == episode.Url);
+                    if (episodeIdx >= 0)
+                    {
+                        card.RestoreSelection(seasonIdx, episodeIdx);
+                        _seriesSelections[episode.ShowName] = (seasonIdx, episodeIdx);
+                    }
+                }
+
+                if (hasResume.HasValue) card.HasResume = hasResume.Value;
+            }
+
+            try
+            {
+                if (SeriesContentGrid.ItemsSource is List<SeriesCard> visibleCards)
+                    foreach (var c in visibleCards) TryUpdate(c);
+
+                if (FavoriSeriesGrid.ItemsSource is List<SeriesCard> favCards)
+                    foreach (var c in favCards) TryUpdate(c);
+
+                foreach (var c in _allFilteredCards) TryUpdate(c);
+                foreach (var c in _allFavoriSeriesCards) TryUpdate(c);
+
+                foreach (var cacheList in _seriesCardCache.Values)
+                    foreach (var c in cacheList) TryUpdate(c);
+            }
+            catch { }
+        }
+
         private void UpdateSeriesPlayButton(SeriesCard card)
         {
             // HasResume hesaplamak için historyByUrl oluşturmak pahalı olabilir,

@@ -510,7 +510,7 @@
 										<Border x:Name="BtnAspectRatio" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnAspectRatio_Click" IsVisible="True">
 											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
 												<Path Data="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
-												<TextBlock x:Name="AspectRatioText" Text="16:9" Foreground="#DDffffff" FontSize="12"/>
+												<TextBlock x:Name="AspectRatioText" Text="12:5" Foreground="#DDffffff" FontSize="12"/>
 											</StackPanel>
 										</Border>
 										<Border x:Name="BtnSubtitle" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnSubtitle_Click" IsVisible="False">
@@ -740,28 +740,17 @@
 							<Border x:Name="AspectRatioPopup" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F21a1a1f" BorderBrush="#44a855f7" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" ZIndex="25">
 								<StackPanel>
 									<TextBlock Text="En:Boy Oranı" Foreground="#a855f7" FontSize="13" FontWeight="Bold" Margin="0,0,0,8"/>
-									<Border Tag="" Cursor="Hand" PointerPressed="SetAspectRatio_PP" Padding="10,8" CornerRadius="6">
-										<TextBlock Text="Orijinal" Foreground="White" FontSize="13"/>
-									</Border>
-									<Border Tag="16:9" Cursor="Hand" PointerPressed="SetAspectRatio_PP" Padding="10,8" CornerRadius="6">
-										<TextBlock Text="16:9" Foreground="White" FontSize="13"/>
-									</Border>
-									<Border Tag="4:3" Cursor="Hand" PointerPressed="SetAspectRatio_PP" Padding="10,8" CornerRadius="6">
-										<TextBlock Text="4:3" Foreground="White" FontSize="13"/>
-									</Border>
-									<Border Tag="21:9" Cursor="Hand" PointerPressed="SetAspectRatio_PP" Padding="10,8" CornerRadius="6">
-										<TextBlock Text="21:9 (Sinema)" Foreground="White" FontSize="13"/>
-									</Border>
-									<Border Tag="fill" Cursor="Hand" PointerPressed="SetAspectRatio_PP" Padding="10,8" CornerRadius="6">
-										<TextBlock Text="Ekranı Doldur" Foreground="White" FontSize="13"/>
-									</Border>
+									<StackPanel x:Name="AspectRatioContainer" Spacing="2"/>
 								</StackPanel>
 							</Border>
 						</Grid>
 					</vlc:VideoView>
 				</Grid>
 
-				<ScrollViewer x:Name="ContentScrollViewer" Margin="28,24" ScrollChanged="ContentScrollViewer_ScrollChanged">
+				<Grid>
+				<ScrollViewer x:Name="ContentScrollViewer" Margin="28,24"
+							  VerticalScrollBarVisibility="Hidden"
+							  ScrollChanged="ContentScrollViewer_ScrollChanged">
 					<StackPanel>
 
 						<StackPanel Orientation="Horizontal" Margin="0,0,0,24" Spacing="10">
@@ -833,10 +822,10 @@
 										<Grid ColumnDefinitions="Auto, *">
 											<Border Grid.Column="0" Width="130" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
 												<Grid>
-													<Border Background="#1A4f8bff" IsVisible="{Binding NoLogo}">
+													<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
 														<TextBlock Text="🎬" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
 													</Border>
-													<Border Background="#0A000000" IsVisible="{Binding HasLogo}">
+													<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
 														<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill"/>
 													</Border>
 												</Grid>
@@ -885,10 +874,10 @@
 										<Grid ColumnDefinitions="Auto, *">
 											<Border Grid.Column="0" Width="130" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
 												<Grid>
-													<Border Background="#1A4f8bff" IsVisible="{Binding NoLogo}">
+													<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
 														<TextBlock Text="🎞️" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
 													</Border>
-													<Border Background="#0A000000" IsVisible="{Binding HasLogo}">
+													<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
 														<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill"/>
 													</Border>
 												</Grid>
@@ -966,7 +955,7 @@
 							</StackPanel>
 							<StackPanel x:Name="FavoriVodSection" IsVisible="False" Margin="0,0,0,32">
 								<TextBlock Text="Filmler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
-								<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+								<ScrollViewer x:Name="FavoriVodScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriVodScroll_ScrollChanged">
 									<ItemsControl x:Name="FavoriVodGrid">
 										<ItemsControl.ItemsPanel>
 											<ItemsPanelTemplate>
@@ -979,10 +968,10 @@
 													<Grid ColumnDefinitions="Auto, *">
 														<Border Grid.Column="0" Width="130" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
 															<Grid>
-																<Border Background="#1A4f8bff" IsVisible="{Binding NoLogo}">
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
 																	<TextBlock Text="🎬" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
 																</Border>
-																<Border Background="#0A000000" IsVisible="{Binding HasLogo}">
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
 																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill"/>
 																</Border>
 															</Grid>
@@ -1022,7 +1011,7 @@
 							</StackPanel>
 							<StackPanel x:Name="FavoriSeriesSection" IsVisible="False" Margin="0,0,0,32">
 								<TextBlock Text="Diziler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
-								<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+								<ScrollViewer x:Name="FavoriSeriesScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriSeriesScroll_ScrollChanged">
 									<ItemsControl x:Name="FavoriSeriesGrid">
 										<ItemsControl.ItemsPanel>
 											<ItemsPanelTemplate>
@@ -1035,10 +1024,10 @@
 													<Grid ColumnDefinitions="Auto, *">
 														<Border Grid.Column="0" Width="130" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
 															<Grid>
-																<Border Background="#1A4f8bff" IsVisible="{Binding NoLogo}">
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
 																	<TextBlock Text="🎞️" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
 																</Border>
-																<Border Background="#0A000000" IsVisible="{Binding HasLogo}">
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
 																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill"/>
 																</Border>
 															</Grid>
@@ -1120,6 +1109,14 @@
 									<Border Height="1" Background="{DynamicResource Border}" Margin="0,16"/>
 									<Grid ColumnDefinitions="*, Auto">
 										<StackPanel VerticalAlignment="Center">
+											<TextBlock Text="İzleme Geçmişi" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+											<TextBlock Text="Tüm izleme geçmişini sil" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										</StackPanel>
+										<Button Grid.Column="1" Classes="ActionBtn" Content="🗑 Temizle" Click="ClearHistory_Click" Background="Transparent" Foreground="#ff5f57" BorderBrush="#ff5f57" BorderThickness="1" CornerRadius="8" Padding="12,8"/>
+									</Grid>
+									<Border Height="1" Background="{DynamicResource Border}" Margin="0,16"/>
+									<Grid ColumnDefinitions="*, Auto">
+										<StackPanel VerticalAlignment="Center">
 											<TextBlock Text="Sıfırla" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
 											<TextBlock Text="Tüm ayarları varsayılana döndür" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 										</StackPanel>
@@ -1169,7 +1166,7 @@
 									</StackPanel>
 									<Grid ColumnDefinitions="*, Auto" Margin="0,0,0,8">
 										<TextBlock Text="Sürüm" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-										<TextBlock Grid.Column="1" Text="1.0.2" Foreground="{DynamicResource TextSec}"/>
+										<TextBlock Grid.Column="1" Text="1.0.3" Foreground="{DynamicResource TextSec}"/>
 									</Grid>
 									<Grid ColumnDefinitions="*, Auto" Margin="0,0,0,8">
 										<TextBlock Text="Geliştirici" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
@@ -1191,6 +1188,56 @@
 						</WrapPanel>
 					</StackPanel>
 				</ScrollViewer>
+
+				<!-- Özel minimal scroll çubuğu (sabit boyutlu thumb)
+				     Gerçek ScrollViewer scroll çubuğu yukarıda Hidden;
+				     pozisyon ContentScrollViewer_ScrollChanged içinde
+				     kod-behind'dan hesaplanıp bu Border'a uygulanıyor.
+				     Scroll sırasında görünür, durakladığında otomatik
+				     gizlenir (fade); ayrıca sürüklenerek scroll yapılabilir. -->
+				<!-- Hover sırasında genişleyen thumb için: dış kapsayıcı
+				     (CustomScrollThumb) SABİT genişlikte tutulur ve tüm
+				     pointer olaylarını o yakalar — bu sayede genişleme
+				     animasyonu sırasında "imleç artık sınırların dışında"
+				     diye PointerExited'in anında tetiklenip thumb'ın
+				     titreyerek kaybolması engellenir. Görünür ince/kalın
+				     çubuk ise içteki CustomScrollThumbVisual'dır ve
+				     IsHitTestVisible=False olduğu için olayları engellemez,
+				     sadece görsel olarak büyür/küçülür. -->
+				<Border x:Name="CustomScrollThumb"
+						Width="15" Height="80"
+						Background="Transparent"
+						HorizontalAlignment="Right"
+						VerticalAlignment="Top"
+						Margin="0,24,0,0"
+						Opacity="0"
+						Cursor="Hand"
+						PointerEntered="CustomScrollThumb_PointerEntered"
+						PointerExited="CustomScrollThumb_PointerExited"
+						PointerPressed="CustomScrollThumb_PointerPressed"
+						PointerMoved="CustomScrollThumb_PointerMoved"
+						PointerReleased="CustomScrollThumb_PointerReleased"
+						IsVisible="False">
+					<Border.Transitions>
+						<Transitions>
+							<DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+						</Transitions>
+					</Border.Transitions>
+					<Border x:Name="CustomScrollThumbVisual"
+							Width="6" Height="80"
+							CornerRadius="3"
+							Background="#66888888"
+							HorizontalAlignment="Right"
+							VerticalAlignment="Top"
+							IsHitTestVisible="False">
+						<Border.Transitions>
+							<Transitions>
+								<DoubleTransition Property="Width" Duration="0:0:0.12"/>
+							</Transitions>
+						</Border.Transitions>
+					</Border>
+				</Border>
+				</Grid>
 			</Grid>
 		</Grid>
 
@@ -1205,7 +1252,7 @@
 					<ScrollViewer Grid.Row="1" Margin="24,16,24,24" MaxHeight="600">
 						<StackPanel Spacing="14">
 							<Grid ColumnDefinitions="Auto, *" Margin="0,0,0,8">
-								<Border Grid.Column="0" x:Name="VodInfoPoster" Width="160" Height="240" CornerRadius="10" ClipToBounds="True" Background="#1A4f8bff">
+								<Border Grid.Column="0" x:Name="VodInfoPoster" Width="160" Height="240" CornerRadius="10" ClipToBounds="True" Background="{DynamicResource PosterPlaceholderBg}">
 									<TextBlock Text="🎬" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.5"/>
 								</Border>
 								<StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Top" Spacing="8">

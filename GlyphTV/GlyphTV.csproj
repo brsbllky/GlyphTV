@@ -8,14 +8,14 @@
     <ApplicationIcon>icon.ico</ApplicationIcon>
 
     <!-- Sürüm ve uygulama metadata bilgileri (.exe özelliklerinde görünür) -->
-    <AssemblyVersion>1.0.2.0</AssemblyVersion>
-    <FileVersion>1.0.2.0</FileVersion>
+    <AssemblyVersion>1.0.3.0</AssemblyVersion>
+    <FileVersion>1.0.3.0</FileVersion>
     <Product>GlyphTV</Product>
     <Company>GlyphTV</Company>
     <Description>GlyphTV - Modern IPTV Player</Description>
     <Copyright>© 2026 Barış Ballıkaya. Tüm hakları saklıdır.</Copyright>
     <Authors>Barış Ballıkaya</Authors>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
 
     <!-- Tek dosya self-contained yayınlama ayarları
          (sadece 'dotnet publish' sırasında etki eder, Visual Studio debug'ı etkilemez) -->

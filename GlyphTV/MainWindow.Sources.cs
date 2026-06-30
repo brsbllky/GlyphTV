@@ -24,15 +24,39 @@ namespace GlyphTV
     public partial class MainWindow
     {
         // ─────────────────────────────────────────────────────────────
+        // Önceden derlenmiş Regex'ler — ParseM3u / DetermineContentType
+        //
+        // Her #EXTINF satırı için new Regex(...) çağrısı yerine static
+        // readonly ile tek seferlik derleme yapılır. 50.000+ satırlık
+        // M3U dosyalarında belirgin parse hızı artışı sağlar.
+        // ─────────────────────────────────────────────────────────────
+        private static readonly Regex _rxGroupTitle  = new(@"group-title=""([^""]+)""",  RegexOptions.Compiled);
+        private static readonly Regex _rxTvgLogo     = new(@"tvg-logo=""([^""]*)""",     RegexOptions.Compiled);
+        private static readonly Regex _rxXuiId       = new(@"xui-id=""([^""]+)""",       RegexOptions.Compiled);
+        private static readonly Regex _rxVodInGroup  = new(@"\bvod\b",                   RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rx4kInGroup   = new(@"\b4k\b",                    RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxSeasonEp    = new(@"\bS\d{1,2}\s*[.\-_]?\s*E\d{1,3}\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxShowInfo    = new(@"^(.+?)[\s\._\-]+S(\d{1,3})[\s\._\-]*E(\d{1,3})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _rxShowNameEnd = new(@"[:\-_\.]+$",                RegexOptions.Compiled);
+
+        // ─────────────────────────────────────────────────────────────
         // Kaynaklar – kaydet / yükle
+        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────
+        // DÜZELTME (performans/akıcılık): Bu metod önceden dosyaya yazdıktan
+        // sonra _sources koleksiyonunu Clear() edip aynı öğelerle yeniden
+        // dolduruyordu — sebebi TvSource'ta IsActive değişikliğinin UI'ya
+        // bildirilmemesiydi (bkz. TvSource.cs). Bu artık TvSource içinde
+        // INotifyPropertyChanged ile düzgün şekilde çözüldüğü için, burada
+        // koleksiyonu sıfırlamaya gerek yok; bu da Ayarlar > Kaynaklar
+        // listesinin her kaynak seçme/silme/ekleme işleminde gereksiz yere
+        // tamamen yeniden oluşturulmasını (görünür titreme + ekstra layout
+        // maliyeti) önler.
         // ─────────────────────────────────────────────────────────────
         private void SaveSources()
         {
-            try { File.WriteAllText(GetSourcesPath(), JsonSerializer.Serialize(_sources)); } catch { }
-
-            var temp = _sources.ToList();
-            _sources.Clear();
-            foreach (var s in temp) _sources.Add(s);
+            try { File.WriteAllText(GetSourcesPath(), JsonSerializer.Serialize(_sources, JsonOptions)); }
+            catch (Exception ex) { LogError("SaveSources", ex); }
         }
 
         private void LoadSources()
@@ -42,7 +66,7 @@ namespace GlyphTV
                 string path = GetSourcesPath();
                 if (File.Exists(path))
                 {
-                    var loaded = JsonSerializer.Deserialize<List<TvSource>>(File.ReadAllText(path));
+                    var loaded = JsonSerializer.Deserialize<List<TvSource>>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null)
                     {
                         _sources.Clear();
@@ -53,7 +77,7 @@ namespace GlyphTV
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { LogError("LoadSources", ex); }
 
             if (_sources.Count == 0) UpdateView();
         }
@@ -61,14 +85,96 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         // Kanallar – kaydet / yükle
         // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────
+        // Kanal kayıtları için debounce + senkronizasyon
+        //
+        // Favori/gizle gibi aksiyonlar art arda hızlıca tetiklenirse
+        // (örn. bir dizide art arda favori tıklamak) eski kodda her çağrı
+        // ayrı bir Task.Run ile aynı dosyaya eşzamanlı yazabiliyordu —
+        // bu, sıralaması garanti olmayan ve teorik olarak yarım yazılmış
+        // dosya riski taşıyan bir race condition'dı. Burada her sourceId
+        // için: (a) sadece en son snapshot saklanır, (b) kısa bir debounce
+        // süresi sonunda tek seferde yazılır, (c) aynı kaynağa eşzamanlı
+        // yazma engellenir.
+        // ─────────────────────────────────────────────────────────────
+        private static readonly Dictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
+        private static readonly Dictionary<string, (List<Channel> Snapshot, string Path)> _pendingChannelSaves = new();
+        private static readonly object _saveDebounceLock = new object();
+
         private void SaveChannelsForSource(string sourceId)
         {
             var snapshot = _allChannels.ToList();
             var path     = GetChannelsPath(sourceId);
-            Task.Run(() =>
+
+            CancellationTokenSource cts;
+            lock (_saveDebounceLock)
             {
-                try { File.WriteAllText(path, JsonSerializer.Serialize(snapshot)); } catch { }
-            });
+                if (_saveDebounceTokens.TryGetValue(sourceId, out var existing))
+                {
+                    try { existing.Cancel(); } catch { }
+                }
+
+                cts = new CancellationTokenSource();
+                _saveDebounceTokens[sourceId]   = cts;
+                _pendingChannelSaves[sourceId]  = (snapshot, path);
+            }
+
+            var token = cts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 400ms içinde gelen art arda kayıt isteklerini birleştir;
+                    // sadece en sonuncusu diske yazılır.
+                    await Task.Delay(400, token);
+                    WritePendingChannelSave(sourceId);
+                }
+                catch (TaskCanceledException) { /* yeni bir kayıt isteği geldi, bu işlem atlandı */ }
+                catch { }
+            }, token);
+        }
+
+        private static void WritePendingChannelSave(string sourceId)
+        {
+            (List<Channel> Snapshot, string Path)? entry = null;
+            lock (_saveDebounceLock)
+            {
+                if (_pendingChannelSaves.TryGetValue(sourceId, out var pending))
+                {
+                    entry = pending;
+                    _pendingChannelSaves.Remove(sourceId);
+                    _saveDebounceTokens.Remove(sourceId);
+                }
+            }
+            if (entry == null) return;
+
+            try { File.WriteAllText(entry.Value.Path, JsonSerializer.Serialize(entry.Value.Snapshot, JsonOptions)); }
+            catch (Exception ex) { LogError($"WritePendingChannelSave({sourceId})", ex); }
+        }
+
+        /// <summary>
+        /// Uygulama kapanırken bekleyen (debounce edilmiş, henüz diske
+        /// yazılmamış) tüm kanal kayıtlarını senkron olarak diske yazar.
+        /// MainWindow.OnClosed içinden çağrılır; aksi halde son
+        /// favori/gizle değişiklikleri kaybolabilir.
+        /// </summary>
+        internal static void FlushPendingChannelSaves()
+        {
+            List<string> sourceIds;
+            lock (_saveDebounceLock)
+                sourceIds = _pendingChannelSaves.Keys.ToList();
+
+            foreach (var id in sourceIds)
+            {
+                lock (_saveDebounceLock)
+                {
+                    if (_saveDebounceTokens.TryGetValue(id, out var cts))
+                    {
+                        try { cts.Cancel(); } catch { }
+                    }
+                }
+                WritePendingChannelSave(id);
+            }
         }
 
         private void LoadChannelsForSource(string sourceId)
@@ -79,7 +185,7 @@ namespace GlyphTV
                 string path = GetChannelsPath(sourceId);
                 if (File.Exists(path))
                 {
-                    var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path));
+                    var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null)
                     {
                         _allChannels = loaded;
@@ -94,10 +200,14 @@ namespace GlyphTV
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { LogError($"LoadChannelsForSource({sourceId})", ex); }
 
             _contentCache.Clear();
             _seriesCardCache.Clear();
+            // Önceki kaynaktan kalan sezon/bölüm seçim hafızası farklı bir
+            // kaynakta aynı isimli bir diziye (örn. "Breaking Bad") sızıp
+            // yanlış bölüm seçimine yol açabiliyordu — kaynak değişiminde temizle.
+            _seriesSelections.Clear();
 
             UpdateView();
         }
@@ -141,10 +251,39 @@ namespace GlyphTV
             await RefreshSourceInternal(source);
         }
 
+        // Aynı kaynağa eşzamanlı iki yenileme isteği (örn. çift tıklama veya
+        // otomatik yenileme ile manuel yenilemenin çakışması) birbirini
+        // ezebiliyordu — hangi isteğin önce/sonra tamamlandığı garanti
+        // olmadığından favori/gizli durumları kaybolabiliyordu. Bu küme,
+        // bir kaynak için yenileme sürerken yeni bir yenileme isteğini
+        // engeller.
+        private static readonly HashSet<string> _refreshingSourceIds = new();
+
         // ─────────────────────────────────────────────────────────────
         // Kaynağı yenile — favori/gizli durumları URL bazlı korur
         // ─────────────────────────────────────────────────────────────
         private async Task RefreshSourceInternal(TvSource source)
+        {
+            lock (_refreshingSourceIds)
+            {
+                if (!_refreshingSourceIds.Add(source.Id))
+                {
+                    ShowToast($"'{source.Name}' zaten yenileniyor, lütfen bekleyin...");
+                    return;
+                }
+            }
+
+            try
+            {
+                await RefreshSourceCore(source);
+            }
+            finally
+            {
+                lock (_refreshingSourceIds) _refreshingSourceIds.Remove(source.Id);
+            }
+        }
+
+        private async Task RefreshSourceCore(TvSource source)
         {
             ShowToast($"'{source.Name}' yenileniyor, lütfen bekleyin...");
 
@@ -162,7 +301,7 @@ namespace GlyphTV
                     string path = GetChannelsPath(source.Id);
                     if (File.Exists(path))
                     {
-                        var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path));
+                        var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
                         if (loaded != null)
                             foreach (var ch in loaded.Where(c => c.IsFavorite || c.IsHidden))
                                 oldStates[ch.Url] = (ch.IsFavorite, ch.IsHidden);
@@ -188,12 +327,33 @@ namespace GlyphTV
                 if (source.IsActive)
                 {
                     _allChannels = newChannels;
-                    SaveChannelsForSource(source.Id);
+
+                    // Yenileme sonrası kayıt: newChannels zaten hazır ve
+                    // değişmeyecek; ToList() snapshot maliyeti olmadan
+                    // direkt arka planda yazılır.
+                    var channelsToSave = newChannels;
+                    var savePath       = GetChannelsPath(source.Id);
+                    _ = Task.Run(() =>
+                    {
+                        try { File.WriteAllText(savePath, JsonSerializer.Serialize(channelsToSave, JsonOptions)); }
+                        catch (Exception ex) { LogError("RefreshSourceCore.Save", ex); }
+                    });
+
+                    // Yenilenen kanallar artık farklı Channel referansları
+                    // içeriyor; önceden gezilip önbelleğe alınmış kategori/dizi
+                    // listeleri eski (artık _allChannels'ta bulunmayan)
+                    // referanslara işaret edebilir. Temizlenmezse kullanıcı
+                    // yenileme sonrası daha önce gezdiği bir kategoriye
+                    // dönünce bayat içerik görür.
+                    _contentCache.Clear();
+                    _seriesCardCache.Clear();
+                    _seriesSelections.Clear();
+
                     UpdateView();
                 }
                 else
                 {
-                    try { File.WriteAllText(GetChannelsPath(source.Id), JsonSerializer.Serialize(newChannels)); } catch { }
+                    try { File.WriteAllText(GetChannelsPath(source.Id), JsonSerializer.Serialize(newChannels, JsonOptions)); } catch { }
                 }
 
                 ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori korundu).");
@@ -212,24 +372,37 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private async Task<List<Channel>> FetchChannelsForSource(TvSource source)
         {
-            return source.Type switch
+            switch (source.Type)
             {
-                "M3U"  => ParseM3u(File.Exists(source.PathOrUrl)
-                              ? await File.ReadAllTextAsync(source.PathOrUrl)
-                              : throw new FileNotFoundException("Kaynak dosyası mevcut değil.")),
-                "Link" => ParseM3u(await DownloadM3uContent(source.PathOrUrl)),
-
-                // Xtream: get.php → tek HTTP isteği, tüm içerik (canlı + VOD + dizi)
-                // Kaynak ekleme sırasında zaten ParseXtreamApi çalışmıştır;
-                // yenileme işlevi hızlı M3U yolunu kullanır.
-                "Xtream" => ParseM3u(await DownloadM3uContent(
-                                $"{source.PathOrUrl.TrimEnd('/')}/get.php" +
-                                $"?username={Uri.EscapeDataString(source.Username)}" +
-                                $"&password={Uri.EscapeDataString(source.Password)}" +
-                                $"&type=m3u_plus&output=ts")),
-
-                _ => throw new InvalidOperationException("Bilinmeyen kaynak türü.")
-            };
+                case "M3U":
+                {
+                    string content = File.Exists(source.PathOrUrl)
+                        ? await File.ReadAllTextAsync(source.PathOrUrl)
+                        : throw new FileNotFoundException("Kaynak dosyası mevcut değil.");
+                    // Büyük M3U dosyalarında parse işlemi UI thread'ini
+                    // kilitlemesin diye arka plana alınıyor.
+                    return await Task.Run(() => ParseM3u(content));
+                }
+                case "Link":
+                {
+                    string content = await DownloadM3uContent(source.PathOrUrl);
+                    return await Task.Run(() => ParseM3u(content));
+                }
+                case "Xtream":
+                {
+                    // Xtream: get.php → tek HTTP isteği, tüm içerik (canlı + VOD + dizi)
+                    // Kaynak ekleme sırasında zaten ParseXtreamApi çalışmıştır;
+                    // yenileme işlevi hızlı M3U yolunu kullanır.
+                    string content = await DownloadM3uContent(
+                        $"{source.PathOrUrl.TrimEnd('/')}/get.php" +
+                        $"?username={Uri.EscapeDataString(source.Username)}" +
+                        $"&password={Uri.EscapeDataString(source.Password)}" +
+                        $"&type=m3u_plus&output=ts");
+                    return await Task.Run(() => ParseM3u(content));
+                }
+                default:
+                    throw new InvalidOperationException("Bilinmeyen kaynak türü.");
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -319,7 +492,8 @@ namespace GlyphTV
 
                 var semaphore = new SemaphoreSlim(5);
                 // Xtream client'ı paralel requestlere hazır, ayrı HttpClient kullanmıyoruz
-                var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                // using: tasks içinde bir istisna oluşsa bile epClient kesin dispose edilir.
+                using var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
                 epClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
 
                 var tasks = seriesList.Select(async series =>
@@ -396,7 +570,6 @@ namespace GlyphTV
                 }).ToList();
 
                 await Task.WhenAll(tasks);
-                epClient.Dispose();
             }
             catch { /* Dizi listesi alınamadı – devam et */ }
 
@@ -562,7 +735,7 @@ namespace GlyphTV
                     if (string.IsNullOrEmpty(path))  { ShowToast("Lütfen bir M3U dosyası seçin."); return; }
                     if (!File.Exists(path))           { ShowToast("Seçilen dosya bulunamadı.");     return; }
                     newSource.PathOrUrl = path;
-                    ParseAndLoadM3u(await File.ReadAllTextAsync(path), newSource);
+                    await ParseAndLoadM3uAsync(await File.ReadAllTextAsync(path), newSource);
                 }
                 else if (_selectedSourceType == "Link")
                 {
@@ -572,7 +745,7 @@ namespace GlyphTV
                         !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                         url = "http://" + url;
                     newSource.PathOrUrl = url;
-                    ParseAndLoadM3u(await DownloadM3uContent(url), newSource);
+                    await ParseAndLoadM3uAsync(await DownloadM3uContent(url), newSource);
                 }
                 else if (_selectedSourceType == "Xtream")
                 {
@@ -608,23 +781,18 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private async Task<string> DownloadM3uContent(string url)
         {
-            using var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-                AllowAutoRedirect    = true,
-                MaxAutomaticRedirections = 10
-            };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(90) };
-            client.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
-            return await client.GetStringAsync(url);
+            EnsureDownloadHttpClient();
+            return await _downloadHttpClient!.GetStringAsync(url);
         }
 
         // ─────────────────────────────────────────────────────────────
         // M3U parse → Channel listesi
         // ─────────────────────────────────────────────────────────────
-        private void ParseAndLoadM3u(string content, TvSource newSource)
+        private async Task ParseAndLoadM3uAsync(string content, TvSource newSource)
         {
-            _allChannels = ParseM3u(content);
+            // Büyük M3U dosyalarında parse işlemi UI thread'ini kilitlemesin
+            // diye arka plana alınıyor.
+            _allChannels = await Task.Run(() => ParseM3u(content));
             FinishAddingSource(newSource);
         }
 
@@ -639,13 +807,13 @@ namespace GlyphTV
             {
                 if (line.StartsWith("#EXTINF:"))
                 {
-                    var groupMatch = Regex.Match(line, @"group-title=""([^""]+)""");
+                    var groupMatch = _rxGroupTitle.Match(line);
                     currentGroup = groupMatch.Success ? groupMatch.Groups[1].Value : "Diğer";
 
-                    var logoMatch = Regex.Match(line, @"tvg-logo=""([^""]*)""");
+                    var logoMatch = _rxTvgLogo.Match(line);
                     currentLogo  = logoMatch.Success ? logoMatch.Groups[1].Value : "";
 
-                    var xuiMatch  = Regex.Match(line, @"xui-id=""([^""]+)""");
+                    var xuiMatch  = _rxXuiId.Match(line);
                     currentXuiId = xuiMatch.Success ? xuiMatch.Groups[1].Value : "";
 
                     int ci = line.LastIndexOf(',');
@@ -730,12 +898,12 @@ namespace GlyphTV
             // VOD — "4k" tek başına kaldıysa (Canlı anahtar kelimesi yoktu) film grubuna alır
             if (lowerGroup.Contains("movie")  || lowerGroup.Contains("film")   ||
                 lowerGroup.Contains("cinema") || lowerGroup.Contains("sinema") ||
-                Regex.IsMatch(lowerGroup, @"\bvod\b") ||
-                Regex.IsMatch(lowerGroup, @"\b4k\b"))
+                _rxVodInGroup.IsMatch(lowerGroup) ||
+                _rx4kInGroup.IsMatch(lowerGroup))
                 return "VOD";
 
             // ── 3. Kanal adı — grup bilgisi yetersizse yardımcı kaynak
-            if (Regex.IsMatch(channelName, @"\bS\d{1,2}\s*[.\-_]?\s*E\d{1,3}\b", RegexOptions.IgnoreCase))
+            if (_rxSeasonEp.IsMatch(channelName))
                 return "Dizi";
 
             // ── 4. URL uzantısı ───────────────────────────────────────
@@ -752,12 +920,11 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private (string showName, string season, int episode) ParseShowInfo(string channelName)
         {
-            var match = Regex.Match(channelName,
-                @"^(.+?)[\s\._\-]+S(\d{1,3})[\s\._\-]*E(\d{1,3})", RegexOptions.IgnoreCase);
+            var match = _rxShowInfo.Match(channelName);
             if (match.Success)
             {
                 string showName = match.Groups[1].Value.Trim();
-                showName = Regex.Replace(showName, @"[:\-_\.]+$", "").Trim();
+                showName = _rxShowNameEnd.Replace(showName, "").Trim();
                 if (string.IsNullOrEmpty(showName)) showName = channelName;
 
                 string season = "S" + match.Groups[2].Value.PadLeft(2, '0');

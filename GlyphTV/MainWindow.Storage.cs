@@ -11,7 +11,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Security;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -24,14 +26,26 @@ namespace GlyphTV
         // ─── Cache boyut sabitleri ────────────────────────────────────
         private const int MAX_LOGO_CACHE   = 300;
         private const int MAX_POSTER_CACHE = 150;
+        private const int MAX_TMDB_CACHE   = 200;
+
+        // ─── Paylaşımlı JsonSerializerOptions ────────────────────────
+        // Her Serialize/Deserialize çağrısında varsayılan options nesnesi
+        // oluşturulur; statik paylaşımlı instance bu allocationı önler.
+        internal static readonly JsonSerializerOptions JsonOptions =
+            new JsonSerializerOptions { WriteIndented = false };
 
         // ─── Eşzamanlılık kilit nesneleri ─────────────────────────────
         private static readonly object _logoCacheLock   = new object();
         private static readonly object _posterCacheLock = new object();
 
         // Logo cache'in ekleme sırasını takip etmek için (FIFO/LRU)
-        private static readonly List<string> _logoCacheOrder   = new List<string>();
-        private static readonly List<string> _posterCacheOrder = new List<string>();
+        // List<string>.RemoveAt(0) → O(n): listedeki tüm öğeler kaydırılır.
+        // Queue<string>.Dequeue()  → O(1): sadece baş işaretçi ilerler.
+        // Büyük cache'lerde (MAX_LOGO_CACHE=300, MAX_POSTER_CACHE=150)
+        // eviction döngüsü ciddi biçimde hızlanır.
+        private static readonly Queue<string> _logoCacheOrder   = new Queue<string>();
+        private static readonly Queue<string> _posterCacheOrder = new Queue<string>();
+        private static readonly Queue<string> _tmdbCacheOrder   = new Queue<string>();
 
         // ─────────────────────────────────────────────────────────────
         // Logo cache – boyut korumalı ekleme (thread‑safe)
@@ -40,8 +54,16 @@ namespace GlyphTV
         {
             lock (_logoCacheLock)
             {
-                if (_logoCache.ContainsKey(key))
+                if (_logoCache.TryGetValue(key, out var existing))
                 {
+                    // Aynı LogoUrl için eşzamanlı iki indirme tamamlanıp ikisi de
+                    // SetLogoCache çağırabilir (çok kanalın aynı logoyu paylaştığı
+                    // playlist'lerde yaygın). Üzerine yazmadan önce eski bitmap'i
+                    // dispose et, aksi halde referanssız kalan native handle sızar.
+                    if (existing != null && !ReferenceEquals(existing, bitmap))
+                    {
+                        try { existing.Dispose(); } catch { }
+                    }
                     _logoCache[key] = bitmap;
                     return;
                 }
@@ -50,16 +72,12 @@ namespace GlyphTV
                 // bitmap'i dispose etme (hâlâ kullanılıyor olabilir!)
                 while (_logoCacheOrder.Count >= MAX_LOGO_CACHE && _logoCacheOrder.Count > 0)
                 {
-                    string oldest = _logoCacheOrder[0];
-                    _logoCacheOrder.RemoveAt(0);
-                    if (_logoCache.TryGetValue(oldest, out _))
-                    {
-                        _logoCache.Remove(oldest);
-                    }
+                    string oldest = _logoCacheOrder.Dequeue(); // O(1)
+                    _logoCache.Remove(oldest);
                 }
 
                 _logoCache[key] = bitmap;
-                _logoCacheOrder.Add(key);
+                _logoCacheOrder.Enqueue(key);
             }
         }
 
@@ -78,60 +96,123 @@ namespace GlyphTV
 
                 while (_posterCacheOrder.Count >= MAX_POSTER_CACHE && _posterCacheOrder.Count > 0)
                 {
-                    string oldest = _posterCacheOrder[0];
-                    _posterCacheOrder.RemoveAt(0);
-                    if (_tmdbPosterCache.TryGetValue(oldest, out _))
-                    {
-                        _tmdbPosterCache.Remove(oldest);
-                    }
+                    string oldest = _posterCacheOrder.Dequeue(); // O(1)
+                    _tmdbPosterCache.Remove(oldest);
                 }
 
                 _tmdbPosterCache[key] = bitmap;
-                _posterCacheOrder.Add(key);
+                _posterCacheOrder.Enqueue(key);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // TMDb detay (JSON) cache – boyut korumalı ekleme (thread‑safe)
+        //
+        // Logo/poster cache'lerinin aksine bu cache hiçbir boyut sınırı
+        // olmadan büyüyordu — uzun bir oturumda kullanıcı yüzlerce farklı
+        // film/dizi detayı açtığında (her açılış için genres/cast/crew/
+        // overview gibi alanlar içeren ayrıştırılmış JSON belgesi) bellek
+        // sürekli artar, uygulama yeniden başlatılana kadar serbest
+        // bırakılmazdı. Aynı LRU-benzeri tahliye deseni burada da uygulanır.
+        // ─────────────────────────────────────────────────────────────
+        private static void SetTmdbCache(string key, JsonElement? value)
+        {
+            lock (_posterCacheLock) // _tmdbCache de aynı kilit altında yönetilir
+            {
+                if (_tmdbCache.ContainsKey(key))
+                {
+                    _tmdbCache[key] = value;
+                    return;
+                }
+
+                while (_tmdbCacheOrder.Count >= MAX_TMDB_CACHE && _tmdbCacheOrder.Count > 0)
+                {
+                    string oldest = _tmdbCacheOrder.Dequeue(); // O(1)
+                    _tmdbCache.Remove(oldest);
+                }
+
+                _tmdbCache[key] = value;
+                _tmdbCacheOrder.Enqueue(key);
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // Dosya yolları
         // ─────────────────────────────────────────────────────────────
-        private string AppDataDir()
+
+        // Uygulama veri dizini — ilk erişimde oluşturulur, sonraki
+        // çağrılarda Directory.Exists maliyeti olmadan döner.
+        private static readonly string _appDataDir = InitAppDataDir();
+        private static string InitAppDataDir()
         {
-            string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GlyphTV");
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "GlyphTV");
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             return dir;
         }
 
-        private string GetSourcesPath()     => Path.Combine(AppDataDir(), "sources.json");
-        private string GetSettingsPath()    => Path.Combine(AppDataDir(), "settings.json");
-        private string GetHistoryPath()     => Path.Combine(AppDataDir(), "history.json");
-        private string GetChannelsPath(string sourceId) => Path.Combine(AppDataDir(), $"channels_{sourceId}.json");
+        private string AppDataDir() => _appDataDir;
 
-        private string GetTmdbPosterDir()
+        private static readonly string _sourcesPath  = Path.Combine(_appDataDir, "sources.json");
+        private static readonly string _settingsPath = Path.Combine(_appDataDir, "settings.json");
+        private static readonly string _historyPath  = Path.Combine(_appDataDir, "history.json");
+
+        private string GetSourcesPath()  => _sourcesPath;
+        private string GetSettingsPath() => _settingsPath;
+        private string GetHistoryPath()  => _historyPath;
+        private string GetChannelsPath(string sourceId) => Path.Combine(_appDataDir, $"channels_{sourceId}.json");
+
+        private static readonly string _tmdbPosterDir = InitTmdbPosterDir();
+        private static string InitTmdbPosterDir()
         {
-            string dir = Path.Combine(AppDataDir(), "tmdb_posters");
+            string dir = Path.Combine(_appDataDir, "tmdb_posters");
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             return dir;
         }
+
+        private static readonly string _logoCacheDir = InitLogoCacheDir();
+        private static string InitLogoCacheDir()
+        {
+            string dir = Path.Combine(_appDataDir, "logos");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private string GetTmdbPosterDir() => _tmdbPosterDir;
 
         private string GetPosterDiskPath(string name) =>
-            Path.Combine(GetTmdbPosterDir(), GetUrlHash(name) + ".jpg");
+            Path.Combine(_tmdbPosterDir, GetUrlHash(name) + ".jpg");
 
-        private string GetLogoCacheDir()
-        {
-            string dir = Path.Combine(AppDataDir(), "logos");
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            return dir;
-        }
+        private string GetLogoCacheDir() => _logoCacheDir;
 
         // ─────────────────────────────────────────────────────────────
         // MD5 hash
         // ─────────────────────────────────────────────────────────────
-        private string GetUrlHash(string input)
+        private static string GetUrlHash(string input)
         {
-            using var md5 = MD5.Create();
-            var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-            return Convert.ToHexString(hash).ToLower();
+            // MD5.HashData: her çağrıda new MD5() oluşturmak yerine
+            // tek statik çağrı — .NET 5+ destekli, allocation yok.
+            // ToLowerInvariant: kültür-bağımsız, ToLower()'dan daha güvenli.
+            var hash = MD5.HashData(Encoding.UTF8.GetBytes(input));
+            return Convert.ToHexString(hash).ToLowerInvariant();
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // Sunucu sertifika doğrulaması (IPTV / TMDb)
+        //
+        // NOT: Çoğu IPTV sağlayıcısı self-signed veya hatalı zincirli
+        // sertifika kullanır; bu yüzden sertifika hatalarını tolere
+        // ediyoruz (önceki davranışla aynı). Bu metodu tek bir yere
+        // toplamanın amacı: ileride doğrulamayı sıkılaştırmak istenirse
+        // (örn. sadece zincir hatalarını tolere edip hostname uyuşmazlığını
+        // reddetmek gibi) tek bir noktadan değiştirilebilmesidir.
+        // ─────────────────────────────────────────────────────────────
+        private static bool AcceptServerCertificate(
+            HttpRequestMessage request,
+            X509Certificate2? certificate,
+            X509Chain? chain,
+            SslPolicyErrors sslErrors) => true;
 
         // ─────────────────────────────────────────────────────────────
         // HTTP istemcileri
@@ -139,17 +220,37 @@ namespace GlyphTV
         private void EnsureLogoHttpClient()
         {
             if (_logoHttpClient != null) return;
-            var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
+            var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = AcceptServerCertificate };
             _logoHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
             _logoHttpClient.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
         }
 
+        // TMDb resmi, geçerli sertifikalı bir servistir. IPTV kaynaklarının
+        // (genelde self-signed/hatalı zincirli sertifika kullanan) aksine
+        // burada sertifika doğrulamasını gevşetmenin hiçbir faydası yok,
+        // sadece gereksiz bir MITM yüzeyi açar — bu yüzden varsayılan
+        // (standart) doğrulama davranışı kullanılır.
         private static void EnsureTmdbHttpClient()
         {
             if (_tmdbHttpClient != null) return;
-            var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
-            _tmdbHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+            _tmdbHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
             _tmdbHttpClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.2.1");
+        }
+
+        // M3U/Xtream playlist indirme istemcisi — kaynak ekleme/yenileme
+        // sırasında tekrar tekrar yeni HttpClient/handler oluşturmak yerine
+        // tek seferlik paylaşılan istemci kullanılır.
+        private static void EnsureDownloadHttpClient()
+        {
+            if (_downloadHttpClient != null) return;
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = AcceptServerCertificate,
+                AllowAutoRedirect        = true,
+                MaxAutomaticRedirections = 10
+            };
+            _downloadHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(90) };
+            _downloadHttpClient.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -162,16 +263,17 @@ namespace GlyphTV
                 string path = GetSettingsPath();
                 if (File.Exists(path))
                 {
-                    var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path));
+                    var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null) _appSettings = loaded;
                 }
             }
-            catch { }
+            catch (Exception ex) { LogError("LoadAppSettings", ex); }
         }
 
         private void SaveAppSettings()
         {
-            try { File.WriteAllText(GetSettingsPath(), JsonSerializer.Serialize(_appSettings)); } catch { }
+            try { File.WriteAllText(GetSettingsPath(), JsonSerializer.Serialize(_appSettings, JsonOptions)); }
+            catch (Exception ex) { LogError("SaveAppSettings", ex); }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -184,17 +286,18 @@ namespace GlyphTV
                 string path = GetHistoryPath();
                 if (File.Exists(path))
                 {
-                    var loaded = JsonSerializer.Deserialize<List<WatchHistory>>(File.ReadAllText(path));
+                    var loaded = JsonSerializer.Deserialize<List<WatchHistory>>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null) _watchHistory = loaded;
                 }
             }
-            catch { }
+            catch (Exception ex) { LogError("LoadWatchHistory", ex); }
             _watchHistoryByUrlCache = null;
         }
 
         private void SaveWatchHistory()
         {
-            try { File.WriteAllText(GetHistoryPath(), JsonSerializer.Serialize(_watchHistory)); } catch { }
+            try { File.WriteAllText(GetHistoryPath(), JsonSerializer.Serialize(_watchHistory, JsonOptions)); }
+            catch (Exception ex) { LogError("SaveWatchHistory", ex); }
         }
 
         private void UpsertWatchHistory(Channel channel, long position, long duration)
@@ -263,7 +366,9 @@ namespace GlyphTV
             EnsureLogoHttpClient();
             string cacheDir = GetLogoCacheDir();
 
-            var semaphore = new SemaphoreSlim(6);
+            var semaphore = new SemaphoreSlim(6, 6);
+            try
+            {
             var tasks = list.Select(async ch =>
             {
                 await semaphore.WaitAsync();
@@ -278,7 +383,6 @@ namespace GlyphTV
                     if (cached != null)
                     {
                         await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = cached);
-                        await Task.Delay(1); // UI'a nefes aldır
                         return;
                     }
 
@@ -311,16 +415,15 @@ namespace GlyphTV
                     SetLogoCache(ch.LogoUrl, bitmap);
 
                     if (bitmap != null)
-                    {
                         await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bitmap);
-                        await Task.Delay(1); // UI'a nefes aldır
-                    }
                 }
                 catch { }
                 finally { semaphore.Release(); }
             }).ToList();
 
             await Task.WhenAll(tasks);
+            }
+            finally { semaphore.Dispose(); }
         }
     }
 }
