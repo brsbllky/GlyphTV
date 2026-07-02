@@ -8,7 +8,30 @@ namespace GlyphTV
     public class Channel : INotifyPropertyChanged
     {
         public string Name { get; set; } = "";
+
+        // ─────────────────────────────────────────────────────────────
+        // GÜVENLİK DÜZELTMESİ: Önceden [JsonIgnore(WhenWritingDefault)]
+        // kullanılıyordu; bu koşul yalnızca değer null ise atlama yapar.
+        // Url hiçbir zaman null olmadığından (her zaman "" veya gerçek bir
+        // stream adresi) bu koşul asla tetiklenmiyor, yani Url düz metin
+        // olarak UrlEncrypted'ın YANINDA channels_*.json'a yazılmaya devam
+        // ediyordu. Şimdi koşulsuz [JsonIgnore] kullanılıyor; Url hiçbir
+        // durumda JSON'a yazılmaz/okunmaz. Runtime'da her yerde ch.Url
+        // kullanılmaya devam eder; diske yazılırken ProtectString ile
+        // UrlEncrypted'a, okunurken UnprotectString ile geri Url'ye aktarılır.
+        // LegacyUrl ise sadece şifreleme-öncesi eski dosyalardan düz metin
+        // URL'yi okuyabilmek için var; okunur okunmaz null'a çekilir ve
+        // bir daha asla yazılmaz.
+        // ─────────────────────────────────────────────────────────────
+        [JsonIgnore]
         public string Url { get; set; } = "";
+
+        [JsonPropertyName("Url")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public string? LegacyUrl { get; set; }
+
+        public string UrlEncrypted { get; set; } = "";
+
         public string Group { get; set; } = "Diğer";
         public string Type { get; set; } = "Canlı";
 
