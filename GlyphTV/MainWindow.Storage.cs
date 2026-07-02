@@ -54,16 +54,19 @@ namespace GlyphTV
         {
             lock (_logoCacheLock)
             {
-                if (_logoCache.TryGetValue(key, out var existing))
+                if (_logoCache.ContainsKey(key))
                 {
-                    // Aynı LogoUrl için eşzamanlı iki indirme tamamlanıp ikisi de
-                    // SetLogoCache çağırabilir (çok kanalın aynı logoyu paylaştığı
-                    // playlist'lerde yaygın). Üzerine yazmadan önce eski bitmap'i
-                    // dispose et, aksi halde referanssız kalan native handle sızar.
-                    if (existing != null && !ReferenceEquals(existing, bitmap))
-                    {
-                        try { existing.Dispose(); } catch { }
-                    }
+                    // DÜZELTME: Burada eski bitmap'i artık Dispose ETMİYORUZ.
+                    // Aynı LogoUrl için eşzamanlı yükleme istekleri artık
+                    // GetOrLoadLogoBitmap/_inFlightLogoLoads ile tekilleştiriliyor,
+                    // bu yüzden normal şartlarda buraya iki farklı bitmap ile
+                    // girilmez. Yine de - eviction yolundaki ("hâlâ kullanılıyor
+                    // olabilir") aynı prensiple - burada dispose etmemek
+                    // güvenlidir: eski bitmap hâlâ bir Channel.LogoBitmap'e atanmış
+                    // ve ekranda render ediliyor olabilir; onu burada Dispose etmek
+                    // Image kontrolünün bir sonraki layout/render turunda
+                    // NullReferenceException (Bitmap.get_Size) ile çökmesine yol
+                    // açar — crash.log'daki hata tam olarak buydu.
                     _logoCache[key] = bitmap;
                     return;
                 }
@@ -79,6 +82,83 @@ namespace GlyphTV
                 _logoCache[key] = bitmap;
                 _logoCacheOrder.Enqueue(key);
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Aynı LogoUrl için eşzamanlı yükleme istekleri tekilleştirilir.
+        //
+        // DÜZELTME (crash fix): Onlarca kanal aynı logoyu paylaştığında
+        // (yaygın durum), önceden her biri bağımsız olarak indirip ayrı
+        // Bitmap örnekleri oluşturuyordu. İlk tamamlanan SetLogoCache
+        // çağırıp bitmap'ini cache'e koyuyor ve ekranda gösteriliyordu;
+        // ikinci tamamlanan da SetLogoCache çağırınca (eski kodda) hâlâ
+        // ekranda gösterilmekte olan ilk bitmap'i Dispose ediyordu — bir
+        // sonraki layout/render turunda Image.MeasureOverride dispose
+        // edilmiş bitmap'in Size'ına erişmeye çalışıp NullReferenceException
+        // fırlatıyordu (crash.log). Burada ilk isteyen indirmeyi başlatır,
+        // aynı URL için gelen diğer tüm istekler aynı Task'i bekler — böylece
+        // aynı logo için ikinci bir bitmap örneği asla oluşmaz.
+        // ─────────────────────────────────────────────────────────────
+        private static readonly Dictionary<string, Task<Bitmap?>> _inFlightLogoLoads = new();
+        private static readonly object _inFlightLogoLoadsLock = new object();
+
+        private async Task<Bitmap?> GetOrLoadLogoBitmap(string logoUrl, string cacheDir)
+        {
+            Task<Bitmap?> loadTask;
+            bool isOwner;
+            lock (_inFlightLogoLoadsLock)
+            {
+                if (_inFlightLogoLoads.TryGetValue(logoUrl, out var existingTask))
+                {
+                    loadTask = existingTask;
+                    isOwner = false;
+                }
+                else
+                {
+                    loadTask = LoadLogoBitmapCore(logoUrl, cacheDir);
+                    _inFlightLogoLoads[logoUrl] = loadTask;
+                    isOwner = true;
+                }
+            }
+
+            try
+            {
+                var bitmap = await loadTask;
+                if (isOwner) SetLogoCache(logoUrl, bitmap);
+                return bitmap;
+            }
+            finally
+            {
+                if (isOwner)
+                {
+                    lock (_inFlightLogoLoadsLock) { _inFlightLogoLoads.Remove(logoUrl); }
+                }
+            }
+        }
+
+        private async Task<Bitmap?> LoadLogoBitmapCore(string logoUrl, string cacheDir)
+        {
+            string hash      = GetUrlHash(logoUrl);
+            string cachePath = Path.Combine(cacheDir, hash);
+
+            if (File.Exists(cachePath))
+            {
+                try
+                {
+                    await using var fs = File.OpenRead(cachePath);
+                    return Bitmap.DecodeToWidth(fs, 300);
+                }
+                catch { /* disk cache bozuksa aşağıda tekrar indirilecek */ }
+            }
+
+            try
+            {
+                var bytes = await _logoHttpClient!.GetByteArrayAsync(logoUrl);
+                await File.WriteAllBytesAsync(cachePath, bytes);
+                using var ms = new MemoryStream(bytes);
+                return Bitmap.DecodeToWidth(ms, 300);
+            }
+            catch { return null; }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -287,7 +367,34 @@ namespace GlyphTV
                 if (File.Exists(path))
                 {
                     var loaded = JsonSerializer.Deserialize<List<WatchHistory>>(File.ReadAllText(path), JsonOptions);
-                    if (loaded != null) _watchHistory = loaded;
+                    if (loaded != null)
+                    {
+                        bool needsMigration = false;
+                        foreach (var h in loaded)
+                        {
+                            if (!string.IsNullOrEmpty(h.UrlEncrypted))
+                            {
+                                // Yeni format — şifreli URL'yi çöz
+                                h.Url = UnprotectString(h.UrlEncrypted);
+                            }
+                            else if (!string.IsNullOrEmpty(h.LegacyUrl))
+                            {
+                                // Eski format — düz metin URL okundu, migration gerekli
+                                h.Url = h.LegacyUrl;
+                                needsMigration = true;
+                            }
+
+                            // Legacy alanı her durumda temizle ki bir daha
+                            // diske düz metin olarak yazılmasın.
+                            h.LegacyUrl = null;
+                        }
+
+                        _watchHistory = loaded;
+
+                        // Migration: eski düz metin geçmişi hemen şifreli
+                        // formatla üzerine yaz.
+                        if (needsMigration) SaveWatchHistory();
+                    }
                 }
             }
             catch (Exception ex) { LogError("LoadWatchHistory", ex); }
@@ -296,7 +403,16 @@ namespace GlyphTV
 
         private void SaveWatchHistory()
         {
-            try { File.WriteAllText(GetHistoryPath(), JsonSerializer.Serialize(_watchHistory, JsonOptions)); }
+            try
+            {
+                // Diske yazmadan önce URL'yi DPAPI ile şifrele; düz metin
+                // Url alanı [JsonIgnore] olduğu için zaten JSON'a yazılmaz,
+                // ama UrlEncrypted'ı burada güncel tutmak gerekir.
+                foreach (var h in _watchHistory)
+                    h.UrlEncrypted = ProtectString(h.Url);
+
+                File.WriteAllText(GetHistoryPath(), JsonSerializer.Serialize(_watchHistory, JsonOptions));
+            }
             catch (Exception ex) { LogError("SaveWatchHistory", ex); }
         }
 
@@ -386,33 +502,13 @@ namespace GlyphTV
                         return;
                     }
 
-                    string hash      = GetUrlHash(ch.LogoUrl);
-                    string cachePath = Path.Combine(cacheDir, hash);
-                    Bitmap? bitmap   = null;
-
-                    if (File.Exists(cachePath))
-                    {
-                        try
-                        {
-                            await using var fs = File.OpenRead(cachePath);
-                            bitmap = Bitmap.DecodeToWidth(fs, 300);
-                        }
-                        catch { bitmap = null; }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            var bytes = await _logoHttpClient!.GetByteArrayAsync(ch.LogoUrl);
-                            await File.WriteAllBytesAsync(cachePath, bytes);
-                            using var ms = new MemoryStream(bytes);
-                            bitmap = Bitmap.DecodeToWidth(ms, 300);
-                        }
-                        catch { bitmap = null; }
-                    }
-
-                    // Thread‑safe cache ekleme (dispose içermez)
-                    SetLogoCache(ch.LogoUrl, bitmap);
+                    // DÜZELTME (crash fix): Aynı LogoUrl'i paylaşan farklı
+                    // kanallar artık GetOrLoadLogoBitmap üzerinden tekilleştirilir
+                    // — indirme/decode sadece bir kez yapılır, tüm kanallar aynı
+                    // Bitmap örneğini paylaşır. Bu sayede aynı logo için ikinci
+                    // bir SetLogoCache çağrısı ekranda gösterilmekte olan bitmap'i
+                    // asla ezmez/dispose etmez.
+                    var bitmap = await GetOrLoadLogoBitmap(ch.LogoUrl, cacheDir);
 
                     if (bitmap != null)
                         await Dispatcher.UIThread.InvokeAsync(() => ch.LogoBitmap = bitmap);

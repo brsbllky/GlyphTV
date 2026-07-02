@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -55,7 +56,18 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void SaveSources()
         {
-            try { File.WriteAllText(GetSourcesPath(), JsonSerializer.Serialize(_sources, JsonOptions)); }
+            try
+            {
+                // Diske yazmadan önce hassas alanları DPAPI ile şifrele;
+                // düz metin alanlar WhenWritingDefault ile JSON'a yazılmaz.
+                foreach (var s in _sources)
+                {
+                    s.PathOrUrlEncrypted = ProtectString(s.PathOrUrl);
+                    s.UsernameEncrypted  = ProtectString(s.Username);
+                    s.PasswordEncrypted  = ProtectString(s.Password);
+                }
+                File.WriteAllText(GetSourcesPath(), JsonSerializer.Serialize(_sources, JsonOptions));
+            }
             catch (Exception ex) { LogError("SaveSources", ex); }
         }
 
@@ -69,8 +81,39 @@ namespace GlyphTV
                     var loaded = JsonSerializer.Deserialize<List<TvSource>>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null)
                     {
+                        bool needsMigration = false;
+                        foreach (var s in loaded)
+                        {
+                            if (!string.IsNullOrEmpty(s.PathOrUrlEncrypted))
+                            {
+                                // Yeni format — şifreli alanları çöz
+                                s.PathOrUrl = UnprotectString(s.PathOrUrlEncrypted);
+                                s.Username  = UnprotectString(s.UsernameEncrypted);
+                                s.Password  = UnprotectString(s.PasswordEncrypted);
+                            }
+                            else if (!string.IsNullOrEmpty(s.LegacyPathOrUrl) ||
+                                     !string.IsNullOrEmpty(s.LegacyPassword))
+                            {
+                                // Eski format — düz metin okundu, migration gerekli
+                                s.PathOrUrl = s.LegacyPathOrUrl ?? "";
+                                s.Username  = s.LegacyUsername  ?? "";
+                                s.Password  = s.LegacyPassword  ?? "";
+                                needsMigration = true;
+                            }
+
+                            // Legacy alanları her durumda temizle ki bir daha
+                            // diske düz metin olarak yazılmasınlar.
+                            s.LegacyPathOrUrl = null;
+                            s.LegacyUsername  = null;
+                            s.LegacyPassword  = null;
+                        }
+
                         _sources.Clear();
                         foreach (var s in loaded) _sources.Add(s);
+
+                        // Migration: eski düz metin dosyayı hemen şifreli
+                        // formatla üzerine yaz; kullanıcı fark etmez.
+                        if (needsMigration) SaveSources();
 
                         var active = _sources.FirstOrDefault(s => s.IsActive);
                         if (active != null) { LoadChannelsForSource(active.Id); return; }
@@ -80,6 +123,38 @@ namespace GlyphTV
             catch (Exception ex) { LogError("LoadSources", ex); }
 
             if (_sources.Count == 0) UpdateView();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DPAPI yardımcı metodları
+        //
+        // Windows DPAPI (ProtectedData), veriyi mevcut kullanıcı hesabına
+        // bağlı bir anahtarla şifreler. Aynı bilgisayar + aynı Windows
+        // kullanıcısı dışında çözülemez. sources.json ve channels_*.json
+        // dosyaları kopyalanıp başka bir ortamda açılsa bile içerik görünmez.
+        // ─────────────────────────────────────────────────────────────
+        private static string ProtectString(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) return "";
+            try
+            {
+                var bytes     = Encoding.UTF8.GetBytes(plainText);
+                var encrypted = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+                return Convert.ToBase64String(encrypted);
+            }
+            catch (Exception ex) { LogError("ProtectString", ex); return ""; }
+        }
+
+        private static string UnprotectString(string encryptedBase64)
+        {
+            if (string.IsNullOrEmpty(encryptedBase64)) return "";
+            try
+            {
+                var encrypted = Convert.FromBase64String(encryptedBase64);
+                var bytes     = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(bytes);
+            }
+            catch (Exception ex) { LogError("UnprotectString", ex); return ""; }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -148,7 +223,12 @@ namespace GlyphTV
             }
             if (entry == null) return;
 
-            try { File.WriteAllText(entry.Value.Path, JsonSerializer.Serialize(entry.Value.Snapshot, JsonOptions)); }
+            try
+            {
+                foreach (var ch in entry.Value.Snapshot)
+                    ch.UrlEncrypted = ProtectString(ch.Url);
+                File.WriteAllText(entry.Value.Path, JsonSerializer.Serialize(entry.Value.Snapshot, JsonOptions));
+            }
             catch (Exception ex) { LogError($"WritePendingChannelSave({sourceId})", ex); }
         }
 
@@ -188,7 +268,43 @@ namespace GlyphTV
                     var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
                     if (loaded != null)
                     {
+                        bool needsMigration = false;
+                        foreach (var ch in loaded)
+                        {
+                            if (!string.IsNullOrEmpty(ch.UrlEncrypted))
+                            {
+                                // Yeni format — şifreli URL'yi çöz
+                                ch.Url = UnprotectString(ch.UrlEncrypted);
+                            }
+                            else if (!string.IsNullOrEmpty(ch.LegacyUrl))
+                            {
+                                // Eski format — düz metin URL okundu
+                                ch.Url = ch.LegacyUrl;
+                                needsMigration = true;
+                            }
+
+                            // Legacy alanı her durumda temizle ki bir daha
+                            // diske düz metin olarak yazılmasın.
+                            ch.LegacyUrl = null;
+                        }
+
                         _allChannels = loaded;
+
+                        // Migration: eski düz metin kanalları hemen şifrele
+                        if (needsMigration)
+                        {
+                            var savePath = GetChannelsPath(sourceId);
+                            _ = Task.Run(() =>
+                            {
+                                try
+                                {
+                                    foreach (var ch in _allChannels)
+                                        ch.UrlEncrypted = ProtectString(ch.Url);
+                                    File.WriteAllText(savePath, JsonSerializer.Serialize(_allChannels, JsonOptions));
+                                }
+                                catch (Exception ex) { LogError("ChannelMigration", ex); }
+                            });
+                        }
 
                         foreach (var ch in _allChannels.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)))
                         {
@@ -303,8 +419,23 @@ namespace GlyphTV
                     {
                         var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
                         if (loaded != null)
+                        {
+                            // DÜZELTME: Url artık [JsonIgnore] olduğundan
+                            // deserialize sonrası boş gelir; favori/gizli
+                            // eşleştirmenin doğru çalışması için şifreli
+                            // (veya eski format'ta legacy) URL'den geri
+                            // çözülmesi gerekir.
+                            foreach (var ch in loaded)
+                            {
+                                ch.Url = !string.IsNullOrEmpty(ch.UrlEncrypted)
+                                    ? UnprotectString(ch.UrlEncrypted)
+                                    : (ch.LegacyUrl ?? "");
+                                ch.LegacyUrl = null;
+                            }
+
                             foreach (var ch in loaded.Where(c => c.IsFavorite || c.IsHidden))
                                 oldStates[ch.Url] = (ch.IsFavorite, ch.IsHidden);
+                        }
                     }
                 }
                 catch { }
@@ -335,7 +466,12 @@ namespace GlyphTV
                     var savePath       = GetChannelsPath(source.Id);
                     _ = Task.Run(() =>
                     {
-                        try { File.WriteAllText(savePath, JsonSerializer.Serialize(channelsToSave, JsonOptions)); }
+                        try
+                        {
+                            foreach (var ch in channelsToSave)
+                                ch.UrlEncrypted = ProtectString(ch.Url);
+                            File.WriteAllText(savePath, JsonSerializer.Serialize(channelsToSave, JsonOptions));
+                        }
                         catch (Exception ex) { LogError("RefreshSourceCore.Save", ex); }
                     });
 
@@ -353,7 +489,20 @@ namespace GlyphTV
                 }
                 else
                 {
-                    try { File.WriteAllText(GetChannelsPath(source.Id), JsonSerializer.Serialize(newChannels, JsonOptions)); } catch { }
+                    // DÜZELTME: Bu dal (aktif olmayan bir kaynağın arka planda
+                    // yenilenmesi) önceden UrlEncrypted hiç doldurulmadan
+                    // doğrudan yazıyordu — Url artık [JsonIgnore] olduğundan
+                    // bu, URL'lerin tamamen kaybolmasına yol açardı. Aktif
+                    // kaynak yolundaki (RefreshSourceCore.Save Task.Run bloğu)
+                    // ile aynı şekilde, yazmadan önce her kanalın URL'si
+                    // şifrelenir.
+                    try
+                    {
+                        foreach (var ch in newChannels)
+                            ch.UrlEncrypted = ProtectString(ch.Url);
+                        File.WriteAllText(GetChannelsPath(source.Id), JsonSerializer.Serialize(newChannels, JsonOptions));
+                    }
+                    catch { }
                 }
 
                 ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori korundu).");
@@ -406,8 +555,16 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Xtream Code – player_api.php entegrasyonu
-        // Canlı / VOD / Dizi içeriklerini ayrı ayrı çeker
+        // Xtream Code – player_api.php entegrasyonu (ARTIK KULLANILMIYOR)
+        // Canlı / VOD / Dizi içeriklerini ayrı ayrı çeker.
+        //
+        // NOT: Bu metot her dizi için ayrı bir get_series_info isteği attığı
+        // için (N+3 istek) binlerce dizisi olan kaynaklarda 5-10 dakikaya
+        // kadar süren yüklemelere yol açıyordu. Kaynak EKLEME akışı artık
+        // ConfirmAddSource_Click içinde bunun yerine FetchChannelsForSource
+        // (tek get.php isteği + ParseM3u — RefreshSourceCore'un kullandığı
+        // hızlı yol) kullanıyor. Bu metot referans/geri dönüş amacıyla
+        // dosyada bırakıldı, aktif olarak çağrılmıyor.
         // ─────────────────────────────────────────────────────────────
         private async Task<List<Channel>> ParseXtreamApi(TvSource source)
         {
@@ -764,8 +921,13 @@ namespace GlyphTV
                     newSource.Username  = user;
                     newSource.Password  = pass;
 
-                    // player_api.php ile tam içerik çekimi
-                    var channels = await ParseXtreamApi(newSource);
+                    // DÜZELTME: Eskiden ParseXtreamApi (her dizi için ayrı
+                    // get_series_info isteği, N+3 istek) kullanılıyordu —
+                    // binlerce dizisi olan kaynaklarda 5-10 dakikaya kadar
+                    // sürebiliyordu. RefreshSourceCore'un kullandığı hızlı
+                    // yol (tek get.php isteği + ParseM3u) burada da
+                    // kullanılıyor; ilk ekleme artık yenileme kadar hızlı.
+                    var channels = await FetchChannelsForSource(newSource);
                     _allChannels = channels;
                     FinishAddingSource(newSource);
                 }
