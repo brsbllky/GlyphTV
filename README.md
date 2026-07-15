@@ -21,7 +21,7 @@
 - 🎬 **VOD (Filmler)** — Devam etme, favori ve detay modalı
 - 🎞️ **Diziler** — Otomatik sezon/bölüm ayrıştırma, bölüm navigasyonu ve otomatik bölüm geçişi
 - 🔍 **Arama** — Tüm içeriklerde anlık arama
-- 🤍 **Favoriler** — Canlı TV, film ve diziler için ayrı favori listesi
+- ❤️ **Favoriler** — Canlı TV, film ve diziler için ayrı favori listesi
 - 🎨 **Tema** — Açık ve koyu tema desteği
 - 🎥 **TMDB Entegrasyonu** — Film ve dizi posterleri, detaylı bilgi kartları
 - ⏱️ **İzleme Geçmişi** — Kaldığın yerden devam etme
