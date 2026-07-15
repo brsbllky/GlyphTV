@@ -286,10 +286,10 @@ namespace GlyphTV
                             .ToList();
                         seriesCards.Add(BuildSeriesCard(sn, eps, historyByUrl));
                     }
-                    SeriesContentGrid.ItemsSource = seriesCards;
+                    ReplaceCollection(_displaySeriesCards, seriesCards);
                     SeriesContentGrid.IsVisible   = seriesCards.Count > 0;
                     _ = LoadTmdbPostersForCards(seriesCards);
-                    VodContentGrid.ItemsSource = nonSeriesResults;
+                    ReplaceCollection(_displayVodContents, nonSeriesResults);
                     VodContentGrid.IsVisible   = nonSeriesResults.Count > 0;
                     ContentItemsGrid.IsVisible = false;
                     _ = LoadLogosForSeriesCards(seriesCards, seriesResults);
@@ -299,7 +299,8 @@ namespace GlyphTV
                 else
                 {
                     SeriesContentGrid.IsVisible = false;
-                    VodContentGrid.ItemsSource  = nonSeriesResults;
+                    ReplaceCollection(_displaySeriesCards, new List<SeriesCard>());
+                    ReplaceCollection(_displayVodContents, nonSeriesResults);
                     _ = LoadLogosForChannelsAsync(nonSeriesResults);
                     _ = LoadTmdbPostersForChannels(nonSeriesVod);
                 }
@@ -357,7 +358,7 @@ namespace GlyphTV
                     var vodFirstBatch     = vodFavs.Take(_favoriVodLoadedCount).ToList();
 
                     FavoriVodSection.IsVisible = vodFavs.Count > 0;
-                    FavoriVodGrid.ItemsSource  = vodFirstBatch;
+                    ReplaceCollection(_displayFavoriVod, vodFirstBatch);
                     SafeRun(() => LoadLogosForChannelsAsync(vodFirstBatch));
                     SafeRun(() => LoadTmdbPostersForChannels(vodFirstBatch));
 
@@ -390,7 +391,7 @@ namespace GlyphTV
                     var seriesFirstBatch     = favSeriesCards.Take(_favoriSeriesLoadedCount).ToList();
 
                     FavoriSeriesSection.IsVisible = favSeriesCards.Count > 0;
-                    FavoriSeriesGrid.ItemsSource  = seriesFirstBatch;
+                    ReplaceCollection(_displayFavoriSeriesCards, seriesFirstBatch);
                     SafeRun(() => LoadTmdbPostersForCards(seriesFirstBatch));
 
                     return;
@@ -444,7 +445,7 @@ namespace GlyphTV
                     _loadedCount         = cachedList.Count;
 
                     if (isCanlı) ReplaceCollection(_displayContents, cachedList);
-                    else         VodContentGrid.ItemsSource = cachedList;
+                    else         ReplaceCollection(_displayVodContents, cachedList);
 
                     ContentScrollViewer.Offset = new Avalonia.Vector(0, 0);
 
@@ -483,7 +484,7 @@ namespace GlyphTV
                     _loadedCount   = firstBatch.Count;
 
                     if (isCanlı) ReplaceCollection(_displayContents, firstBatch);
-                    else         VodContentGrid.ItemsSource = firstBatch;
+                    else         ReplaceCollection(_displayVodContents, firstBatch);
 
                     _ = LoadLogosForChannelsAsync(firstBatch);
                     if (!isCanlı) _ = LoadTmdbPostersForChannels(firstBatch);
@@ -519,7 +520,7 @@ namespace GlyphTV
                     }
                     _allFilteredCards = cachedCards;
                     _loadedCount      = cachedCards.Count;
-                    SeriesContentGrid.ItemsSource = cachedCards;
+                    ReplaceCollection(_displaySeriesCards, cachedCards);
                     ContentScrollViewer.Offset = new Avalonia.Vector(0, 0);
 
                     var needsPoster = cachedCards.Where(c => c.LogoBitmap == null).ToList();
@@ -552,7 +553,7 @@ namespace GlyphTV
                     _loadedCount      = 0;
                     var firstBatch    = _allFilteredCards.Take(PAGE_SIZE).ToList();
                     _loadedCount      = firstBatch.Count;
-                    SeriesContentGrid.ItemsSource = firstBatch;
+                    ReplaceCollection(_displaySeriesCards, firstBatch);
                     _ = LoadTmdbPostersForCards(firstBatch);
 
                     if (_loadedCount >= _allFilteredCards.Count)
@@ -596,8 +597,9 @@ namespace GlyphTV
                 var nextBatch = _allFavoriVod.Skip(_favoriVodLoadedCount).Take(FAVORI_PAGE_SIZE).ToList();
                 _favoriVodLoadedCount += nextBatch.Count;
 
-                var current = (FavoriVodGrid.ItemsSource as List<Channel>) ?? new List<Channel>();
-                FavoriVodGrid.ItemsSource = current.Concat(nextBatch).ToList();
+                // KALICI DÜZELTME: liste yeniden atanmıyor, sadece yeni
+                // öğeler sabit koleksiyona ekleniyor (O(yeni sayfa) maliyet).
+                foreach (var item in nextBatch) _displayFavoriVod.Add(item);
 
                 _ = LoadLogosForChannelsAsync(nextBatch);
                 _ = LoadTmdbPostersForChannels(nextBatch);
@@ -621,8 +623,9 @@ namespace GlyphTV
                 var nextBatch = _allFavoriSeriesCards.Skip(_favoriSeriesLoadedCount).Take(FAVORI_PAGE_SIZE).ToList();
                 _favoriSeriesLoadedCount += nextBatch.Count;
 
-                var current = (FavoriSeriesGrid.ItemsSource as List<SeriesCard>) ?? new List<SeriesCard>();
-                FavoriSeriesGrid.ItemsSource = current.Concat(nextBatch).ToList();
+                // KALICI DÜZELTME: liste yeniden atanmıyor, sadece yeni
+                // öğeler sabit koleksiyona ekleniyor (O(yeni sayfa) maliyet).
+                foreach (var item in nextBatch) _displayFavoriSeriesCards.Add(item);
 
                 _ = LoadTmdbPostersForCards(nextBatch);
             }

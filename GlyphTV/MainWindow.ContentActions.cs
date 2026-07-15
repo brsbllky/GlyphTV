@@ -61,13 +61,12 @@ namespace GlyphTV
                 _allFavoriVod = vodFavsAll;
 
                 var stillFavoriteVodUrls = vodFavsAll.Select(c => c.Url).ToHashSet();
-                var currentVodCards = (FavoriVodGrid.ItemsSource as List<Channel>) ?? new List<Channel>();
-                var updatedVodCards = currentVodCards
+                var updatedVodCards = _displayFavoriVod
                     .Where(c => stillFavoriteVodUrls.Contains(c.Url))
                     .ToList();
 
                 _favoriVodLoadedCount = updatedVodCards.Count;
-                FavoriVodGrid.ItemsSource  = updatedVodCards;
+                ReplaceCollection(_displayFavoriVod, updatedVodCards);
                 FavoriVodSection.IsVisible = updatedVodCards.Count > 0;
 
                 // Diziler: favori bölüm içeren dizi kartları
@@ -83,9 +82,7 @@ namespace GlyphTV
                     .ToList();
 
                 // Mevcut kartları koru (LogoBitmap kaybolmasın)
-                var currentCards = (FavoriSeriesGrid.ItemsSource as List<SeriesCard>)
-                                   ?? new List<SeriesCard>();
-                var updatedCards = currentCards
+                var updatedCards = _displayFavoriSeriesCards
                     .Where(c => favShowNames.Contains(c.ShowName))
                     .ToList();
 
@@ -97,7 +94,7 @@ namespace GlyphTV
                     .ToList();
                 _favoriSeriesLoadedCount = updatedCards.Count;
 
-                FavoriSeriesGrid.ItemsSource  = updatedCards;
+                ReplaceCollection(_displayFavoriSeriesCards, updatedCards);
                 FavoriSeriesSection.IsVisible = updatedCards.Count > 0;
             }
             catch { }

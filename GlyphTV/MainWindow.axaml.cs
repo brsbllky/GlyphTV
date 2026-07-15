@@ -134,6 +134,12 @@ namespace GlyphTV
         private MediaPlayer? _mediaPlayer;
         private bool _isVlcInitialized = false;
 
+        // KALICI DÜZELTME (donma): kaynak değişimi artık async; bu bayrak
+        // aynı kaynağa çift tıklama veya geçiş sırasında ikinci bir
+        // geçişin başlamasını (ve iki LoadChannelsForSourceAsync
+        // çağrısının birbirini ezmesini) engeller.
+        private bool _isSwitchingSource = false;
+
         private DispatcherTimer? _inactivityTimer;
         private bool _isUpdatingSliderFromCode = false;
         private bool _isLiveContent = true;
@@ -176,6 +182,28 @@ namespace GlyphTV
         private ObservableCollection<string> _displayCategories = new();
         private ObservableCollection<Channel> _displayContents = new();
 
+        // ─────────────────────────────────────────────────────────────
+        // KALICI DÜZELTME (scroll donması): VodContentGrid / SeriesContentGrid /
+        // FavoriVodGrid / FavoriSeriesGrid önceden her sayfalama adımında
+        // (LoadMoreItems, favori scroll handler'ları) ItemsSource'a TAMAMEN
+        // YENİ bir List<T> atanıyordu (current.Concat(nextBatch).ToList()).
+        // Avalonia, ItemsSource referansı değiştiğinde bunu "bambaşka bir
+        // koleksiyon" sayıp WrapPanel içindeki (virtualizasyonsuz) TÜM
+        // öğeleri yeniden ölçüp yerleştiriyordu — liste büyüdükçe (kullanıcı
+        // scroll ettikçe) her yeni sayfa yüklemesi giderek pahalılaşıyor ve
+        // kısa süreli "Yanıt Vermiyor" donmalarına yol açıyordu.
+        //
+        // Bu dört grid artık _displayContents/_displayCategories ile aynı
+        // desende SABİT birer ObservableCollection'a bağlanıyor; sayfalama
+        // artık sadece yeni öğeleri Add() ediyor (O(yeni sayfa) maliyet),
+        // kategori/favori değişiminde ise ReplaceCollection() ile yerinde
+        // güncelleniyor (Reset bildirimi yerine mümkün olduğunca Replace).
+        // ─────────────────────────────────────────────────────────────
+        private ObservableCollection<Channel> _displayVodContents = new();
+        private ObservableCollection<SeriesCard> _displaySeriesCards = new();
+        private ObservableCollection<Channel> _displayFavoriVod = new();
+        private ObservableCollection<SeriesCard> _displayFavoriSeriesCards = new();
+
         private Channel? _currentChannel;
         private bool _isDarkMode = false;
         private string _currentTab = "Canlı";
@@ -217,6 +245,13 @@ namespace GlyphTV
             CategoriesGrid.ItemsSource   = _displayCategories;
             ContentItemsGrid.ItemsSource = _displayContents;
             SourcesList.ItemsSource      = _sources;
+
+            // KALICI DÜZELTME: bu dört grid artık sabit koleksiyonlara bağlı;
+            // UpdateView/LoadMoreItems bir daha ItemsSource'a yeni liste atamaz.
+            VodContentGrid.ItemsSource    = _displayVodContents;
+            SeriesContentGrid.ItemsSource = _displaySeriesCards;
+            FavoriVodGrid.ItemsSource     = _displayFavoriVod;
+            FavoriSeriesGrid.ItemsSource  = _displayFavoriSeriesCards;
 
             // Özel scroll thumb: Offset değişmeden sadece Extent (içerik
             // yüksekliği) değiştiğinde ScrollChanged tetiklenmeyebilir
@@ -407,6 +442,7 @@ namespace GlyphTV
             try { _tmdbCache.Clear(); _tmdbCacheOrder.Clear(); } catch { }
             try { _contentCache.Clear(); }    catch { }
             try { _seriesCardCache.Clear(); } catch { }
+            try { _decryptedChannelsCache.Clear(); } catch { }
 
             TrimProcessMemory();
 

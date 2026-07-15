@@ -445,9 +445,9 @@ namespace GlyphTV
             if (previousChannel != null)
             {
                 previousChannel.HasResume = _watchHistory.Any(h => h.Url == previousChannel.Url && h.Position > 5000);
-                if (SeriesContentGrid.IsVisible && SeriesContentGrid.ItemsSource is List<SeriesCard> cards)
+                if (SeriesContentGrid.IsVisible)
                 {
-                    var card = cards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
+                    var card = _displaySeriesCards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
                     if (card != null) card.HasResume = previousChannel.HasResume;
                 }
             }
@@ -515,10 +515,9 @@ namespace GlyphTV
                     if (previousChannel != null)
                     {
                         previousChannel.HasResume = false;
-                        if (SeriesContentGrid.IsVisible &&
-                            SeriesContentGrid.ItemsSource is List<SeriesCard> cards)
+                        if (SeriesContentGrid.IsVisible)
                         {
-                            var card = cards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
+                            var card = _displaySeriesCards.FirstOrDefault(c => c.ShowName == previousChannel.ShowName);
                             if (card != null) card.HasResume = false;
                         }
                     }
@@ -1102,13 +1101,12 @@ namespace GlyphTV
                     var nextBatch = _allFilteredContents.Skip(_loadedCount).Take(PAGE_SIZE).ToList();
                     _loadedCount += nextBatch.Count;
 
+                    // KALICI DÜZELTME: liste yeniden atanmıyor, sadece yeni
+                    // öğeler sabit koleksiyona ekleniyor (O(yeni sayfa) maliyet).
                     if (_currentTab == "Canlı")
                         foreach (var item in nextBatch) _displayContents.Add(item);
                     else
-                    {
-                        var current = (VodContentGrid.ItemsSource as List<Channel>) ?? new List<Channel>();
-                        VodContentGrid.ItemsSource = current.Concat(nextBatch).ToList();
-                    }
+                        foreach (var item in nextBatch) _displayVodContents.Add(item);
 
                     _ = LoadLogosForChannelsAsync(nextBatch);
                     if (_currentTab != "Canlı") _ = LoadTmdbPostersForChannels(nextBatch);
@@ -1118,8 +1116,7 @@ namespace GlyphTV
                     var nextBatch = _allFilteredCards.Skip(_loadedCount).Take(PAGE_SIZE).ToList();
                     _loadedCount += nextBatch.Count;
 
-                    var current = (SeriesContentGrid.ItemsSource as List<SeriesCard>) ?? new List<SeriesCard>();
-                    SeriesContentGrid.ItemsSource = current.Concat(nextBatch).ToList();
+                    foreach (var item in nextBatch) _displaySeriesCards.Add(item);
 
                     _ = LoadTmdbPostersForCards(nextBatch);
                 }
@@ -1577,4 +1574,4 @@ namespace GlyphTV
             catch { return ""; }
         }
     }
-}
+}

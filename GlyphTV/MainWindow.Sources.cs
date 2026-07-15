@@ -116,7 +116,7 @@ namespace GlyphTV
                         if (needsMigration) SaveSources();
 
                         var active = _sources.FirstOrDefault(s => s.IsActive);
-                        if (active != null) { LoadChannelsForSource(active.Id); return; }
+                        if (active != null) { _ = LoadChannelsForSourceAsync(active.Id); return; }
                     }
                 }
             }
@@ -175,6 +175,27 @@ namespace GlyphTV
         private static readonly Dictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
         private static readonly Dictionary<string, (List<Channel> Snapshot, string Path)> _pendingChannelSaves = new();
         private static readonly object _saveDebounceLock = new object();
+
+        // ─────────────────────────────────────────────────────────────
+        // KALICI HIZ İYİLEŞTİRMESİ (isteğe bağlı, güvenlik ödünleşmesi var):
+        // Bir kaynak bu oturumda bir kez yüklenip URL'leri çözüldükten sonra,
+        // aynı kaynağa tekrar geçişte dosya okuma + JSON parse + DPAPI şifre
+        // çözme adımlarının TAMAMI atlanır — çözülmüş liste burada saklanır.
+        // Favori/gizle gibi değişiklikler aynı Channel nesne referanslarını
+        // mutasyona uğrattığı için (SaveChannelsForSource _allChannels'ı
+        // KOPYALAR ama Channel nesneleri paylaşılır) cache otomatik güncel
+        // kalır; ekstra senkronizasyon sadece kaynak YENİLENDİĞİNDE,
+        // SİLİNDİĞİNDE veya YENİ EKLENDİĞİNDE gerekir (bkz. ilgili metodlar).
+        //
+        // ÖDÜNLEŞME: Önceden sadece o an AKTİF olan kaynağın çözülmüş
+        // URL'leri bellekteydi. Artık bu oturumda ziyaret edilen TÜM
+        // kaynakların çözülmüş URL'leri aynı anda process belleğinde kalır
+        // (diske asla yazılmaz, sadece RAM). Kullanıcı bunu bilerek talep
+        // etti; kabul edilemez bulunursa bu sözlük ve aşağıdaki 3 senkron
+        // noktası kaldırılıp LoadChannelsForSourceAsync eski (her zaman
+        // diskten paralel-decrypt) haline döndürülebilir.
+        // ─────────────────────────────────────────────────────────────
+        private static readonly Dictionary<string, List<Channel>> _decryptedChannelsCache = new();
 
         private void SaveChannelsForSource(string sourceId)
         {
@@ -257,66 +278,124 @@ namespace GlyphTV
             }
         }
 
-        private void LoadChannelsForSource(string sourceId)
+        // ─────────────────────────────────────────────────────────────
+        // KALICI DÜZELTME (donma / "Yanıt Vermiyor"):
+        //
+        // Bu metod önceden tamamen SENKRON çalışıyordu ve UI thread'inde
+        // şunları yapıyordu: File.ReadAllText (disk I/O), JsonSerializer.
+        // Deserialize (büyük kaynaklarda binlerce kanal), ve — en pahalısı —
+        // HER KANAL İÇİN UnprotectString çağrısı, yani her kanal başına bir
+        // DPAPI (CryptUnprotectData) syscall'ı. Birkaç bin kanallı bir
+        // kaynakta bu toplam süre saniyeler mertebesine çıkabiliyor ve bu
+        // süre boyunca UI thread tamamen bloke olduğu için Windows pencereyi
+        // "Yanıt Vermiyor" olarak işaretliyordu.
+        //
+        // Artık dosya okuma + JSON parse + DPAPI şifre çözme + ParseShowInfo
+        // tamamı Task.Run içinde arka plan thread'inde yapılıyor; UI
+        // thread'i sadece hazır sonucu _allChannels'a atayıp UpdateView()
+        // çağırıyor (bunlar zaten ucuz, senkron kalabilir).
+        // ─────────────────────────────────────────────────────────────
+        private async Task LoadChannelsForSourceAsync(string sourceId)
         {
-            _allChannels.Clear();
-            try
+            // Bu oturumda daha önce yüklenmiş ve o zamandan beri yenilenmemiş/
+            // silinmemiş bir kaynağa dönüş: disk + parse + decrypt tamamen
+            // atlanır, geçiş anında gerçekleşir.
+            if (_decryptedChannelsCache.TryGetValue(sourceId, out var cachedChannels))
             {
-                string path = GetChannelsPath(sourceId);
-                if (File.Exists(path))
+                _allChannels = cachedChannels;
+                _contentCache.Clear();
+                _seriesCardCache.Clear();
+                _seriesSelections.Clear();
+                UpdateView();
+                return;
+            }
+
+            List<Channel> loaded = new();
+            string? migrationPath = null;
+
+            await Task.Run(() =>
+            {
+                try
                 {
-                    var loaded = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
-                    if (loaded != null)
+                    string path = GetChannelsPath(sourceId);
+                    if (!File.Exists(path)) return;
+
+                    var list = JsonSerializer.Deserialize<List<Channel>>(File.ReadAllText(path), JsonOptions);
+                    if (list == null) return;
+
+                    // ─────────────────────────────────────────────────
+                    // HIZ İYİLEŞTİRMESİ: Her kanal için UnprotectString
+                    // (DPAPI/CryptUnprotectData) çağrısı bağımsız bir
+                    // işlemdir — bir kanalın şifre çözümü diğerini
+                    // etkilemez. Önceden bu döngü tek thread'de sırayla
+                    // çalışıyordu; binlerce kanallı kaynaklarda bu, kaynak
+                    // değiştirmenin "eskisi kadar hızlı hissettirmemesinin"
+                    // asıl sebebiydi (artık UI'yı bloklamıyor ama toplam
+                    // süre aynıydı). Parallel.ForEach ile çok çekirdekli
+                    // makinelerde bu adım birkaç kat hızlanır; güvenlik
+                    // modelinde hiçbir değişiklik yok — hâlâ aynı DPAPI
+                    // çağrısı, hâlâ sadece bellekte.
+                    // ─────────────────────────────────────────────────
+                    bool needsMigration = false;
+                    var migrationLock = new object();
+
+                    System.Threading.Tasks.Parallel.ForEach(list, ch =>
                     {
-                        bool needsMigration = false;
-                        foreach (var ch in loaded)
+                        if (!string.IsNullOrEmpty(ch.UrlEncrypted))
                         {
-                            if (!string.IsNullOrEmpty(ch.UrlEncrypted))
-                            {
-                                // Yeni format — şifreli URL'yi çöz
-                                ch.Url = UnprotectString(ch.UrlEncrypted);
-                            }
-                            else if (!string.IsNullOrEmpty(ch.LegacyUrl))
-                            {
-                                // Eski format — düz metin URL okundu
-                                ch.Url = ch.LegacyUrl;
-                                needsMigration = true;
-                            }
-
-                            // Legacy alanı her durumda temizle ki bir daha
-                            // diske düz metin olarak yazılmasın.
-                            ch.LegacyUrl = null;
+                            // Yeni format — şifreli URL'yi çöz
+                            ch.Url = UnprotectString(ch.UrlEncrypted);
+                        }
+                        else if (!string.IsNullOrEmpty(ch.LegacyUrl))
+                        {
+                            // Eski format — düz metin URL okundu
+                            ch.Url = ch.LegacyUrl;
+                            lock (migrationLock) { needsMigration = true; }
                         }
 
-                        _allChannels = loaded;
+                        // Legacy alanı her durumda temizle ki bir daha
+                        // diske düz metin olarak yazılmasın.
+                        ch.LegacyUrl = null;
+                    });
 
-                        // Migration: eski düz metin kanalları hemen şifrele
-                        if (needsMigration)
-                        {
-                            var savePath = GetChannelsPath(sourceId);
-                            _ = Task.Run(() =>
-                            {
-                                try
-                                {
-                                    foreach (var ch in _allChannels)
-                                        ch.UrlEncrypted = ProtectString(ch.Url);
-                                    File.WriteAllText(savePath, JsonSerializer.Serialize(_allChannels, JsonOptions));
-                                }
-                                catch (Exception ex) { LogError("ChannelMigration", ex); }
-                            });
-                        }
-
-                        foreach (var ch in _allChannels.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)))
+                    // ParseShowInfo (regex tabanlı) da bağımsız bir işlem;
+                    // aynı sebeple paralelleştirildi.
+                    System.Threading.Tasks.Parallel.ForEach(
+                        list.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)),
+                        ch =>
                         {
                             var (showName, season, episode) = ParseShowInfo(ch.Name);
                             ch.ShowName      = showName;
                             ch.Season        = season;
                             ch.EpisodeNumber = episode;
-                        }
-                    }
+                        });
+
+                    loaded = list;
+                    if (needsMigration) migrationPath = path;
                 }
+                catch (Exception ex) { LogError($"LoadChannelsForSource({sourceId})", ex); }
+            });
+
+            // Buradan sonrası hafif işlemler — UI thread'inde kalabilir.
+            _allChannels = loaded;
+            if (loaded.Count > 0) _decryptedChannelsCache[sourceId] = loaded;
+
+            // Migration: eski düz metin kanalları arka planda şifrele
+            if (migrationPath != null)
+            {
+                var snapshot = _allChannels;
+                var savePath = migrationPath;
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        foreach (var ch in snapshot)
+                            ch.UrlEncrypted = ProtectString(ch.Url);
+                        File.WriteAllText(savePath, JsonSerializer.Serialize(snapshot, JsonOptions));
+                    }
+                    catch (Exception ex) { LogError("ChannelMigration", ex); }
+                });
             }
-            catch (Exception ex) { LogError($"LoadChannelsForSource({sourceId})", ex); }
 
             _contentCache.Clear();
             _seriesCardCache.Clear();
@@ -331,26 +410,42 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         // Kaynak işlemleri (seç / sil / yenile)
         // ─────────────────────────────────────────────────────────────
-        private void SelectSource_Click(object? sender, RoutedEventArgs e)
+        private async void SelectSource_Click(object? sender, RoutedEventArgs e)
         {
+            // KALICI DÜZELTME: kaynak yükleme artık async; bu bayrak aynı
+            // kaynağa hızlı art arda tıklama veya bir geçiş sürerken başka
+            // bir geçişin başlayıp yarış durumu yaratmasını engeller.
+            if (_isSwitchingSource) return;
             if (sender is not Button btn || btn.Tag is not TvSource source) return;
-            foreach (var s in _sources) s.IsActive = false;
-            source.IsActive = true;
-            SaveSources();
-            LoadChannelsForSource(source.Id);
-            ShowToast($"'{source.Name}' kaynağı aktifleştirildi.");
+
+            _isSwitchingSource = true;
+            try
+            {
+                foreach (var s in _sources) s.IsActive = false;
+                source.IsActive = true;
+                SaveSources();
+                ShowToast($"'{source.Name}' yükleniyor...");
+                await LoadChannelsForSourceAsync(source.Id);
+                ShowToast($"'{source.Name}' kaynağı aktifleştirildi.");
+            }
+            finally { _isSwitchingSource = false; }
         }
 
-        private void DeleteSource_Click(object? sender, RoutedEventArgs e)
+        private async void DeleteSource_Click(object? sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not TvSource source) return;
             _sources.Remove(source);
             try { File.Delete(GetChannelsPath(source.Id)); } catch { }
 
+            // Silinen kaynağın cache'lenmiş çözülmüş kanal listesi artık
+            // anlamsız — temizlenmezse (aynı Id yeniden kullanılmaz zaten
+            // ama hijyen açısından) bellekte gereksiz yer kaplar.
+            _decryptedChannelsCache.Remove(source.Id);
+
             if (source.IsActive && _sources.Count > 0)
             {
                 _sources[0].IsActive = true;
-                LoadChannelsForSource(_sources[0].Id);
+                await LoadChannelsForSourceAsync(_sources[0].Id);
             }
             else if (_sources.Count == 0)
             {
@@ -459,6 +554,13 @@ namespace GlyphTV
                 {
                     _allChannels = newChannels;
 
+                    // KALICI HIZ İYİLEŞTİRMESİ: yenilenen kanallar farklı
+                    // Channel referansları içeriyor; bu kaynağa ait eski
+                    // cache girdisi artık bayat — yeni listeyle değiştirilir
+                    // (aksi halde bir sonraki geçişte eski/silinmiş kanallar
+                    // görünür).
+                    _decryptedChannelsCache[source.Id] = newChannels;
+
                     // Yenileme sonrası kayıt: newChannels zaten hazır ve
                     // değişmeyecek; ToList() snapshot maliyeti olmadan
                     // direkt arka planda yazılır.
@@ -489,6 +591,15 @@ namespace GlyphTV
                 }
                 else
                 {
+                    // KALICI HIZ İYİLEŞTİRMESİ: bu kaynak daha önce ziyaret
+                    // edilip cache'lenmiş olabilir (kullanıcı geçmişte açtı,
+                    // sonra başka bir kaynağa geçti). Arka planda yenilendiği
+                    // için o eski cache girdisi artık bayat — burada zaten
+                    // elimizde olan taze newChannels ile güncelleniyor ki
+                    // kullanıcı bu kaynağa bir sonraki geçişinde eski veri
+                    // görmesin.
+                    _decryptedChannelsCache[source.Id] = newChannels;
+
                     // DÜZELTME: Bu dal (aktif olmayan bir kaynağın arka planda
                     // yenilenmesi) önceden UrlEncrypted hiç doldurulmadan
                     // doğrudan yazıyordu — Url artık [JsonIgnore] olduğundan
@@ -780,6 +891,7 @@ namespace GlyphTV
             _watchHistory.Clear();
             _contentCache.Clear();
             _seriesCardCache.Clear();
+            _decryptedChannelsCache.Clear();
 
             string appData = AppDataDir();
             try
@@ -1100,6 +1212,12 @@ namespace GlyphTV
         {
             foreach (var s in _sources) s.IsActive = false;
             _sources.Add(newSource);
+
+            // _allChannels bu noktada zaten yeni kaynağın (çözülmüş) kanal
+            // listesidir — bir sonraki geçişte tekrar diskten okuyup
+            // decrypt etmemek için doğrudan cache'e yazılır.
+            if (_allChannels.Count > 0) _decryptedChannelsCache[newSource.Id] = _allChannels;
+
             SaveChannelsForSource(newSource.Id);
             SaveSources();
             UpdateView();

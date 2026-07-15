@@ -206,11 +206,10 @@ namespace GlyphTV
 
             try
             {
-                if (SeriesContentGrid.ItemsSource is List<SeriesCard> visibleCards)
-                    foreach (var c in visibleCards) TryUpdate(c);
-
-                if (FavoriSeriesGrid.ItemsSource is List<SeriesCard> favCards)
-                    foreach (var c in favCards) TryUpdate(c);
+                // KALICI DÜZELTME: ItemsSource cast'i yerine artık sabit
+                // ObservableCollection referansları doğrudan kullanılıyor.
+                foreach (var c in _displaySeriesCards) TryUpdate(c);
+                foreach (var c in _displayFavoriSeriesCards) TryUpdate(c);
 
                 foreach (var c in _allFilteredCards) TryUpdate(c);
                 foreach (var c in _allFavoriSeriesCards) TryUpdate(c);
@@ -367,4 +366,4 @@ namespace GlyphTV
         }
 
     }
-}
+}
