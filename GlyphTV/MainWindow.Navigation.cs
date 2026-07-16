@@ -160,11 +160,30 @@ namespace GlyphTV
             // Kanal / VOD / Dizi listelerini önceden temizle ki ScrollViewer'ın
             // içerik yüksekliği (Extent) hemen küçülsün ve eski scroll konumuna
             // göre yeniden konumlandırma yapılmasın.
+            //
+            // DÜZELTME (VOD/Dizi kategorileri Geri'den sonra bir daha hiç
+            // içerik göstermiyordu): Burada önceden VodContentGrid.ItemsSource
+            // ve SeriesContentGrid.ItemsSource doğrudan null'a çekiliyordu.
+            // Ama bu iki grid constructor'da SABİT birer ObservableCollection'a
+            // (_displayVodContents / _displaySeriesCards) bağlanmıştı ve kod
+            // tabanındaki ilgili "KALICI DÜZELTME" yorumu bunun bir daha
+            // DEĞİŞTİRİLMEMESİ gerektiğini açıkça belirtiyordu — ReplaceCollection/
+            // Add ile yapılan tüm sonraki güncellemeler bu sabit referansa
+            // güveniyor. ItemsSource burada null'landıktan sonra hiçbir yerde
+            // eski koleksiyona geri bağlanmıyordu; sonuç olarak Geri butonuna
+            // bir kez basıldıktan sonra bu iki grid kalıcı olarak "kör"
+            // kalıyordu — _displayVodContents/_displaySeriesCards arka planda
+            // doğru veriyle dolsa bile ekranda hiçbir şey görünmüyordu (Canlı TV
+            // listesi ItemsSource'u hiç null'lanmadığı için bu sorundan
+            // etkilenmiyordu). Şimdi ItemsSource'a asla dokunulmuyor; sadece
+            // _displayContents.Clear() ile aynı desende içerik koleksiyonları
+            // temizleniyor.
             _displayContents.Clear();
+            _displayVodContents.Clear();
+            _displaySeriesCards.Clear();
+
             ContentItemsGrid.IsVisible  = false;
-            VodContentGrid.ItemsSource  = null;
             VodContentGrid.IsVisible    = false;
-            SeriesContentGrid.ItemsSource = null;
             SeriesContentGrid.IsVisible = false;
 
             UpdateView();

@@ -1124,8 +1124,21 @@ namespace GlyphTV
             finally
             {
                 _isLoadingMore = false;
+
+                // DÜZELTME: Burada kullanılan cache anahtarı
+                // ($"{_currentTab}_{_currentCategory}") UpdateViewInternal'daki
+                // ("{_currentTab}_{_favoriCategoryType}_{_currentCategory}")
+                // ile UYUŞMUYORDU. Sonuç: bir kategoriyi PAGE_SIZE'dan fazla
+                // öğeyle sonuna kadar kaydırıp tamamen yüklediğinizde, cache
+                // buraya YANLIŞ bir anahtarla yazılıyordu — UpdateViewInternal
+                // bir daha o kategoriye girildiğinde DOĞRU anahtarla arayıp
+                // bulamadığı için her seferinde sıfırdan yeniden hesaplıyordu
+                // (yavaşlık) ve bazı akışlarda (örn. Favori > VOD/Dizi kategori
+                // içine girilip "Content" state'i üzerinden sayfalama yapıldığında)
+                // yanlış anahtarla eski/tutarsız bir girdi bellekte kalabiliyordu.
+                // Şimdi UpdateViewInternal ile birebir aynı anahtar formatı kullanılıyor.
                 if (_viewState == "Content" && _loadedCount >= _allFilteredContents.Count && _allFilteredContents.Count > 0)
-                    _contentCache[$"{_currentTab}_{_currentCategory}"] = _allFilteredContents;
+                    _contentCache[$"{_currentTab}_{_favoriCategoryType}_{_currentCategory}"] = _allFilteredContents;
                 else if (_viewState == "Shows" && _loadedCount >= _allFilteredCards.Count && _allFilteredCards.Count > 0)
                     _seriesCardCache[$"Dizi_{_currentCategory}"] = _allFilteredCards;
             }

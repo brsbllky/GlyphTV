@@ -617,6 +617,12 @@ namespace GlyphTV
                 }
 
                 ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori korundu).");
+
+                // Xtream: diziler yukarıdaki hızlı yola dahil değil — kaynak
+                // yenileme az önce Canlı+VOD ile tamamlandı, diziler şimdi
+                // arka planda (UI'yı bloklamadan) yüklenip eklenecek.
+                if (source.Type == "Xtream")
+                    _ = LoadXtreamSeriesInBackground(source, oldStates);
             }
             catch (HttpRequestException hre) { ShowToast($"Yenileme hatası: {hre.Message}"); }
             catch (TaskCanceledException)    { ShowToast("Yenileme zaman aşımına uğradı."); }
@@ -624,11 +630,22 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Kaynak türüne göre kanal listesi çek  (YENİLEME için)
+        // Kaynak türüne göre kanal listesi çek  (EKLEME ve YENİLEME için)
         //
-        // Xtream için tek M3U isteği kullanılır — orijinal hız korunur.
-        // ParseXtreamApi (player_api.php, N+3 istek) yalnızca ilk kaynak
-        // eklemesinde çağrılır; yenileme her zaman bu hızlı yolu kullanır.
+        // DÜZELTME (Xtream'de kaynak ekleme 5-10 dakika sürüyordu):
+        // Bir önceki sürümde diziler bu metodun İÇİNDE, kaynak eklenmeden/
+        // yenilenmeden ÖNCE senkron olarak bekleniyordu. Xtream panellerinde
+        // dizi bölümleri ancak player_api.php üzerinden HER DİZİ İÇİN AYRI
+        // bir "get_series_info" isteğiyle alınabildiğinden (yüzlerce/
+        // binlerce dizisi olan kaynaklarda N istek), bu tüm ekleme/yenileme
+        // işlemini dakikalarca bloke ediyordu.
+        //
+        // Artık bu metot Xtream için SADECE hızlı yolu (Canlı TV + Film,
+        // tek get.php isteği) döndürür ve hemen tamamlanır. Diziler ayrıca,
+        // kaynak eklendikten/yenilendikten SONRA, arka planda
+        // LoadXtreamSeriesInBackground ile (ConfirmAddSource_Click ve
+        // RefreshSourceCore içinden tetiklenir) yüklenip listeye eklenir —
+        // kullanıcı arayüzü bu süre boyunca bloklanmaz.
         // ─────────────────────────────────────────────────────────────
         private async Task<List<Channel>> FetchChannelsForSource(TvSource source)
         {
@@ -650,9 +667,11 @@ namespace GlyphTV
                 }
                 case "Xtream":
                 {
-                    // Xtream: get.php → tek HTTP isteği, tüm içerik (canlı + VOD + dizi)
-                    // Kaynak ekleme sırasında zaten ParseXtreamApi çalışmıştır;
-                    // yenileme işlevi hızlı M3U yolunu kullanır.
+                    // Sadece Canlı TV + Film (hızlı yol, tek istek).
+                    // Diziler bilinçli olarak burada ÇEKİLMİYOR — çağıran
+                    // taraf (ConfirmAddSource_Click / RefreshSourceCore)
+                    // kaynağı bu veriyle hemen tamamlar, diziler ayrıca
+                    // arka planda LoadXtreamSeriesInBackground ile gelir.
                     string content = await DownloadM3uContent(
                         $"{source.PathOrUrl.TrimEnd('/')}/get.php" +
                         $"?username={Uri.EscapeDataString(source.Username)}" +
@@ -666,15 +685,246 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
+        // Xtream dizilerini ARKA PLANDA yükler ve tamamlandığında mevcut
+        // kanal listesine (bellek + disk) ekler. Kaynak ekleme/yenileme
+        // akışlarını bloklamaz; kullanıcı bu sırada uygulamayı normal
+        // şekilde kullanmaya devam edebilir.
+        //
+        // oldStates verilirse (yenileme senaryosu), önceki favori/gizli
+        // durumları yeni gelen bölümlere URL bazlı geri uygulanır.
+        // ─────────────────────────────────────────────────────────────
+        private static readonly HashSet<string> _loadingXtreamSeriesIds = new();
+
+        private async Task LoadXtreamSeriesInBackground(
+            TvSource source,
+            Dictionary<string, (bool isFavorite, bool isHidden)>? oldStates = null)
+        {
+            lock (_loadingXtreamSeriesIds)
+            {
+                if (!_loadingXtreamSeriesIds.Add(source.Id)) return; // zaten yükleniyor
+            }
+
+            try
+            {
+                List<Channel> seriesChannels;
+                try
+                {
+                    seriesChannels = await FetchXtreamSeriesChannels(source);
+                }
+                catch (Exception ex)
+                {
+                    LogError("LoadXtreamSeriesInBackground.Fetch", ex);
+                    return;
+                }
+
+                if (seriesChannels.Count == 0) return;
+
+                // Favori/gizli durumlarını (yenileme senaryosunda) geri uygula
+                if (oldStates != null)
+                {
+                    foreach (var ch in seriesChannels)
+                    {
+                        if (oldStates.TryGetValue(ch.Url, out var state))
+                        {
+                            ch.IsFavorite = state.isFavorite;
+                            ch.IsHidden   = state.isHidden;
+                        }
+                    }
+                }
+
+                // Kaynak bu sırada silinmiş olabilir — o zaman hiçbir şey yazma.
+                var stillExists = _sources.FirstOrDefault(s => s.Id == source.Id);
+                if (stillExists == null) return;
+
+                List<Channel> finalListToSave;
+
+                if (stillExists.IsActive)
+                {
+                    // Kullanıcı hâlâ (veya tekrar) bu kaynaktaysa doğrudan
+                    // ekrana yansıyan listeye ekle.
+                    _allChannels.AddRange(seriesChannels);
+                    _contentCache.Clear();
+                    _seriesCardCache.Clear();
+                    finalListToSave = _allChannels;
+                    _decryptedChannelsCache[source.Id] = _allChannels;
+
+                    Dispatcher.UIThread.Post(UpdateView);
+                }
+                else
+                {
+                    // Kullanıcı başka bir kaynağa geçmiş — sadece cache/disk
+                    // güncellenir, ekrana yansımaz (bir sonraki geçişte hazır olur).
+                    if (_decryptedChannelsCache.TryGetValue(source.Id, out var cachedList))
+                    {
+                        cachedList.AddRange(seriesChannels);
+                        finalListToSave = cachedList;
+                    }
+                    else
+                    {
+                        finalListToSave = seriesChannels;
+                    }
+                    _decryptedChannelsCache[source.Id] = finalListToSave;
+                }
+
+                var savePath = GetChannelsPath(source.Id);
+                var snapshot = finalListToSave.ToList();
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        foreach (var ch in snapshot)
+                            ch.UrlEncrypted = ProtectString(ch.Url);
+                        File.WriteAllText(savePath, JsonSerializer.Serialize(snapshot, JsonOptions));
+                    }
+                    catch (Exception ex) { LogError("LoadXtreamSeriesInBackground.Save", ex); }
+                });
+
+                // NOT: Bilinçli olarak bir toast gösterilmiyor. Diziler
+                // sağlayıcı yeterince hızlı yanıt verdiğinde saniyeler
+                // içinde tamamlanıyor; "yükleniyor/%X" gibi ilerleme
+                // bildirimleri bu durumda gereksiz gürültü yaratıp eski
+                // "her şey anında geldi" hissini bozuyordu. UpdateView()
+                // çağrısı zaten dizileri sessizce ekrana yansıtıyor.
+            }
+            finally
+            {
+                lock (_loadingXtreamSeriesIds) { _loadingXtreamSeriesIds.Remove(source.Id); }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Xtream Code — sadece DİZİ içeriklerini çeker
+        //
+        // get_series ile dizi kataloğu, ardından her dizi için
+        // get_series_info ile bölüm listesi alınır (N+2 istek). Bu N+1
+        // istek maliyeti kaçınılmazdır (Xtream API'si dizi bölümlerini
+        // toplu döndürmez), ama sınırlı eşzamanlılıkla (SemaphoreSlim(5))
+        // paralelleştirilerek makul sürede tamamlanır. Sadece dizi
+        // kataloğu çekildiği için (Canlı/VOD hariç) eski ParseXtreamApi'ye
+        // göre çok daha hızlıdır.
+        // ─────────────────────────────────────────────────────────────
+        private async Task<List<Channel>> FetchXtreamSeriesChannels(TvSource source)
+        {
+            var result = new List<Channel>();
+
+            string server  = source.PathOrUrl.TrimEnd('/');
+            string userEnc = Uri.EscapeDataString(source.Username);
+            string passEnc = Uri.EscapeDataString(source.Password);
+            string baseApi = $"{server}/player_api.php?username={userEnc}&password={passEnc}";
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            client.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+
+            var seriesCats = await GetXtreamCategoryMap(client, baseApi, "get_series_categories");
+
+            string seriesJson;
+            try
+            {
+                seriesJson = await client.GetStringAsync($"{baseApi}&action=get_series");
+            }
+            catch
+            {
+                // Sağlayıcı get_series'i desteklemiyor/hata veriyor olabilir —
+                // Canlı/VOD yüklemesini etkilemeden sessizce boş dön.
+                return result;
+            }
+
+            List<JsonElement> seriesList;
+            try
+            {
+                using var seriesDoc = JsonDocument.Parse(seriesJson);
+                if (seriesDoc.RootElement.ValueKind != JsonValueKind.Array) return result;
+                seriesList = seriesDoc.RootElement.EnumerateArray().Select(e => e.Clone()).ToList();
+            }
+            catch
+            {
+                return result;
+            }
+
+            if (seriesList.Count == 0) return result;
+
+            var semaphore = new SemaphoreSlim(10);
+            using var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            epClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+
+            var tasks = seriesList.Select(async series =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    string seriesId = series.TryGetProperty("series_id", out var sid)
+                        ? sid.GetRawText() : "";
+                    if (string.IsNullOrEmpty(seriesId)) return;
+
+                    string showName = XtreamStr(series, "name");
+                    string catId    = XtreamStr(series, "category_id");
+                    string catName  = seriesCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
+                    string logoUrl  = XtreamStr(series, "cover");
+
+                    try
+                    {
+                        var infoJson = await epClient.GetStringAsync(
+                            $"{baseApi}&action=get_series_info&series_id={seriesId}");
+                        using var infoDoc = JsonDocument.Parse(infoJson);
+
+                        if (infoDoc.RootElement.TryGetProperty("episodes", out var episodes) &&
+                            episodes.ValueKind == JsonValueKind.Object)
+                        {
+                            foreach (var seasonProp in episodes.EnumerateObject())
+                            {
+                                string season = $"S{seasonProp.Name.PadLeft(2, '0')}";
+
+                                foreach (var ep in seasonProp.Value.EnumerateArray())
+                                {
+                                    string epId  = ep.TryGetProperty("id",          out var eid) ? eid.GetRawText() : "0";
+                                    string epNum = ep.TryGetProperty("episode_num", out var eno) ? eno.GetRawText() : "0";
+                                    string ext   = XtreamStr(ep, "container_extension", "mkv");
+                                    string title = XtreamStr(ep, "title");
+
+                                    string epName = $"{showName} {season}E{epNum.PadLeft(2, '0')}";
+                                    if (!string.IsNullOrEmpty(title)) epName += $" - {title}";
+
+                                    lock (result)
+                                    {
+                                        result.Add(new Channel
+                                        {
+                                            Name          = epName,
+                                            Url           = $"{server}/series/{source.Username}/{source.Password}/{epId}.{ext}",
+                                            Group         = catName,
+                                            Type          = "Dizi",
+                                            LogoUrl       = logoUrl,
+                                            ShowName      = showName,
+                                            Season        = season,
+                                            EpisodeNumber = int.TryParse(epNum, out var en) ? en : 0
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { /* Bu dizinin bölümleri alınamadı – atla, diğerleri devam etsin */ }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }).ToList();
+
+            await Task.WhenAll(tasks);
+
+            return result;
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // Xtream Code – player_api.php entegrasyonu (ARTIK KULLANILMIYOR)
         // Canlı / VOD / Dizi içeriklerini ayrı ayrı çeker.
         //
         // NOT: Bu metot her dizi için ayrı bir get_series_info isteği attığı
         // için (N+3 istek) binlerce dizisi olan kaynaklarda 5-10 dakikaya
         // kadar süren yüklemelere yol açıyordu. Kaynak EKLEME akışı artık
-        // ConfirmAddSource_Click içinde bunun yerine FetchChannelsForSource
-        // (tek get.php isteği + ParseM3u — RefreshSourceCore'un kullandığı
-        // hızlı yol) kullanıyor. Bu metot referans/geri dönüş amacıyla
+        // FetchChannelsForSource içinde M3U (Canlı+VOD, tek istek) ile
+        // FetchXtreamSeriesChannels'ı (sadece Diziler, sınırlı paralellik)
+        // birleştirerek kullanıyor. Bu metot referans/geri dönüş amacıyla
         // dosyada bırakıldı, aktif olarak çağrılmıyor.
         // ─────────────────────────────────────────────────────────────
         private async Task<List<Channel>> ParseXtreamApi(TvSource source)
@@ -1033,15 +1283,17 @@ namespace GlyphTV
                     newSource.Username  = user;
                     newSource.Password  = pass;
 
-                    // DÜZELTME: Eskiden ParseXtreamApi (her dizi için ayrı
-                    // get_series_info isteği, N+3 istek) kullanılıyordu —
-                    // binlerce dizisi olan kaynaklarda 5-10 dakikaya kadar
-                    // sürebiliyordu. RefreshSourceCore'un kullandığı hızlı
-                    // yol (tek get.php isteği + ParseM3u) burada da
-                    // kullanılıyor; ilk ekleme artık yenileme kadar hızlı.
+                    // DÜZELTME (5-10 dk süren kaynak ekleme): Diziler artık
+                    // burada BEKLENMİYOR. Kaynak, hızlı yol olan Canlı+VOD
+                    // ile hemen eklenir; diziler ayrıca arka planda
+                    // (LoadXtreamSeriesInBackground) yüklenip geldikçe
+                    // listeye eklenir — kullanıcı bu süre boyunca
+                    // uygulamayı normal şekilde kullanmaya devam edebilir.
                     var channels = await FetchChannelsForSource(newSource);
                     _allChannels = channels;
                     FinishAddingSource(newSource);
+
+                    _ = LoadXtreamSeriesInBackground(newSource);
                 }
             }
             catch (HttpRequestException hre) { ShowToast($"Bağlantı hatası: {hre.Message}"); }
