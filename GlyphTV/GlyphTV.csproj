@@ -1,0 +1,113 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+
+    <!-- CS1998: "This async method lacks 'await' operators..." — LibVLCSharp'ın
+         MediaPlayer.Play() gibi senkron/fire-and-forget API'lerini await eden
+         async metodlarda (örn. MainWindow.Player.cs → PlayChannel) kasıtlı ve
+         zararsız olarak oluşur; metod imzası çağıran taraftaki (await
+         PlayChannel(...)) tutarlılık için async Task olarak bırakılıyor.
+         Derleyici çıktısını gereksiz uyarı gürültüsünden temizlemek için
+         proje genelinde bastırılıyor. -->
+    <NoWarn>$(NoWarn);CS1998</NoWarn>
+
+    <!-- RAM ve CPU Optimizasyonu: Desktop uygulaması için Workstation GC modu.
+         Server GC'nin her çekirdek için devasa heap ayırmasını önler ve kullanılmayan
+         belleği anında Windows'a (OS) iade eder. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+
+    <!-- Sürüm ve uygulama metadata bilgileri (.exe özelliklerinde görünür) -->
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <Product>GlyphTV</Product>
+    <Company>GlyphTV</Company>
+    <Description>GlyphTV - Modern IPTV Player</Description>
+    <Copyright>© 2026 Barış Ballıkaya</Copyright>
+    <Authors>Barış Ballıkaya</Authors>
+    <Version>2.0.0</Version>
+
+    <!-- Tek dosya self-contained yayınlama ayarları
+         (sadece 'dotnet publish' sırasında etki eder, Visual Studio debug'ı etkilemez) -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- Release konfigürasyonunda PDB ve debug sembollerini dışla (daha küçük .exe) -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaXaml Include="Assets\glyph_icon.png" />
+    <AvaloniaXaml Include="Assets\icon.png" />
+    <AvaloniaResource Include="icon.ico" />
+  </ItemGroup>
+
+  <!-- ─────────────────────────────────────────────────────────────
+       TMDb elle eşleştirme genel liste (developer/admin override tablosu). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\tmdb-overrides.json">
+      <LogicalName>GlyphTV.tmdb-overrides.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- ─────────────────────────────────────────────────────────────
+       YENİ: mpv motoru — libmpv native DLL'i.
+       KURULUM:
+         1) shinchiro'nun Windows "LGPL" build'inden (https://github.com/
+            shinchiro/mpv-winbuild-cmake/releases veya sourceforge.net/
+            projects/mpv-player-windows/) mpv-dev-x86_64-*.7z arşivini indirin.
+         2) İçinden mpv-2.dll dosyasını proje köküne "runtimes\mpv\" gibi
+            bir klasöre koyun (örnek yol aşağıda; isterseniz değiştirin —
+            önemli olan MpvInterop.cs'teki "mpv-2.dll" adıyla birebir aynı
+            dosya adının .exe ile aynı dizine kopyalanmasıdır).
+         3) BUILD MODUNUN "LGPL (v2)" OLDUĞUNU DOĞRULAYIN — bkz. arşivin
+            içindeki LICENSE dosyası. GPL build'i GlyphTV'nin lisansıyla
+            uyumsuz olabilir.
+       Bu ItemGroup, projeye eklediğiniz dosyayı hem normal derleme/debug
+       çıktısına hem de 'dotnet publish' (PublishSingleFile) çıktısına
+       kopyalar.
+       ───────────────────────────────────────────────────────────── -->
+  <ItemGroup>
+    <None Include="runtimes\mpv\mpv-2.dll" Condition="Exists('runtimes\mpv\mpv-2.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>mpv-2.dll</Link>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.13" />
+    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.13">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.6" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- NOT: PlayerEngines\ klasöründeki yeni .cs dosyaları (IPlayerEngine,
+       VlcPlayerEngine, MpvPlayerEngine, MpvInterop, MpvVideoHost) için
+       ayrıca bir <Compile Include> eklemenize GEREK YOK — SDK-style
+       proje formatı proje dizini altındaki tüm .cs dosyalarını (alt
+       klasörler dahil) otomatik derlemeye dahil eder. Sadece dosyaları
+       PlayerEngines\ klasörüne koymanız yeterlidir. -->
+</Project>

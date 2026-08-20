@@ -1,0 +1,2270 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+        xmlns:local="clr-namespace:GlyphTV"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        x:Class="GlyphTV.MainWindow"
+        Title="GlyphTV"
+        Width="1280" Height="775"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Icon="avares://GlyphTV/icon.ico"
+        Background="{DynamicResource Bg}"
+        Foreground="{DynamicResource Text}"
+        x:Name="MainWindowRoot"
+        KeyDown="Window_KeyDown">
+
+	<Window.Resources>
+		<SolidColorBrush x:Key="Bg">#f5f5f7</SolidColorBrush>
+		<SolidColorBrush x:Key="BgSidebar">#f0f0f2</SolidColorBrush>
+		<SolidColorBrush x:Key="BgCard">#ffffff</SolidColorBrush>
+		<SolidColorBrush x:Key="BgHover">#e8e8ec</SolidColorBrush>
+		<SolidColorBrush x:Key="BgActive">#e2e2e8</SolidColorBrush>
+		<SolidColorBrush x:Key="Border">#d4d4d8</SolidColorBrush>
+		<SolidColorBrush x:Key="Text">#18181b</SolidColorBrush>
+		<SolidColorBrush x:Key="TextSec">#6b6b73</SolidColorBrush>
+		<SolidColorBrush x:Key="Accent">#3b82f6</SolidColorBrush>
+	</Window.Resources>
+
+	<Window.Styles>
+		<Style Selector="TextBox /template/ Border#PART_BorderElement">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="BorderThickness" Value="{TemplateBinding BorderThickness}"/>
+		</Style>
+		<Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="BorderThickness" Value="{TemplateBinding BorderThickness}"/>
+		</Style>
+		<Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="BorderThickness" Value="{TemplateBinding BorderThickness}"/>
+		</Style>
+		<Style Selector="TextBox:focus:pointerover /template/ Border#PART_BorderElement">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="BorderThickness" Value="{TemplateBinding BorderThickness}"/>
+		</Style>
+
+		<Style Selector="TextBox">
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="SelectionBrush" Value="#554f8bff"/>
+			<Setter Property="SelectionForegroundBrush" Value="{DynamicResource Text}"/>
+			<Setter Property="CaretBrush" Value="{DynamicResource Text}"/>
+			<Style.Resources>
+				<SolidColorBrush x:Key="TextControlForeground" Color="{DynamicResource TextColor}"/>
+				<SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{DynamicResource TextColor}"/>
+				<SolidColorBrush x:Key="TextControlForegroundFocused" Color="{DynamicResource TextColor}"/>
+				<SolidColorBrush x:Key="TextControlForegroundDisabled" Color="{DynamicResource TextColor}"/>
+			</Style.Resources>
+		</Style>
+
+		<Style Selector="TextBox.SearchBox">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+		</Style>
+		<Style Selector="TextBox.SearchBox:pointerover">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+		</Style>
+		<Style Selector="TextBox.SearchBox:focus">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+		</Style>
+
+		<!-- ============================================================
+		     ComboBox & Açılır Popup Menü Stilleri
+		     ============================================================ -->
+		<Style Selector="ComboBox">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="12,8"/>
+			<Setter Property="MaxDropDownHeight" Value="380"/>
+			<Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden"/>
+			<Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+		</Style>
+		<Style Selector="ComboBox /template/ ScrollViewer">
+			<Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
+			<Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+		</Style>
+		<Style Selector="ComboBox:pointerover /template/ Border#Background">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+		</Style>
+		<Style Selector="ComboBox:focus /template/ Border#Background">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+		</Style>
+		<Style Selector="ComboBox /template/ Border#Background">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="8"/>
+		</Style>
+		<Style Selector="ComboBox /template/ Popup#PART_Popup Border#PopupBorder">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="10"/>
+			<Setter Property="BoxShadow" Value="0 10 30 0 #88000000"/>
+			<Setter Property="Padding" Value="4"/>
+		</Style>
+		<Style Selector="ComboBoxItem">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="Padding" Value="12,9"/>
+			<Setter Property="CornerRadius" Value="6"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="FontSize" Value="13"/>
+		</Style>
+		<Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+		</Style>
+		<Style Selector="ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+		</Style>
+
+		<Style Selector="Button.ActionBtn">
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="Button.ActionBtn /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="Foreground" Value="{TemplateBinding Foreground}"/>
+		</Style>
+		<Style Selector="Button.ActionBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="Foreground" Value="{TemplateBinding Foreground}"/>
+		</Style>
+		<Style Selector="Button.ActionBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+			<Setter Property="Foreground" Value="{TemplateBinding Foreground}"/>
+		</Style>
+
+		<!-- YENİ: Ayarlar sayfasındaki Tema (Sistem/Açık/Koyu), Otomatik
+		     Yenileme (Açık/Kapalı) ve Kaynaklar/Genel'deki tekil aksiyon
+		     butonları (Yenile/Sil/Temizle/Sıfırla) artık hepsi bu ortak
+		     stili paylaşıyor — sabit MinWidth sayesinde metin uzunluğu
+		     ne olursa olsun ("AÇIK" / "SİSTEM" / "SIFIRLA") tüm butonlar
+		     aynı boyutta görünüyor, hepsi kalın (Bold) ve büyük harfle
+		     yazılıyor.
+		     DÜZELTME (aktif seçim hiç belli olmuyordu): Bu stilin
+		     Background/Foreground/BorderBrush'ı önceden Tema/Otomatik
+		     Yenileme butonlarının XAML'inde DOĞRUDAN (local) attribute
+		     olarak veriliyordu. Avalonia'da doğrudan verilen bir değer
+		     her zaman bir Style Setter'dan daha yüksek önceliklidir — bu
+		     yüzden aşağıdaki .Active stili class eklendiğinde bile ASLA
+		     görsel olarak uygulanamıyordu (arkaplan hep aynı kalıyordu).
+		     Şimdi varsayılan (pasif) renkler DOĞRUDAN BU STİLDEN geliyor;
+		     Yenile/Sil/Temizle/Sıfırla gibi "Active" durumu hiç olmayan
+		     butonlar kendi renklerini (mavi/kırmızı) yine XAML'de local
+		     olarak verip bu varsayılanı normal şekilde ezmeye devam
+		     ediyor — sorun sadece "Active" class'ı gerçekten ekleyip
+		     çıkarabildiğimiz 5 buton (Tema×3, Otomatik×2) içindi. -->
+		<Style Selector="Button.SettingsToggleBtn">
+			<Setter Property="MinWidth" Value="96"/>
+			<Setter Property="Padding" Value="14,8"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+			<Setter Property="FontSize" Value="12"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="HorizontalContentAlignment" Value="Center"/>
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+		</Style>
+		<Style Selector="Button.SettingsToggleBtn.Active">
+			<Setter Property="Background" Value="{DynamicResource Accent}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+			<Setter Property="Foreground" Value="White"/>
+		</Style>
+
+		<!-- YENİ (madde 3 — içerik sıralama butonları A-Z/Z-A/Son
+		     Eklenenler): SettingsToggleBtn'in "Active" ile AYNI görsel
+		     ağırlığa sahip ama farklı bir class adıyla ("Selected")
+		     çalışan varyantı — UpdateSortButtons (MainWindow.Navigation.cs)
+		     bu class'ı ekleyip/çıkarır. Ayrı bir class kullanılmasının
+		     sebebi: aynı SettingsToggleBtn temel stilini paylaşan Tema/
+		     Otomatik Yenileme butonlarının "Active" mantığıyla (ayrı bir
+		     C# metodu, SetActiveClass) hiç karışmaması. -->
+		<Style Selector="Button.SettingsToggleBtn.Selected">
+			<Setter Property="Background" Value="{DynamicResource Accent}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+			<Setter Property="Foreground" Value="White"/>
+		</Style>
+
+		<!-- YENİ: Donanım Çözümlemesi / İnterlacing seçim listesi öğeleri.
+     Toggle butonlarından farklı olarak tek satır + sağda ✓ işareti
+     deseni kullanır. -->
+		<Style Selector="Border.SelectListItem">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="12,10"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="Border.SelectListItem:pointerover">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+		</Style>
+		<Style Selector="Border.SelectListItem.Active">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+		</Style>
+
+		<!-- YENİ: Profesyonel Ayarlar Modalı Sol Gezinme Menü Butonları -->
+		<Style Selector="Button.SettingsNavBtn">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
+			<Setter Property="FontSize" Value="13"/>
+			<Setter Property="FontWeight" Value="Medium"/>
+			<Setter Property="Padding" Value="12,10"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+			<Setter Property="CornerRadius" Value="10"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Margin" Value="0,2"/>
+			<Setter Property="BorderThickness" Value="0"/>
+		</Style>
+		<Style Selector="Button.SettingsNavBtn /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.SettingsNavBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+		</Style>
+		<Style Selector="Button.SettingsNavBtn:pointerover">
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+		</Style>
+		<Style Selector="Button.SettingsNavBtn.Active /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+		</Style>
+		<Style Selector="Button.SettingsNavBtn.Active">
+			<Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+		</Style>
+
+		<Style Selector="Border.KbdBadge">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="6"/>
+			<Setter Property="Padding" Value="8,4"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+		</Style>
+
+		<!-- YENİ (madde 1 — sol kategori listesi paneli): CategoryListPanel
+		     içindeki her kategori artık bir kart değil, tek satırlık bir
+		     liste öğesi. Sağ tarafta ⠿ tutamacı sürükle-bırak ile manuel
+		     sıralama başlatır (bkz. MainWindow.Navigation.cs →
+		     CategoryDragStart_PointerPressed/CategoryItem_DragOver/
+		     CategoryItem_Drop). Seçili kategori "Selected" class'ı ile
+		     (UpdateCategorySelectionVisual), sürüklenen bir öğenin ÜZERİNE
+		     gelindiğinde ise "DragOver" class'ı ile vurgulanır. -->
+		<Style Selector="Button.CategoryListItem">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="10,9"/>
+			<Setter Property="Margin" Value="0,2"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="Button.CategoryListItem /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{TemplateBinding Background}"/>
+			<Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/>
+		</Style>
+		<Style Selector="Button.CategoryListItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+		</Style>
+		<Style Selector="Button.CategoryListItem.Selected /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+		</Style>
+		<Style Selector="Button.CategoryListItem.DragOver /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#333b82f6"/>
+		</Style>
+
+		<!-- YENİ: Favoriler panelindeki yatay listeler (Canlı TV/Filmler/
+		     Diziler) için kaydırma çubuğu yerine sol/sağ ok butonları.
+		     İçerik başta/sonda olduğunda ilgili ok kod-behind'dan
+		     (UpdateHArrowVisibility, MainWindow.Navigation.cs) gizlenir. -->
+		<Style Selector="Border.HScrollArrow">
+			<Setter Property="Width" Value="38"/>
+			<Setter Property="Height" Value="38"/>
+			<Setter Property="CornerRadius" Value="19"/>
+			<Setter Property="Background" Value="#CC18181b"/>
+			<Setter Property="BorderBrush" Value="#33ffffff"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="HorizontalAlignment" Value="Left"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+			<Setter Property="ZIndex" Value="20"/>
+			<Setter Property="BoxShadow" Value="0 2 8 0 #55000000"/>
+		</Style>
+		<Style Selector="Border.HScrollArrow:pointerover">
+			<Setter Property="Background" Value="#EE18181b"/>
+		</Style>
+		<Style Selector="Border.HScrollArrow.NextArrow">
+			<Setter Property="HorizontalAlignment" Value="Right"/>
+		</Style>
+
+		<Style Selector="Border.PopularCardBorder">
+			<Setter Property="Transitions">
+				<Transitions>
+					<TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/>
+				</Transitions>
+			</Setter>
+		</Style>
+		<Style Selector="Border.PopularCardBorder:pointerover">
+			<Setter Property="RenderTransform" Value="scale(1.03)"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+		</Style>
+
+		<Style Selector="Border.ResumeCardBorder">
+			<Setter Property="Transitions">
+				<Transitions>
+					<TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/>
+				</Transitions>
+			</Setter>
+		</Style>
+		<Style Selector="Border.ResumeCardBorder:pointerover">
+			<Setter Property="RenderTransform" Value="scale(1.02)"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+		</Style>
+
+		<Style Selector="Button.WinBtn">
+			<Setter Property="Width" Value="46"/>
+			<Setter Property="Height" Value="32"/>
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="CornerRadius" Value="0"/>
+			<Setter Property="Margin" Value="0"/>
+			<Setter Property="Padding" Value="0"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
+			<Setter Property="HorizontalContentAlignment" Value="Center"/>
+			<Setter Property="VerticalContentAlignment" Value="Center"/>
+		</Style>
+		<Style Selector="Button.WinBtn /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.WinBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.WinBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.WinCloseBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#e81123"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.WinCloseBtn:pointerover">
+			<Setter Property="Foreground" Value="White"/>
+		</Style>
+		<Style Selector="Button.WinCloseBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#f1707a"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+
+		<Style Selector="Button.MenuBtn">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="Padding" Value="12,10"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="HorizontalContentAlignment" Value="Left"/>
+			<Setter Property="CornerRadius" Value="10"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Margin" Value="0,2"/>
+			<Setter Property="BorderThickness" Value="0"/>
+		</Style>
+		<Style Selector="Button.MenuBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+		<Style Selector="Button.MenuBtn.Active /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgActive}"/>
+			<Setter Property="Foreground" Value="{DynamicResource Text}"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+		</Style>
+
+		<Style Selector="Button.CatCard">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="14"/>
+			<Setter Property="Padding" Value="20,18"/>
+			<Setter Property="Margin" Value="6"/>
+			<Setter Property="Width" Value="240"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+		</Style>
+		<Style Selector="Button.CatCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+			<Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"/>
+		</Style>
+
+		<Style Selector="Border.VodCardBorder">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="12"/>
+			<Setter Property="Margin" Value="5"/>
+			<Setter Property="Width" Value="240"/>
+			<Setter Property="Height" Value="220"/>
+		</Style>
+		<Style Selector="Border.VodCardBorder:pointerover">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+		</Style>
+
+		<Style Selector="Border.ContentItemBorder">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="12"/>
+			<Setter Property="Margin" Value="5"/>
+			<Setter Property="Width" Value="240"/>
+			<!-- YENİ (madde 5 — kart altında EPG bilgisi): 78'den 90'a
+			     çıkarıldı; sadece yükseklik değişti, Width (dolayısıyla
+			     RecalculateGridColumns/CARD_FOOTPRINT_LIVE hesabı) aynı
+			     kaldığı için sütun sayısı etkilenmez. -->
+			<Setter Property="Height" Value="90"/>
+		</Style>
+		<Style Selector="Border.ContentItemBorder:pointerover">
+			<Setter Property="Background" Value="{DynamicResource BgHover}"/>
+		</Style>
+
+		<!-- YENİ: VOD/Dizi kart satırlarının (VodContentGrid/SeriesContentGrid
+		     içindeki iç ItemsControl) hizalanması. Varsayılan (kategori
+		     gezinme) davranış ortalanmış kalır — bu, kart sayısı sütun
+		     sayısını doldurmadığında (örn. son satır) daha dengeli görünür.
+		     Arama sonuçlarında ise dış kapsayıcıya (VodContentGrid/
+		     SeriesContentGrid) kod-behind'dan eklenen "SearchMode" class'ı
+		     sayesinde bu satırlar sola dayalı gösterilir — bkz.
+		     MainWindow.Navigation.cs → UpdateViewInternal (arama bloğu).
+		     NOT: HorizontalAlignment burada artık DOĞRUDAN (local) değer
+		     olarak değil, sadece bu stilden geliyor — aksi halde local
+		     değer her zaman Style Setter'dan önceliklidir ve SearchMode
+		     override'ı hiç uygulanamaz (bkz. Button.SettingsToggleBtn
+		     stilindeki aynı notun açıklaması). -->
+		<Style Selector="ItemsControl.RowItemsHost">
+			<Setter Property="HorizontalAlignment" Value="Center"/>
+		</Style>
+		<Style Selector="ItemsControl.SearchMode ItemsControl.RowItemsHost">
+			<Setter Property="HorizontalAlignment" Value="Left"/>
+		</Style>
+
+		<Style Selector="Button.IconBtn">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="Button.IconBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+			<Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"/>
+		</Style>
+		<Style Selector="Button.IconBtn:pointerover">
+			<Setter Property="Opacity" Value="0.7"/>
+		</Style>
+
+		<Style Selector="Border.SettingsCard">
+			<Setter Property="Background" Value="{DynamicResource BgCard}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="16"/>
+			<Setter Property="Padding" Value="24"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+		</Style>
+
+		<!-- NOT: Eski "PLAYER BUTON STİLLERİ" bölümü (Button.PlayerIconBtn,
+		     .PlayBtn, .PlayerTopBtn, .PlayerIconBtnWide, .PlayerCloseBtn,
+		     .PlayerChannelBtn, .TrackBtn) ve AudioTrackPopup/SubtitlePopup/
+		     ChannelListPanel ScrollViewer şeffaflık stilleri artık burada
+		     değil — bunları kullanan TÜM kontroller (oynatıcı üst/alt bar,
+		     popup'lar) PlayerOverlayWindow.axaml'e taşındı (bkz. "airspace"
+		     düzeltmesi, MainWindow.PlayerOverlay.cs); ilgili stiller de
+		     birlikte oraya taşındı. -->
+	</Window.Styles>
+
+	<Grid x:Name="RootGrid" ColumnDefinitions="200, *">
+
+		<Border x:Name="SidebarPanel" Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0" Padding="0,1,0,0">
+			<Grid RowDefinitions="Auto, *">
+				<Border Grid.Row="0" Margin="10,4,10,14" Padding="8,7" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="0" CornerRadius="0">
+					<Grid ColumnDefinitions="Auto, Auto, *">
+						<!-- Uygulama Logosu -->
+						<Image Grid.Column="0" Source="avares://GlyphTV/Assets/icon.png"
+						       Width="52" Height="52"
+						       RenderOptions.BitmapInterpolationMode="HighQuality"
+						       VerticalAlignment="Center"/>
+
+						<!-- Dikey Ayırıcı Çizgi -->
+						<Border Grid.Column="1" Width="1" Height="32" Background="{DynamicResource Border}" Margin="10,0" VerticalAlignment="Center"/>
+
+						<!-- Canlı Saat & Tarih -->
+						<StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Left">
+							<TextBlock x:Name="SidebarClockTime" Text="--:--" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Text}"/>
+							<TextBlock x:Name="SidebarClockDate" Text="---" FontSize="12.5" Foreground="{DynamicResource TextSec}" Margin="0,1,0,0"/>
+						</StackPanel>
+					</Grid>
+				</Border>
+
+				<StackPanel Grid.Row="1" Margin="10,0">
+					<Button x:Name="BtnHome" Classes="MenuBtn Active" Click="MenuFilter_Click" Tag="Anasayfa">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🏠" FontSize="16" VerticalAlignment="Center"/>
+							<TextBlock Text="Anasayfa" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="BtnLive" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Canlı">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="📺" FontSize="16" VerticalAlignment="Center"/>
+							<TextBlock Text="Canlı TV" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="BtnVOD" Classes="MenuBtn" Click="MenuFilter_Click" Tag="VOD">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🎬" FontSize="16" VerticalAlignment="Center"/>
+							<TextBlock Text="Filmler" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="BtnSeries" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Dizi">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🎞️" FontSize="18" VerticalAlignment="Center"/>
+							<TextBlock Text="Diziler" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+
+					<Border Height="1" Background="{DynamicResource Border}" Margin="4,10"/>
+					<Button x:Name="BtnEpg" Classes="MenuBtn" Click="EpgButton_Click">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🗓️" FontSize="15" VerticalAlignment="Center"/>
+							<TextBlock Text="Yayın Akışı" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="BtnFav" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Favori">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🤍" FontSize="15" VerticalAlignment="Center"/>
+							<TextBlock Text="Favoriler" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="BtnSettings" Classes="MenuBtn" Click="SettingsButton_Click">
+						<StackPanel Orientation="Horizontal" Spacing="10">
+							<TextBlock Text="🛠️" FontSize="18" VerticalAlignment="Center"/>
+							<TextBlock Text="Ayarlar" VerticalAlignment="Center"/>
+						</StackPanel>
+					</Button>
+				</StackPanel>
+			</Grid>
+		</Border>
+
+		<Grid x:Name="MainContentGrid" Grid.Column="1" RowDefinitions="46, *">
+
+			<Border x:Name="TitleBarPanel" Grid.Row="0" Background="{DynamicResource Bg}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" PointerPressed="TitleBar_PointerPressed">
+				<Grid ColumnDefinitions="*, Auto, *">
+					<StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+						<Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="2" CornerRadius="12" Height="28" Width="400" Padding="14,0">
+							<TextBox x:Name="SearchBox" Background="Transparent" Foreground="{DynamicResource Text}" BorderThickness="0" Watermark="🔎 İçerik ara..." VerticalAlignment="Center" TextChanged="SearchBox_TextChanged"/>
+						</Border>
+					</StackPanel>
+
+					<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Stretch" Spacing="0">
+						<Button Classes="WinBtn" Click="MinimizeWindow_Click">
+							<TextBlock Text="─" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						</Button>
+						<Button Classes="WinBtn" Click="MaximizeWindow_Click">
+							<TextBlock Text="□" FontSize="13" Foreground="{DynamicResource TextSec}"/>
+						</Button>
+						<Button Classes="WinBtn WinCloseBtn" Click="CloseWindow_Click">
+							<TextBlock Text="✕" FontSize="13" Foreground="{DynamicResource TextSec}"/>
+						</Button>
+					</StackPanel>
+				</Grid>
+			</Border>
+
+			<!-- ═══════════════════════════════════════════════════════════
+			     DÜZELTME (player kategori/içerik listelerinin ÜZERİNE
+			     biniyordu — bazı satırlar hiç görünmüyor/erişilemiyordu):
+			     PlayerContainer ve aşağıdaki kategori+içerik Grid'i önceden
+			     AYNI Grid hücresinde üst üste (overlapping siblings) duran
+			     iki kardeşti; PlayerContainer'ın ZIndex="-1" olması hiçbir
+			     şey değiştirmiyordu çünkü video yüzeyi (VLC VideoView /
+			     mpv MpvVideoHost) GERÇEK bir native Win32 alt penceredir —
+			     Windows'ta native pencereler Avalonia'nın kendi çiziminin
+			     HER ZAMAN önünde görünür, ZIndex ile değiştirilemeyen bir
+			     pencere kompozisyon kısıtıdır ("airspace", bkz.
+			     PlayerOverlayWindow.axaml başındaki ayrıntılı açıklama).
+			     Bu yüzden player açıkken listelerin üst kısmı video
+			     tarafından fiilen KAPATILIYOR, ZIndex hiçbir fark
+			     yaratmıyordu.
+
+			     Artık PlayerContainer ve kategori+içerik Grid'i AYRI Grid
+			     SATIRLARINDA (RowDefinitions="Auto, *") — PlayerContainer
+			     kendi Height'ı kadar (kapalıyken 0, açıkken 450, tam
+			     ekranda NaN) gerçek yer kaplıyor, listeler bu satırın
+			     HEMEN ALTINDAN başlıyor. Böylece video her zaman listelerin
+			     üstünde ayrı bir blok olarak durur, hiçbir satırı kapatmaz
+			     ve her iki listenin de en baştan sona tam erişimi olur. -->
+			<Grid x:Name="PlayerRowGrid" Grid.Row="1" RowDefinitions="Auto, *">
+
+				<Grid x:Name="PlayerContainer" Grid.Row="0" VerticalAlignment="Top" Height="0" ClipToBounds="True">
+					<!-- YENİ: Video yüzeyi artık burada sabit değil — hangi motor
+         (VLC/mpv) aktifse, o motorun native kontrolü (engine.VideoSurface)
+         MainWindow.axaml.cs → EnsureEngineInitialized() içinde bu panele
+         Children.Add() ile eklenir. -->
+					<Panel x:Name="PlayerVideoHost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+				</Grid>
+
+				<Grid Grid.Row="1" ColumnDefinitions="Auto, *">
+
+					<!-- ═══════════════════════════════════════════════════════
+					     YENİ (madde 1 — kalıcı sol kategori listesi paneli):
+					     Eskiden kategoriler ana içerik alanında büyük "kart"lar
+					     (CatCard) olarak, kendi başına bir sekme ("Categories"
+					     görünüm durumu) hâlinde gösteriliyordu. Artık kategori
+					     listesi HER ZAMAN (Content/Shows görünümünde de) solda,
+					     dar/sabit genişlikte kalıcı bir panelde duruyor — bkz.
+					     ekran görüntüsü ("TÜRK RAW / ULUSAL / BELGESEL / ...").
+					     Görünürlüğü MainWindow.Navigation.cs → SetGridVisibility
+					     içindeki "categories" parametresiyle yönetilir.
+
+					     KAYDIRMA (madde 1'in ikinci kısmı): Liste gerçek bir
+					     kaydırma çubuğu OLMADAN, sadece mouse tekerleği ile
+					     kaydırılabilir olmalı. Bunu sağlayan iki şey: (1) bu
+					     panel sabit yükseklikli bir Grid satırı içinde durduğu
+					     için ScrollViewer'ın taşacak içeriği olduğunda gerçek
+					     bir viewport'u vardır, (2) VerticalScrollBarVisibility
+					     "Disabled" DEĞİL "Hidden" — "Disabled" kaydırmayı TAMAMEN
+					     kapatır (tekerlek de çalışmaz), "Hidden" ise SADECE
+					     görsel çubuğu gizler; ScrollViewer tekerlek olayını
+					     normal şekilde işlemeye devam eder.
+					     ═══════════════════════════════════════════════════════ -->
+					<Border x:Name="CategoryListPanel" Grid.Column="0" Width="220"
+							Background="{DynamicResource BgSidebar}"
+							BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+							Padding="14,20,10,16" IsVisible="False">
+						<Grid RowDefinitions="Auto, *">
+							<Grid Grid.Row="0" Margin="6,0,4,12">
+								<TextBlock Text="Kategoriler" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSec}"/>
+								<TextBlock Text="⠿ ile sürükleyip sıralayın" FontSize="9" Foreground="{DynamicResource TextSec}" Opacity="0.7" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+							</Grid>
+
+							<ScrollViewer Grid.Row="1"
+										  VerticalScrollBarVisibility="Hidden"
+										  HorizontalScrollBarVisibility="Disabled">
+								<ItemsControl x:Name="CategoriesGrid">
+									<ItemsControl.ItemsPanel>
+										<ItemsPanelTemplate>
+											<StackPanel Orientation="Vertical"/>
+										</ItemsPanelTemplate>
+									</ItemsControl.ItemsPanel>
+									<ItemsControl.ItemTemplate>
+										<DataTemplate x:DataType="sys:String">
+											<Button Classes="CategoryListItem" Click="Category_Click" Tag="{Binding}"
+													DragDrop.AllowDrop="True"
+													DragDrop.DragOver="CategoryItem_DragOver"
+													DragDrop.DragLeave="CategoryItem_DragLeave"
+													DragDrop.Drop="CategoryItem_Drop">
+												<Grid ColumnDefinitions="*, Auto">
+													<TextBlock Text="{Binding}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource Text}"
+															   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" IsHitTestVisible="False"/>
+													<TextBlock Grid.Column="1" Text="⠿" FontSize="12" Foreground="{DynamicResource TextSec}"
+															   VerticalAlignment="Center" Margin="8,0,0,0" Cursor="Hand"
+															   PointerPressed="CategoryDragStart_PointerPressed" Tag="{Binding}"/>
+												</Grid>
+											</Button>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
+							</ScrollViewer>
+						</Grid>
+					</Border>
+
+					<Grid Grid.Column="1">
+				<ScrollViewer x:Name="ContentScrollViewer" Margin="28,24"
+							  VerticalScrollBarVisibility="Hidden"
+							  ScrollChanged="ContentScrollViewer_ScrollChanged">
+					<StackPanel>
+
+						<Grid x:Name="PageTitlePanel" Margin="0,0,0,24" IsVisible="False">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="*"/>
+								<ColumnDefinition Width="Auto"/>
+							</Grid.ColumnDefinitions>
+							<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+								<Button x:Name="BackBtn" Classes="IconBtn" Content="❮ Geri" Click="Back_Click" Foreground="{DynamicResource TextSec}" FontWeight="Bold" IsVisible="False"/>
+								<TextBlock x:Name="PageTitle" Text="" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Text}" IsVisible="False"/>
+							</StackPanel>
+
+							<!-- YENİ (madde 3 — içerik sıralama): A-Z / Z-A / Son
+							     Eklenenler. Sadece içerik görünümünde (kategori
+							     listesi veya ayarlar/favori/arama DIŞINDA) görünür
+							     — bkz. SetGridVisibility(content). Seçili mod
+							     UpdateSortButtons ile "Selected" class'ı üzerinden
+							     vurgulanır. -->
+							<StackPanel x:Name="SortOptionsPanel" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="False">
+								<Button Classes="ActionBtn SettingsToggleBtn" Content="A-Z" Tag="AZ" Click="SortMode_Click"/>
+								<Button Classes="ActionBtn SettingsToggleBtn" Content="Z-A" Tag="ZA" Click="SortMode_Click"/>
+								<Button Classes="ActionBtn SettingsToggleBtn" Content="Son Eklenenler" Tag="New" Click="SortMode_Click"/>
+							</StackPanel>
+						</Grid>
+
+						<!-- YENİ: Arama sonuçlarında içerik türlerini (Canlı/Film/Dizi)
+						     ayrı ayrı, başlıklı bölümler hâlinde göstermek için
+						     eklenen etiketler. Normal (aramasız) gezinmede hep
+						     gizlidir; sadece arama sırasında UpdateViewInternal
+						     tarafından açılır — bkz. MainWindow.Navigation.cs. -->
+						<TextBlock x:Name="SearchLiveLabel" Text="📺 Canlı" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,10" IsVisible="False"/>
+
+						<!-- Canlı TV liste görünümü — Gizle butonu kaldırıldı, Grid 3 sütuna indirildi -->
+						<!-- KALICI DÜZELTME (CPU spike): dış panel artık gerçek
+						     sanallaştırma yapan VirtualizingStackPanel; kartlar
+						     RowGroupedCollection tarafından satırlara gruplanıyor
+						     (bkz. RowGroupedCollection.cs / MainWindow.axaml.cs). -->
+						<ItemsControl x:Name="ContentItemsGrid" IsVisible="False">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<VirtualizingStackPanel Orientation="Vertical"/>
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:CompileBindings="False">
+									<ItemsControl ItemsSource="{Binding Items}" HorizontalAlignment="Left">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<StackPanel Orientation="Horizontal"/>
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="local:Channel">
+												<Border Classes="ContentItemBorder">
+													<Grid ColumnDefinitions="Auto, *, Auto" Margin="8">
+														<Button Grid.Column="0" Grid.ColumnSpan="2" Background="Transparent" BorderThickness="0" Click="Content_Click" Tag="{Binding}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="12" Cursor="Hand"/>
+
+														<Grid Grid.Column="0" Width="34" Height="34" IsHitTestVisible="False">
+															<Border CornerRadius="9" Background="#1A4f8bff" IsVisible="{Binding NoLogo}">
+																<TextBlock Text="▶" Foreground="{DynamicResource Accent}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+															</Border>
+															<Border CornerRadius="9" Background="#0A000000" IsVisible="{Binding HasLogo}" ClipToBounds="True">
+																<Image Source="{Binding LogoBitmap}" Stretch="Uniform" Margin="2" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+															</Border>
+														</Grid>
+
+														<StackPanel Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+															<TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" ToolTip.Tip="{Binding Name}"/>
+															<TextBlock Text="{Binding Group}" FontSize="10" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+															<!-- YENİ (madde 5): kart altında "şu an yayında" EPG bilgisi
+															     — sadece EPG eşleşmesi varsa görünür (bkz.
+															     Channel.HasEpgNow / MainWindow.Epg.cs →
+															     UpdateLiveChannelsEpgNowInfo). -->
+															<TextBlock Text="{Binding EpgNowDisplayText}" FontSize="9" Foreground="{DynamicResource Accent}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasEpgNow}"/>
+														</StackPanel>
+
+														<Button Grid.Column="2" Classes="IconBtn" Content="{Binding FavoriteIcon}" Foreground="{Binding FavoriteBrush}" Click="ToggleFavorite_Click" Tag="{Binding}" FontSize="17" VerticalAlignment="Center" Margin="2,0" ToolTip.Tip="Favorilere Ekle/Çıkar"/>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+
+						<TextBlock x:Name="SearchVodLabel" Text="🎬 Filmler" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,20,0,10" IsVisible="False"/>
+
+						<!-- KALICI DÜZELTME (CPU spike): dış panel artık gerçek
+						     sanallaştırma yapan VirtualizingStackPanel; kartlar
+						     RowGroupedCollection tarafından satırlara gruplanıyor. -->
+						<ItemsControl x:Name="VodContentGrid" IsVisible="False">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<VirtualizingStackPanel Orientation="Vertical"/>
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:CompileBindings="False">
+									<ItemsControl ItemsSource="{Binding Items}" Classes="RowItemsHost">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<StackPanel Orientation="Horizontal"/>
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="local:Channel">
+												<Border Classes="VodCardBorder">
+													<Grid ColumnDefinitions="Auto, *">
+														<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
+															<Grid>
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
+																	<TextBlock Text="🎬" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+																</Border>
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
+																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+																</Border>
+															</Grid>
+														</Border>
+														<Grid Grid.Column="1" RowDefinitions="Auto, *">
+															<StackPanel Grid.Row="0" Margin="14,14,14,0" IsHitTestVisible="False">
+																<TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" ToolTip.Tip="{Binding Name}"/>
+																<TextBlock Text="{Binding Group}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+															</StackPanel>
+															<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5">
+																<Button Classes="ActionBtn" Click="Content_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="Content_Resume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
+																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="ToggleFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<StackPanel Orientation="Horizontal" Spacing="4">
+																		<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
+																		<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+																<Button Classes="ActionBtn" Click="VodInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<StackPanel Orientation="Horizontal" Spacing="4">
+																		<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																		<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+															</StackPanel>
+														</Grid>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+
+						<TextBlock x:Name="SearchSeriesLabel" Text="🎞️ Diziler" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,20,0,10" IsVisible="False"/>
+
+						<!-- KALICI DÜZELTME (CPU spike): dış panel artık gerçek
+						     sanallaştırma yapan VirtualizingStackPanel; kartlar
+						     RowGroupedCollection tarafından satırlara gruplanıyor. -->
+						<ItemsControl x:Name="SeriesContentGrid" IsVisible="False">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<VirtualizingStackPanel Orientation="Vertical"/>
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:CompileBindings="False">
+									<ItemsControl ItemsSource="{Binding Items}" Classes="RowItemsHost">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<StackPanel Orientation="Horizontal"/>
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="local:SeriesCard">
+												<Border Classes="VodCardBorder" Height="240">
+													<Grid ColumnDefinitions="Auto, *">
+														<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
+															<Grid>
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
+																	<TextBlock Text="🎞️" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+																</Border>
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
+																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+																</Border>
+															</Grid>
+														</Border>
+														<Grid Grid.Column="1" RowDefinitions="Auto, *">
+															<StackPanel Grid.Row="0" Margin="14,12,14,0" IsHitTestVisible="False">
+																<TextBlock Text="{Binding ShowName}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ShowName}"/>
+																<TextBlock Text="{Binding Group}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+															</StackPanel>
+															<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5">
+																<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
+																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																</Button>
+																<Grid ColumnDefinitions="Auto, *, Auto">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																	<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																		<TextBlock Text="{Binding SeasonText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																	</Border>
+																	<Button Grid.Column="2" Classes="ActionBtn" Click="NextSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																</Grid>
+																<Grid ColumnDefinitions="Auto, *, Auto">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevEpisode_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																	<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																		<TextBlock Text="{Binding EpisodeText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																	</Border>
+																	<Button Grid.Column="2" Classes="ActionBtn" Click="NextEpisode_Click2" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																</Grid>
+																<Grid ColumnDefinitions="*, *">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="SeriesInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																	<Button Grid.Column="1" Classes="ActionBtn" Click="SeriesFav_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,0,0">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																</Grid>
+															</StackPanel>
+														</Grid>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+
+						<!-- ========================================================= -->
+						<!-- ANASAYFA PANELİ (Popüler & Devam Et)                      -->
+						<!-- ========================================================= -->
+						<StackPanel x:Name="HomePanel" IsVisible="True" Spacing="0" Margin="0,4,0,24">
+							
+							<!-- 1. POPÜLER BÖLÜMÜ: TMDb Trend Hero Banner (20 İçerik) -->
+							<!-- Not: "Popüler" başlığı kullanıcı isteğiyle kaldırıldı -->
+							<Border x:Name="HeroBannerContainer"
+							        Margin="0,0,0,24"
+							        Height="470"
+							        CornerRadius="22"
+							        ClipToBounds="True"
+							        Background="{DynamicResource BgCard}"
+							        BorderBrush="{DynamicResource Border}"
+							        BorderThickness="1"
+							        BoxShadow="0 12 40 0 #88000000">
+								<Grid>
+									<!-- 1. Arka Plan Backdrop Görseli (Yüksek kaliteli HD silüet ve canlı renkler) -->
+									<Image x:Name="HeroBackdropImg"
+									       Stretch="UniformToFill"
+									       RenderOptions.BitmapInterpolationMode="HighQuality"
+									       HorizontalAlignment="Center"
+									       VerticalAlignment="Center"
+									       Opacity="0.88"/>
+
+									<!-- 2. Gradyan Karartma Katmanları (Sinematik Silüet ve Zemin Bütünlüğü) -->
+									<!-- Soldan Sağa Karartma (Sol metin okunabilirliği + Sağ silüet berraklığı) -->
+									<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+										<Border.Background>
+											<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+												<GradientStop Color="#F00b0f19" Offset="0.0"/>
+												<GradientStop Color="#CC0b0f19" Offset="0.35"/>
+												<GradientStop Color="#400b0f19" Offset="0.68"/>
+												<GradientStop Color="#000b0f19" Offset="1.0"/>
+											</LinearGradientBrush>
+										</Border.Background>
+									</Border>
+
+									<!-- Aşağıdan Yukarıya Zemin / Taban Karartma & Yansıma Katmanı -->
+									<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+										<Border.Background>
+											<LinearGradientBrush StartPoint="0%,100%" EndPoint="0%,0%">
+												<GradientStop Color="#F00b0f19" Offset="0.0"/>
+												<GradientStop Color="#800b0f19" Offset="0.28"/>
+												<GradientStop Color="#000b0f19" Offset="0.65"/>
+											</LinearGradientBrush>
+										</Border.Background>
+									</Border>
+
+									<!-- Üst Kenar İnce Vignette Çerçevesi -->
+									<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+										<Border.Background>
+											<LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+												<GradientStop Color="#400b0f19" Offset="0.0"/>
+												<GradientStop Color="#000b0f19" Offset="0.18"/>
+											</LinearGradientBrush>
+										</Border.Background>
+									</Border>
+
+									<!-- 3. Ön Plan İçerik Düzeni -->
+									<Grid Margin="38,32,38,26" RowDefinitions="Auto, *, Auto">
+										
+										<!-- Üst Alan: Rozetler / Etiketler -->
+										<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+											<!-- TMDb Trend Rozeti -->
+											<Border CornerRadius="8" Background="#2200d2ff" BorderBrush="#00d2ff" BorderThickness="1" Padding="9,4">
+												<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+													<TextBlock Text="✨" FontSize="11" Foreground="#00d2ff" VerticalAlignment="Center"/>
+													<TextBlock Text="TMDB TREND" FontSize="11" FontWeight="Black" Foreground="#00d2ff" VerticalAlignment="Center"/>
+												</StackPanel>
+											</Border>
+
+											<!-- Tür: SİNEMA / DİZİ -->
+											<Border CornerRadius="6" Background="#33000000" BorderBrush="#334155" BorderThickness="1" Padding="8,4">
+												<TextBlock x:Name="HeroTypeBadgeText" Text="SİNEMA" FontSize="11" FontWeight="Bold" Foreground="#cbd5e1" VerticalAlignment="Center"/>
+											</Border>
+
+											<!-- Puan: ⭐ 8.0 -->
+											<Border CornerRadius="6" Background="#40000000" BorderBrush="#334155" BorderThickness="1" Padding="8,4">
+												<StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+													<TextBlock Text="⭐" FontSize="11" Foreground="#fbbf24" VerticalAlignment="Center"/>
+													<TextBlock x:Name="HeroRatingText" Text="8.0" FontSize="11" FontWeight="Bold" Foreground="#fbbf24" VerticalAlignment="Center"/>
+												</StackPanel>
+											</Border>
+										</StackPanel>
+
+										<!-- Orta Alan: Başlık, Slogan, Açıklama, Tür Etiketleri -->
+										<StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="9" MaxWidth="720" HorizontalAlignment="Left">
+											<!-- Başlık -->
+											<TextBlock x:Name="HeroTitleText" Text="Deadpool &amp; Wolverine" FontSize="35" FontWeight="Black" Foreground="White" TextWrapping="Wrap" MaxLines="2" LineHeight="42"/>
+
+											<!-- Slogan (Varsa) -->
+											<TextBlock x:Name="HeroTaglineText" Text="&quot;Birlikte her şeyi düzeltecekler. Ya da batıracaklar.&quot;" FontSize="13.5" FontWeight="SemiBold" FontStyle="Italic" Foreground="#38bdf8" TextWrapping="Wrap" MaxLines="2"/>
+
+											<!-- Açıklama -->
+											<TextBlock x:Name="HeroOverviewText" Text="Zaman Varyansı Otoritesi (TVA) tarafından evrenini kurtarmak için göreve çağrılan umutsuz Wade Wilson, isteksiz bir Wolverine ile güçlerini birleştirmek zorundadır." FontSize="13" Foreground="#94a3b8" TextWrapping="Wrap" MaxLines="3" LineHeight="20" MaxWidth="620"/>
+
+											<!-- Tür Etiketleri -->
+											<ItemsControl x:Name="HeroGenresList" Margin="0,4,0,0">
+												<ItemsControl.ItemsPanel>
+													<ItemsPanelTemplate>
+														<StackPanel Orientation="Horizontal" Spacing="6"/>
+													</ItemsPanelTemplate>
+												</ItemsControl.ItemsPanel>
+												<ItemsControl.ItemTemplate>
+													<DataTemplate x:DataType="sys:String">
+														<Border CornerRadius="12" Background="#331e293b" BorderBrush="#334155" BorderThickness="1" Padding="10,4">
+															<TextBlock Text="{Binding}" FontSize="11" Foreground="#cbd5e1" VerticalAlignment="Center"/>
+														</Border>
+													</DataTemplate>
+												</ItemsControl.ItemTemplate>
+											</ItemsControl>
+										</StackPanel>
+
+										<!-- Alt Alan: Aksiyon Butonları & Sağ Altta Carousel Gezinme -->
+										<Grid Grid.Row="2" Margin="0,14,0,0">
+											<!-- Sol: Hemen İzle / Detaylar & Bölümler / Favori -->
+											<StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
+												<!-- Hemen İzle Butonu -->
+												<Border CornerRadius="12" BoxShadow="0 4 20 0 #550084ff">
+													<Button Classes="ActionBtn" Click="HeroPlay_Click" Background="#0084ff" Foreground="White" CornerRadius="12" Padding="24,11" BorderThickness="0">
+														<StackPanel Orientation="Horizontal" Spacing="8">
+															<TextBlock Text="▶" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+															<TextBlock Text="Hemen İzle" FontSize="13.5" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</Border>
+
+												<!-- Detaylar & Bölümler Butonu -->
+												<Button Classes="ActionBtn" Click="HeroDetail_Click" Background="#260f172a" Foreground="White" CornerRadius="12" Padding="18,11" BorderThickness="1" BorderBrush="#334155">
+													<StackPanel Orientation="Horizontal" Spacing="7">
+														<TextBlock Text="ⓘ" FontSize="14" Foreground="#38bdf8" VerticalAlignment="Center"/>
+														<TextBlock Text="Detaylar &amp; Bölümler" FontSize="12.5" FontWeight="SemiBold" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+													</StackPanel>
+												</Button>
+
+												<!-- Favori Butonu -->
+												<Button Classes="ActionBtn" Click="HeroFavorite_Click" Background="#260f172a" Foreground="White" CornerRadius="12" Width="44" Height="44" Padding="0" BorderThickness="1" BorderBrush="#334155" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+													<TextBlock x:Name="HeroFavIconText" Text="🤍" FontSize="15" Foreground="#94a3b8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+												</Button>
+											</StackPanel>
+
+											<!-- Sağ: Carousel Okları & Gösterge Noktaları -->
+											<StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+												<!-- Sol Ok -->
+												<Border Classes="ActionBtn" PointerPressed="HeroPrev_Click" Background="#330f172a" BorderBrush="#334155" BorderThickness="1" CornerRadius="18" Width="36" Height="36" Cursor="Hand">
+													<Path Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12Z" Fill="#94a3b8" Width="12" Height="12" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+												</Border>
+
+												<!-- Gösterge Noktaları -->
+												<Border Background="#44020617" BorderBrush="#1e293b" BorderThickness="1" CornerRadius="14" Padding="8,5">
+													<ItemsControl x:Name="HeroDotsControl">
+														<ItemsControl.ItemsPanel>
+															<ItemsPanelTemplate>
+																<StackPanel Orientation="Horizontal" Spacing="5"/>
+															</ItemsPanelTemplate>
+														</ItemsControl.ItemsPanel>
+														<ItemsControl.ItemTemplate>
+															<DataTemplate x:DataType="local:HeroDotItem">
+																<Border Tag="{Binding}" PointerPressed="HeroDot_Click" Cursor="Hand" Width="{Binding DotWidth}" Height="6" CornerRadius="3" Background="{Binding DotBrush}" VerticalAlignment="Center"/>
+															</DataTemplate>
+														</ItemsControl.ItemTemplate>
+													</ItemsControl>
+												</Border>
+
+												<!-- Sağ Ok -->
+												<Border Classes="ActionBtn" PointerPressed="HeroNext_Click" Background="#330f172a" BorderBrush="#334155" BorderThickness="1" CornerRadius="18" Width="36" Height="36" Cursor="Hand">
+													<Path Data="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12Z" Fill="#94a3b8" Width="12" Height="12" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+												</Border>
+											</StackPanel>
+										</Grid>
+									</Grid>
+								</Grid>
+							</Border>
+
+							<!-- 2. DEVAM ET BÖLÜMÜ (Yarıda Bırakılan İçerikler) -->
+							<StackPanel Margin="0,4,0,16">
+								<!-- Devam Et Başlığı ("Kaynak Ekle" Gradyanı) ve Filtre Butonları (A-Z stili) -->
+								<Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
+									<Border Grid.Column="0" CornerRadius="20" BoxShadow="0 6 18 0 #30ec4899">
+										<Border.Background>
+											<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+												<GradientStop Color="#4f8bff" Offset="0.0"/>
+												<GradientStop Color="#ec4899" Offset="1.0"/>
+											</LinearGradientBrush>
+										</Border.Background>
+										<Grid Height="40" Margin="22,0,26,0">
+											<TextBlock Text="Devam Et" FontSize="17" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+										</Grid>
+									</Border>
+
+									<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+										<Button x:Name="BtnResumeAll" Classes="ActionBtn SettingsToggleBtn Selected" Click="ResumeFilter_Click" Tag="All" Content="Tümü"/>
+										<Button x:Name="BtnResumeMovies" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Movies" Content="Filmler"/>
+										<Button x:Name="BtnResumeSeries" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Series" Content="Diziler"/>
+									</StackPanel>
+								</Grid>
+
+								<!-- Devam Et İçerik Listesi (Uygulamadaki Standart Kart Stili) -->
+								<Grid>
+									<!-- Boş Durum Bildirimi -->
+									<Border x:Name="HomeResumeEmptyNotice" IsVisible="False" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="12" Padding="20" HorizontalAlignment="Stretch">
+										<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+											<TextBlock Text="⏳" FontSize="18" VerticalAlignment="Center"/>
+											<TextBlock Text="Henüz yarıda bırakılan bir film veya dizi bulunmuyor." FontSize="13" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+										</StackPanel>
+									</Border>
+
+									<ScrollViewer x:Name="HomeResumeScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="HomeResumeScroll_ScrollChanged">
+										<ItemsControl x:Name="HomeResumeGrid">
+											<ItemsControl.ItemsPanel>
+												<ItemsPanelTemplate>
+													<StackPanel Orientation="Horizontal" Spacing="12"/>
+												</ItemsPanelTemplate>
+											</ItemsControl.ItemsPanel>
+											<ItemsControl.ItemTemplate>
+												<DataTemplate x:DataType="local:ResumeWatchItem">
+													<Border Classes="VodCardBorder" Height="240" Margin="0,0,12,0">
+														<Grid ColumnDefinitions="Auto, *">
+															<!-- Sol: Poster & İkon -->
+															<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
+																<Grid>
+																	<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
+																		<TextBlock Text="{Binding PlaceholderIcon}" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+																	</Border>
+																	<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
+																		<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+																	</Border>
+																</Grid>
+															</Border>
+
+															<!-- Sağ: Başlık, Kategori/Tür ve İşlem Butonları -->
+															<Grid Grid.Column="1" RowDefinitions="Auto, *">
+																<StackPanel Grid.Row="0" Margin="14,12,14,0" IsHitTestVisible="False">
+																	<TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+																	<TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+																</StackPanel>
+
+																<!-- Dizi İçin İşlem Butonları (Diziler sekmesiyle birebir aynı) -->
+																<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5" IsVisible="{Binding IsSeries}">
+																	<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																		<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	</Button>
+																	<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding SeriesCard}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding SeriesCard.HasResume}">
+																		<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	</Button>
+																	<Grid ColumnDefinitions="Auto, *, Auto">
+																		<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																		<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																			<TextBlock Text="{Binding SeriesCard.SeasonText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																		</Border>
+																		<Button Grid.Column="2" Classes="ActionBtn" Click="NextSeason_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																	</Grid>
+																	<Grid ColumnDefinitions="Auto, *, Auto">
+																		<Button Grid.Column="0" Classes="ActionBtn" Click="PrevEpisode_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																		<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																			<TextBlock Text="{Binding SeriesCard.EpisodeText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																		</Border>
+																		<Button Grid.Column="2" Classes="ActionBtn" Click="NextEpisode_Click2" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																	</Grid>
+																	<Grid ColumnDefinitions="*, *">
+																		<Button Grid.Column="0" Classes="ActionBtn" Click="SeriesInfo_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0">
+																			<StackPanel Orientation="Horizontal" Spacing="4">
+																				<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																			</StackPanel>
+																		</Button>
+																		<Button Grid.Column="1" Classes="ActionBtn" Click="SeriesFav_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,0,0">
+																			<StackPanel Orientation="Horizontal" Spacing="4">
+																				<TextBlock Text="{Binding SeriesCard.FavoriteIcon}" FontSize="12" Foreground="{Binding SeriesCard.FavoriteBrush}" VerticalAlignment="Center"/>
+																			</StackPanel>
+																		</Button>
+																	</Grid>
+																</StackPanel>
+
+																<!-- Film / VOD İçin İşlem Butonları (Filmler sekmesiyle birebir aynı) -->
+																<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5" IsVisible="{Binding IsMovie}">
+																	<Button Classes="ActionBtn" Click="ResumeRestart_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																		<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	</Button>
+																	<Button Classes="ActionBtn" Click="ResumeCard_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
+																		<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	</Button>
+																	<Button Classes="ActionBtn" Click="ResumeFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
+																			<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																	<Button Classes="ActionBtn" Click="ResumeDetail_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																			<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																</StackPanel>
+															</Grid>
+														</Grid>
+													</Border>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+									</ScrollViewer>
+
+									<!-- Sol ve Sağ Ok Butonları -->
+									<Border x:Name="HomeResumePrevBtn" Classes="HScrollArrow" PointerPressed="HomeResumePrev_Click" IsVisible="False">
+										<Path Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+									</Border>
+									<Border x:Name="HomeResumeNextBtn" Classes="HScrollArrow NextArrow" PointerPressed="HomeResumeNext_Click" IsVisible="False">
+										<Path Data="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+									</Border>
+								</Grid>
+							</StackPanel>
+
+						</StackPanel>
+
+						<StackPanel x:Name="FavoriPanel" IsVisible="False" Spacing="0">
+							<StackPanel x:Name="FavoriLiveSection" IsVisible="False" Margin="0,0,0,32">
+								<TextBlock Text="Canlı TV" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<Grid>
+									<ScrollViewer x:Name="FavoriLiveScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriLiveScroll_ScrollChanged">
+										<ItemsControl x:Name="FavoriLiveGrid">
+											<ItemsControl.ItemsPanel>
+												<ItemsPanelTemplate>
+													<StackPanel Orientation="Horizontal"/>
+												</ItemsPanelTemplate>
+											</ItemsControl.ItemsPanel>
+											<ItemsControl.ItemTemplate>
+												<DataTemplate x:DataType="sys:String">
+													<Button Classes="CatCard" Click="FavoriCategory_Click" Tag="{Binding}">
+														<Grid ColumnDefinitions="*, Auto">
+															<TextBlock Text="{Binding}" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource Text}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+															<TextBlock Grid.Column="1" Text="❯" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+														</Grid>
+													</Button>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+									</ScrollViewer>
+									<Border x:Name="FavoriLivePrevBtn" Classes="HScrollArrow" PointerPressed="FavoriLivePrev_Click" IsVisible="False">
+										<Path Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+									</Border>
+									<Border x:Name="FavoriLiveNextBtn" Classes="HScrollArrow NextArrow" PointerPressed="FavoriLiveNext_Click" IsVisible="False">
+										<Path Data="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+									</Border>
+								</Grid>
+							</StackPanel>
+							<StackPanel x:Name="FavoriVodSection" IsVisible="False" Margin="0,0,0,32">
+								<TextBlock Text="Filmler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<Grid>
+								<ScrollViewer x:Name="FavoriVodScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriVodScroll_ScrollChanged">
+									<!-- KALICI DÜZELTME (CPU spike): tek satır yatay liste
+									     olduğundan satır gruplamasına gerek yok — sadece
+									     panel gerçek sanallaştırma yapan
+									     VirtualizingStackPanel(Horizontal) oldu. -->
+									<ItemsControl x:Name="FavoriVodGrid">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<VirtualizingStackPanel Orientation="Horizontal"/>
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="local:Channel">
+												<Border Classes="VodCardBorder">
+													<Grid ColumnDefinitions="Auto, *">
+														<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
+															<Grid>
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
+																	<TextBlock Text="🎬" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+																</Border>
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
+																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+																</Border>
+															</Grid>
+														</Border>
+														<Grid Grid.Column="1" RowDefinitions="Auto, *">
+															<StackPanel Grid.Row="0" Margin="14,14,14,0" IsHitTestVisible="False">
+																<TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" ToolTip.Tip="{Binding Name}"/>
+																<TextBlock Text="{Binding Group}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+															</StackPanel>
+															<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5">
+																<Button Classes="ActionBtn" Click="Content_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="Content_Resume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
+																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="ToggleFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<StackPanel Orientation="Horizontal" Spacing="4">
+																		<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
+																		<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+																<Button Classes="ActionBtn" Click="VodInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<StackPanel Orientation="Horizontal" Spacing="4">
+																		<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																		<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+															</StackPanel>
+														</Grid>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+									</ScrollViewer>
+								<Border x:Name="FavoriVodPrevBtn" Classes="HScrollArrow" PointerPressed="FavoriVodPrev_Click" IsVisible="False">
+									<Path Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+								</Border>
+								<Border x:Name="FavoriVodNextBtn" Classes="HScrollArrow NextArrow" PointerPressed="FavoriVodNext_Click" IsVisible="False">
+									<Path Data="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+								</Border>
+								</Grid>
+							</StackPanel>
+							<StackPanel x:Name="FavoriSeriesSection" IsVisible="False" Margin="0,0,0,32">
+								<TextBlock Text="Diziler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<Grid>
+								<ScrollViewer x:Name="FavoriSeriesScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriSeriesScroll_ScrollChanged">
+									<!-- KALICI DÜZELTME (CPU spike): tek satır yatay liste
+									     olduğundan satır gruplamasına gerek yok — sadece
+									     panel gerçek sanallaştırma yapan
+									     VirtualizingStackPanel(Horizontal) oldu. -->
+									<ItemsControl x:Name="FavoriSeriesGrid">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<VirtualizingStackPanel Orientation="Horizontal"/>
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="local:SeriesCard">
+												<Border Classes="VodCardBorder" Height="240">
+													<Grid ColumnDefinitions="Auto, *">
+														<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
+															<Grid>
+																<Border Background="{DynamicResource PosterPlaceholderBg}" IsVisible="{Binding NoLogo}">
+																	<TextBlock Text="🎞️" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+																</Border>
+																<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
+																	<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+																</Border>
+															</Grid>
+														</Border>
+														<Grid Grid.Column="1" RowDefinitions="Auto, *">
+															<StackPanel Grid.Row="0" Margin="14,12,14,0" IsHitTestVisible="False">
+																<TextBlock Text="{Binding ShowName}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ShowName}"/>
+																<TextBlock Text="{Binding Group}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+															</StackPanel>
+															<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5">
+																<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																</Button>
+																<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
+																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																</Button>
+																<Grid ColumnDefinitions="Auto, *, Auto">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																	<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																		<TextBlock Text="{Binding SeasonText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																	</Border>
+																	<Button Grid.Column="2" Classes="ActionBtn" Click="NextSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																</Grid>
+																<Grid ColumnDefinitions="Auto, *, Auto">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevEpisode_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
+																	<Border Grid.Column="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1" IsHitTestVisible="False">
+																		<TextBlock Text="{Binding EpisodeText}" FontSize="12" Foreground="{DynamicResource Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+																	</Border>
+																	<Button Grid.Column="2" Classes="ActionBtn" Click="NextEpisode_Click2" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="0,8,8,0" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="▶" FontSize="10"/>
+																</Grid>
+																<Grid ColumnDefinitions="*, *">
+																	<Button Grid.Column="0" Classes="ActionBtn" Click="SeriesInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																	<Button Grid.Column="1" Classes="ActionBtn" Click="SeriesFav_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,0,0">
+																		<StackPanel Orientation="Horizontal" Spacing="4">
+																			<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
+																		</StackPanel>
+																	</Button>
+																</Grid>
+															</StackPanel>
+														</Grid>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</ScrollViewer>
+								<Border x:Name="FavoriSeriesPrevBtn" Classes="HScrollArrow" PointerPressed="FavoriSeriesPrev_Click" IsVisible="False">
+									<Path Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+								</Border>
+								<Border x:Name="FavoriSeriesNextBtn" Classes="HScrollArrow NextArrow" PointerPressed="FavoriSeriesNext_Click" IsVisible="False">
+									<Path Data="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12Z" Fill="White" Width="14" Height="14" Stretch="Uniform"/>
+								</Border>
+								</Grid>
+							</StackPanel>
+						</StackPanel>
+
+					</StackPanel>
+				</ScrollViewer>
+
+				<!-- Özel minimal scroll çubuğu (sabit boyutlu thumb)
+				     Gerçek ScrollViewer scroll çubuğu yukarıda Hidden;
+				     pozisyon ContentScrollViewer_ScrollChanged içinde
+				     kod-behind'dan hesaplanıp bu Border'a uygulanıyor.
+				     Scroll sırasında görünür, durakladığında otomatik
+				     gizlenir (fade); ayrıca sürüklenerek scroll yapılabilir. -->
+				<!-- Hover sırasında genişleyen thumb için: dış kapsayıcı
+				     (CustomScrollThumb) SABİT genişlikte tutulur ve tüm
+				     pointer olaylarını o yakalar — bu sayede genişleme
+				     animasyonu sırasında "imleç artık sınırların dışında"
+				     diye PointerExited'in anında tetiklenip thumb'ın
+				     titreyerek kaybolması engellenir. Görünür ince/kalın
+				     çubuk ise içteki CustomScrollThumbVisual'dır ve
+				     IsHitTestVisible=False olduğu için olayları engellemez,
+				     sadece görsel olarak büyür/küçülür. -->
+				<Border x:Name="CustomScrollThumb"
+						Width="15" Height="80"
+						Background="Transparent"
+						HorizontalAlignment="Right"
+						VerticalAlignment="Top"
+						Margin="0,24,0,0"
+						Opacity="0"
+						Cursor="Hand"
+						PointerEntered="CustomScrollThumb_PointerEntered"
+						PointerExited="CustomScrollThumb_PointerExited"
+						PointerPressed="CustomScrollThumb_PointerPressed"
+						PointerMoved="CustomScrollThumb_PointerMoved"
+						PointerReleased="CustomScrollThumb_PointerReleased"
+						IsVisible="False">
+					<Border.Transitions>
+						<Transitions>
+							<DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+						</Transitions>
+					</Border.Transitions>
+					<Border x:Name="CustomScrollThumbVisual"
+							Width="6" Height="80"
+							CornerRadius="3"
+							Background="#66888888"
+							HorizontalAlignment="Right"
+							VerticalAlignment="Top"
+							IsHitTestVisible="False">
+						<Border.Transitions>
+							<Transitions>
+								<DoubleTransition Property="Width" Duration="0:0:0.12"/>
+							</Transitions>
+						</Border.Transitions>
+					</Border>
+				</Border>
+					</Grid>
+				</Grid>
+			</Grid>
+		</Grid>
+
+		<!-- ═══════════════════════════════════════════════════════════
+		     YENİ (madde 2 — Ayarlar modalının kategori panelinin ÜZERİNE
+		     yazılmaması): Ayarlar artık ana içerik akışının İÇİNDE
+		     (ContentScrollViewer'ın altında, sağ tarafta) bir StackPanel
+		     DEĞİL — EpgOverlay/VodInfoOverlay/ChangeSourceOverlay ile
+		     AYNI desende, RootGrid'in DOĞRUDAN çocuğu, Grid.Column="0"
+		     Grid.ColumnSpan="2" olan tam ekran bir overlay. Bu sayede
+		     hem ana Sidebar (200px) hem de yeni CategoryListPanel (220px)
+		     dahil TÜM pencerenin üzerine, ortalanmış olarak açılır —
+		     önceki hâlinde sadece içerik sütununun (MainContentGrid)
+		     İÇİNDE kaldığından sağa yaslı görünüyor, sol taraftaki
+		     kategori panelinin üzerine hiç çıkmıyordu.
+		     ═══════════════════════════════════════════════════════════ -->
+		<Border x:Name="SettingsModalOverlay" Grid.Column="0" Grid.ColumnSpan="2" Background="#B3000000" IsVisible="False" ZIndex="100">
+			<Border Background="{DynamicResource BgCard}" Margin="32,24" MaxWidth="1080" MaxHeight="720" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="16" BoxShadow="0 16 48 0 #99000000" ClipToBounds="True">
+				<Grid RowDefinitions="Auto, *">
+					<!-- Modal Üst Başlık Çubuğu -->
+					<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="24,18,24,18">
+						<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+							<Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
+								<TextBlock Text="🛠️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+							</Border>
+							<StackPanel VerticalAlignment="Center">
+								<TextBlock Text="Ayarlar" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+								<TextBlock Text="Uygulama tercihleri, oynatıcı ve IPTV kaynak yönetimi" FontSize="11" Foreground="{DynamicResource TextSec}"/>
+							</StackPanel>
+						</StackPanel>
+
+						<!-- Kapat Butonu -->
+						<Button Grid.Column="1" Content="✕" Click="CloseSettings_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}" ToolTip.Tip="Kapat (Esc)"/>
+					</Grid>
+
+					<!-- Alt Çizgi Ayırıcı -->
+					<Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource Border}"/>
+
+					<!-- Gövde: Sol Kenar Çubuğu (Sidebar) + Sağ İçerik Alanı -->
+					<Grid Grid.Row="1" ColumnDefinitions="240, *">
+						<!-- Sol Kenar Çubuğu -->
+						<Border Grid.Column="0" Background="{DynamicResource BgSidebar}" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource Border}" Padding="12,16">
+							<Grid RowDefinitions="*, Auto">
+								<ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Hidden">
+									<StackPanel Spacing="3">
+										<Button x:Name="SettingsNavSources" Classes="SettingsNavBtn Active" Tag="Sources" Click="SettingsNav_Click">
+											<Grid ColumnDefinitions="26, *">
+												<TextBlock Grid.Column="0" Text="🌐" FontSize="15" VerticalAlignment="Center"/>
+												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+													<TextBlock Text="Kaynaklar" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock Text="M3U &amp; Xtream listeleri" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+												</StackPanel>
+											</Grid>
+										</Button>
+
+										<Button x:Name="SettingsNavAppearance" Classes="SettingsNavBtn" Tag="Appearance" Click="SettingsNav_Click">
+											<Grid ColumnDefinitions="26, *">
+												<TextBlock Grid.Column="0" Text="✨" FontSize="15" VerticalAlignment="Center"/>
+												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+													<TextBlock Text="Genel &amp; Görünüm" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock Text="Tema, başlangıç &amp; motor" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+												</StackPanel>
+											</Grid>
+										</Button>
+
+										<Button x:Name="SettingsNavData" Classes="SettingsNavBtn" Tag="Data" Click="SettingsNav_Click">
+											<Grid ColumnDefinitions="26, *">
+												<TextBlock Grid.Column="0" Text="🗄️" FontSize="15" VerticalAlignment="Center"/>
+												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+													<TextBlock Text="Veri &amp; Depolama" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock Text="Geçmiş, önbellek ve sıfırlama" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+												</StackPanel>
+											</Grid>
+										</Button>
+
+										<Button x:Name="SettingsNavShortcuts" Classes="SettingsNavBtn" Tag="Shortcuts" Click="SettingsNav_Click">
+											<Grid ColumnDefinitions="26, *">
+												<TextBlock Grid.Column="0" Text="⌨️" FontSize="15" VerticalAlignment="Center"/>
+												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+													<TextBlock Text="Kısayollar" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock Text="Klavye &amp; fare tuşları" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+												</StackPanel>
+											</Grid>
+										</Button>
+
+										<Button x:Name="SettingsNavAbout" Classes="SettingsNavBtn" Tag="About" Click="SettingsNav_Click">
+											<Grid ColumnDefinitions="26, *">
+												<TextBlock Grid.Column="0" Text="ⓘ" FontSize="15" VerticalAlignment="Center"/>
+												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+													<TextBlock Text="Hakkında" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock Text="Sürüm bilgisi &amp; topluluk" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+												</StackPanel>
+											</Grid>
+										</Button>
+									</StackPanel>
+								</ScrollViewer>
+
+								<!-- Alt Bilgi / Sürüm Rozeti -->
+								<Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
+									<StackPanel Spacing="2">
+										<TextBlock Text="GlyphTV™ v2.0" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="Designed by AkuLaTa" FontSize="9.5" Foreground="{DynamicResource TextSec}"/>
+									</StackPanel>
+								</Border>
+							</Grid>
+						</Border>
+
+						<!-- Sağ İçerik Alanı -->
+						<Grid Grid.Column="1">
+							<!-- 1. SEKME: KAYNAKLAR -->
+							<ScrollViewer x:Name="SettingsTabSources" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="True">
+								<StackPanel Spacing="16">
+									<Grid ColumnDefinitions="*, Auto">
+										<StackPanel VerticalAlignment="Center">
+											<TextBlock Text="IPTV Kaynakları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+											<TextBlock Text="M3U oynatma listelerinizi veya Xtream hesaplarınızı yönetin." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										</StackPanel>
+										<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Background="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}" Foreground="White" Click="ShowChangeSource_Click">
+											<TextBlock Text="+ Yeni Kaynak Ekle" FontWeight="SemiBold" VerticalAlignment="Center"/>
+										</Button>
+									</Grid>
+
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="14">
+											<TextBlock Text="Kayıtlı Oynatma Listeleri" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+											<ItemsControl x:Name="SourcesList">
+												<ItemsControl.ItemTemplate>
+													<DataTemplate x:DataType="local:TvSource">
+														<Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10" Background="{DynamicResource BgCard}" Padding="14,12" Margin="0,0,0,10">
+															<Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+																<Border Grid.Column="0" Width="34" Height="34" CornerRadius="8" Background="{DynamicResource BgActive}" Margin="0,0,12,0" VerticalAlignment="Center">
+																	<Viewbox Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+																		<Path Fill="#0ca5f7" Data="M1627.938,384.003c-12.13-17.064-24.856-33.673-38.118-49.817 C1425.985,134.806,1177.596,7.414,900.004,7.414c-277.596,0-525.985,127.392-689.825,326.772 c-13.27,16.144-25.988,32.752-38.122,49.817C68.421,529.789,7.417,707.905,7.417,899.997c0,193.195,61.719,372.25,166.447,518.491 c12.194,17.021,24.947,33.613,38.277,49.705c163.849,198.021,411.368,324.393,687.863,324.393 c276.49,0,524.014-126.371,687.858-324.393c13.326-16.092,26.084-32.684,38.273-49.705 c104.725-146.241,166.447-325.296,166.447-518.491C1792.583,707.905,1731.583,529.789,1627.938,384.003z M1538.661,370.69 c-14.208,9.139-29.117,18.046-44.792,26.668c-46.543,25.601-97.693,47.778-152.398,66.383 c-21.347-67.829-47.821-130.984-79.089-187.832c-39.409-71.671-84.575-129.96-133.772-173.723 C1291.124,148.828,1433.377,243.88,1538.661,370.69z M1359.744,643.08c9.006,0,17.533,2.022,25.231,5.559 c20.911,9.604,35.502,30.696,35.502,55.178c0,18.967-8.748,35.919-22.413,47.063c-10.46,8.528-23.799,13.666-38.32,13.666 c-8.459,0-16.51-1.739-23.833-4.88c-21.673-9.285-36.909-30.816-36.909-55.85c0-19.525,9.303-36.883,23.661-48.001 C1332.934,647.865,1345.777,643.08,1359.744,643.08z M931.363,72.248c102.999,13.842,200.043,95.649,276.063,233.884 c29.271,53.217,54.09,112.439,74.167,176.138c-107.509,30.102-226.449,47.123-350.23,49.584V72.248z M931.363,594.58 c129.529-2.487,254.326-20.361,367.476-52.055c4.083,15.843,7.878,31.935,11.402,48.234 c-43.492,19.112-73.951,62.588-73.951,113.059c0,61.521,45.234,112.655,104.19,121.932c0.706,14.87,1.205,29.835,1.484,44.86 h-322.077c-10.74-43.845-44.964-78.56-88.524-90.014V594.58z M1297.884,1261.146c-112.896-31.539-237.361-49.31-366.521-51.788 V1019.4c42.252-11.102,75.702-44.095,87.482-86.072h323.038C1339.443,1048.607,1324.384,1159.661,1297.884,1261.146z M1310.731,1488.752c-0.004,33.493-27.249,60.738-60.733,60.738c-0.727,0-1.424-0.086-2.143-0.112 c-23.153-0.817-43.01-14.612-52.536-34.354c-3.847-7.96-6.063-16.849-6.063-26.272c0-29.946,21.797-54.825,50.338-59.782 c3.386-0.594,6.85-0.955,10.399-0.955c19.568,0,36.952,9.337,48.07,23.751C1305.973,1462.032,1310.731,1474.829,1310.731,1488.752 z M868.646,72.248v459.606c-123.79-2.461-242.727-19.483-350.244-49.576c4.759-15.094,9.785-29.938,15.068-44.499 c2.539,0.155,5.086,0.258,7.659,0.258c68.069,0,123.454-55.385,123.454-123.454c0-29.806-10.619-57.171-28.261-78.525 C704.307,140.283,784.484,83.556,868.646,72.248z M501.166,542.525c113.145,31.703,237.95,49.568,367.48,52.055v186.016 c-43.57,11.454-77.785,46.168-88.533,90.014H458.035C460.187,755.304,474.953,644.173,501.166,542.525z M480.392,314.583 c0-33.493,27.245-60.738,60.738-60.738c2.96,0,5.843,0.284,8.691,0.693c22.891,3.304,41.659,19.362,48.854,40.76 c2.039,6.066,3.192,12.538,3.192,19.285c0,26.965-17.676,49.86-42.046,57.76c-5.895,1.919-12.168,2.978-18.691,2.978 c-16.876,0-32.15-6.928-43.166-18.071C487.113,346.268,480.392,331.2,480.392,314.583z M671.399,102.187 c-30.326,26.969-59.12,59.446-85.96,97.199c-13.769-5.314-28.699-8.257-44.31-8.257c-68.069,0-123.455,55.381-123.455,123.455 c0,43.311,22.443,81.459,56.28,103.498c-5.396,14.965-10.55,30.188-15.421,45.661c-54.705-18.605-105.856-40.782-152.403-66.383 c-15.671-8.623-30.584-17.529-44.792-26.668C366.619,243.88,508.876,148.828,671.399,102.187z M223.002,420.56 c16.746,10.946,34.353,21.548,52.906,31.754c50.506,27.778,106.003,51.753,165.312,71.727 c-28.002,107.586-43.716,225.008-45.91,346.569H70.676C76.528,703.387,132.076,548.574,223.002,420.56z M464.894,1048.917 c16.385,10.886,27.219,29.491,27.219,50.609c0,15.489-5.877,29.603-15.464,40.342c-11.127,12.479-27.271,20.387-45.256,20.387 h-0.009c-5.267,0-10.353-0.749-15.24-2.014c-26.126-6.79-45.497-30.507-45.497-58.715c0-22.719,12.547-42.537,31.065-52.95 c8.778-4.939,18.889-7.796,29.672-7.796C443.767,1038.78,455.281,1042.532,464.894,1048.917z M70.797,933.328h324.599 c0.318,15.946,0.878,31.832,1.661,47.631c-51.418,14.905-89.127,62.391-89.127,118.567c0,67.122,53.879,121.879,120.666,123.368 c4.156,19.164,8.683,38.07,13.579,56.676c-59.67,20.042-115.485,44.129-166.258,72.054c-17.848,9.811-34.818,19.999-50.987,30.498 C133.582,1254.58,77.423,1100.223,70.797,933.328z M263.491,1431.844c13.562-8.648,27.761-17.081,42.64-25.266 c46.874-25.781,98.412-48.087,153.539-66.77c21.152,66.478,47.227,128.437,77.949,184.278 c39.421,71.675,84.583,129.977,133.79,173.744C509.986,1651.499,368.555,1557.381,263.491,1431.844z M868.646,1727.753 c-103.008-13.847-200.052-95.65-276.073-233.88c-28.717-52.21-53.139-110.211-73.009-172.532 c107.207-29.912,225.739-46.805,349.082-49.267V1727.753z M868.646,1209.357c-129.168,2.479-253.638,20.249-366.534,51.788 c-4.518-17.322-8.7-34.93-12.547-52.777c38.811-20.834,65.264-61.813,65.264-108.842c0-58.312-40.635-107.276-95.065-120.133 c-0.783-15.267-1.316-30.636-1.652-46.065h323.042c11.789,41.978,45.239,74.971,87.492,86.072V1209.357z M868.646,951.916 c-7.745-4.698-14.38-11.041-19.362-18.588c-6.316-9.578-10.017-21.015-10.017-33.331c0-10.654,2.78-20.67,7.625-29.388 c5.154-9.285,12.693-17.039,21.754-22.529c9.165-5.559,19.878-8.82,31.358-8.82s22.185,3.261,31.359,8.82 c9.061,5.49,16.6,13.244,21.754,22.529c4.846,8.717,7.625,18.734,7.625,29.388c0,12.316-3.709,23.753-10.025,33.331 c-4.975,7.547-11.609,13.89-19.354,18.588c-9.174,5.559-19.879,8.82-31.359,8.82S877.811,957.475,868.646,951.916z M931.363,1727.753v-455.679c123.342,2.462,241.87,19.354,349.077,49.267c-4.858,15.224-9.961,30.223-15.356,44.921 c-4.953-0.619-9.982-0.964-15.099-0.964c-68.065,0-123.445,55.385-123.445,123.454c0,31.746,12.052,60.729,31.818,82.63 C1091.523,1662.669,1013.33,1716.737,931.363,1727.753z M1128.592,1697.831c28.923-25.73,56.435-56.503,82.217-92.035 c12.319,4.13,25.49,6.411,39.189,6.411c68.062,0,123.446-55.386,123.45-123.455c-0.004-40.635-19.745-76.734-50.14-99.247 c5.998-16.247,11.656-32.838,17.018-49.696c55.135,18.683,106.673,40.988,153.543,66.77c14.879,8.185,29.082,16.617,42.645,25.274 C1431.445,1557.39,1290.019,1651.499,1128.592,1697.831z M1575.07,1382.122c-16.169-10.499-33.14-20.688-50.979-30.498 c-50.772-27.925-106.592-52.012-166.267-72.054c28.286-107.405,44.301-224.724,46.783-346.242h324.6 c0.435-11.049,0.658-22.168,0.658-33.331c0,0.009,0,0.009,0,0.009c0,11.154-0.224,22.264-0.658,33.322l0,0 C1722.577,1100.223,1666.418,1254.58,1575.07,1382.122z M1729.324,870.609L1729.324,870.609H1404.69 c-0.31-17.143-0.886-34.207-1.733-51.168c46.817-17.564,80.237-62.751,80.237-115.624c0-63.844-48.72-116.527-110.93-122.826 c-4.122-19.259-8.613-38.251-13.48-56.951c59.31-19.973,114.802-43.948,165.304-71.727c18.558-10.206,36.164-20.816,52.915-31.754 C1667.924,548.574,1723.477,703.379,1729.324,870.609h20.52l0,0H1729.324z"/>
+																	</Viewbox>
+																</Border>
+																<StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+																	<TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Text}" FontSize="13"/>
+																	<TextBlock Text="{Binding SourceSummaryText}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+																</StackPanel>
+																<Button Grid.Column="2" Classes="ActionBtn" Click="SelectSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="{Binding StatusBrush}" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand" ToolTip.Tip="Kaynağı Seç / Aktif Et">
+																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
+																		<Border Width="7" Height="7" CornerRadius="3.5" Background="{Binding StatusBrush}"/>
+																		<TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" FontSize="11"/>
+																	</StackPanel>
+																</Button>
+																<Button Grid.Column="3" Classes="ActionBtn" Click="RefreshSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#3981f3" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" Margin="0,0,8,0" ToolTip.Tip="Kaynağı Yenile" Cursor="Hand">
+																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
+																		<Viewbox Width="12" Height="12" VerticalAlignment="Center">
+																			<Path Fill="#3981f3" Data="M64,256H34A222,222,0,0,1,430,118.15V85h30V190H355V160h67.27A192.21,192.21,0,0,0,256,64C150.13,64,64,150.13,64,256Zm384,0c0,105.87-86.13,192-192,192A192.21,192.21,0,0,1,89.73,352H157V322H52V427H82V393.85A222,222,0,0,0,478,256Z"/>
+																		</Viewbox>
+																		<TextBlock Text="YENİLE" FontSize="11" Foreground="#3981f3" FontWeight="Bold" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+																<Button Grid.Column="4" Classes="ActionBtn" Click="DeleteSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#f70c0c" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" ToolTip.Tip="Kaynağı Sil" Cursor="Hand">
+																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
+																		<Viewbox Width="12" Height="12" VerticalAlignment="Center">
+																			<Canvas Width="24" Height="24">
+																				<Path Data="M20.5001 6H3.5" Stroke="#f70c0c" StrokeThickness="1.5" StrokeLineCap="Round"/>
+																				<Path Data="M18.8332 8.5L18.3732 15.3991C18.1962 18.054 18.1077 19.3815 17.2427 20.1907C16.3777 21 15.0473 21 12.3865 21H11.6132C8.95235 21 7.62195 21 6.75694 20.1907C5.89194 19.3815 5.80344 18.054 5.62644 15.3991L5.1665 8.5" Stroke="#f70c0c" StrokeThickness="1.5" StrokeLineCap="Round"/>
+																				<Path Data="M9.5 11L10 16" Stroke="#f70c0c" StrokeThickness="1.5" StrokeLineCap="Round"/>
+																				<Path Data="M14.5 11L14 16" Stroke="#f70c0c" StrokeThickness="1.5" StrokeLineCap="Round"/>
+																				<Path Data="M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6" Stroke="#f70c0c" StrokeThickness="1.5"/>
+																			</Canvas>
+																		</Viewbox>
+																		<TextBlock Text="SİL" FontSize="11" Foreground="#f70c0c" FontWeight="Bold" VerticalAlignment="Center"/>
+																	</StackPanel>
+																</Button>
+															</Grid>
+														</Border>
+													</DataTemplate>
+												</ItemsControl.ItemTemplate>
+											</ItemsControl>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</ScrollViewer>
+
+							<!-- 2. SEKME: GENEL & GÖRÜNÜM (Motor ayarları ile birleştirildi) -->
+							<ScrollViewer x:Name="SettingsTabAppearance" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
+								<StackPanel Spacing="16">
+									<StackPanel VerticalAlignment="Center">
+										<TextBlock Text="Genel &amp; Görünüm Ayarları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="Arayüz teması, başlangıç tercihleri ve oynatma motorunu yapılandırın." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+									</StackPanel>
+
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="16">
+											<!-- Tema Seçimi -->
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Tema Seçimi" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="Sistem temasına uyun veya koyu/açık temayı zorlayın" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+													<Button x:Name="ThemeSystemBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeSystem_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6">
+															<TextBlock Text="💻" VerticalAlignment="Center"/>
+															<TextBlock Text="SİSTEM" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="ThemeLightBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeLight_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6">
+															<Viewbox Width="15" Height="15" VerticalAlignment="Center">
+																<Canvas Width="36" Height="36">
+																	<Path Fill="#FFAC33" Data="M16 2s0-2 2-2s2 2 2 2v2s0 2-2 2s-2-2-2-2V2zm18 14s2 0 2 2s-2 2-2 2h-2s-2 0-2-2s2-2 2-2h2zM4 16s2 0 2 2s-2 2-2 2H2s-2 0-2-2s2-2 2-2h2zm5.121-8.707s1.414 1.414 0 2.828s-2.828 0-2.828 0L4.878 8.708s-1.414-1.414 0-2.829c1.415-1.414 2.829 0 2.829 0l1.414 1.414zm21 21s1.414 1.414 0 2.828s-2.828 0-2.828 0l-1.414-1.414s-1.414-1.414 0-2.828s2.828 0 2.828 0l1.414 1.414zm-.413-18.172s-1.414 1.414-2.828 0s0-2.828 0-2.828l1.414-1.414s1.414-1.414 2.828 0s0 2.828 0 2.828l-1.414 1.414zm-21 21s-1.414 1.414-2.828 0s0-2.828 0-2.828l1.414-1.414s1.414-1.414 2.828 0s0 2.828 0 2.828l-1.414 1.414zM16 32s0-2 2-2s2 2 2 2v2s0 2-2 2s-2-2-2-2v-2z"/>
+																	<Ellipse Fill="#FFAC33" Width="20" Height="20" Canvas.Left="8" Canvas.Top="8"/>
+																</Canvas>
+															</Viewbox>
+															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="ThemeDarkBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeDark_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6">
+															<Viewbox Width="15" Height="15" VerticalAlignment="Center">
+																<Canvas Width="512" Height="512">
+																	<Path Fill="#7e7e81" Data="M426.655,444.491c-85.064,74.278-206.9,83.839-299.319,29.581 c-22.308-13.074-42.982-29.907-60.958-50.499C56,411.723,46.93,399.058,39.085,385.82C15.143,345.045,3.539,298.958,3.784,252.953 c0.49-71.582,29.989-142.754,87.026-192.6C138.776,18.433,197.855-1.096,256.69,0.047c45.597,0.817,91.03,13.973,131.069,38.733 c22.063,13.564,42.41,30.724,60.305,51.153c9.724,11.114,18.386,22.799,25.822,34.974 C537.623,227.785,521.117,361.878,426.655,444.491z"/>
+																	<Path Fill="#4e5173" Data="M107.7,89.244c99.915-87.35,248.817-74.175,333.815,23.051 c84.998,97.226,75.388,243.379-24.528,330.729c-99.915,87.35-251.727,82.317-336.725-14.908S7.784,176.594,107.7,89.244z"/>
+																	<Path Fill="#b5b8e8" Data="M244.029,141.49c-17.92,37.27-63.032,51.341-100.302,33.421 c-37.27-17.92-53.234-61.357-35.315-98.627c17.92-37.27,62.835-54.046,100.105-36.126 C245.787,58.078,261.948,104.22,244.029,141.49z"/>
+																	<Path Fill="#040000" Opacity="0.06" Data="M128.086,97.65c17.92-37.27,62.835-54.046,100.105-36.126 c4.127,1.984,7.994,4.316,11.586,6.942c-7.335-11.909-17.95-21.909-31.26-28.308c-37.27-17.92-82.185-1.144-100.105,36.126 c-15.805,32.872-5.247,70.538,23.036,91.265C118.963,147.091,116.789,121.146,128.086,97.65z"/>
+																	<Path Fill="#b5b8e8" Data="M217.121,218.367c-1.17-5.733,2.71-11.178,8.442-12.348c5.733-1.17,11.248,2.359,12.418,8.091 c1.17,5.733-2.456,11.466-8.189,12.635C224.06,227.916,218.291,224.099,217.121,218.367z"/>
+																	<Path Fill="#FFFFFF" Opacity="0.5" Data="M363.151,96.945c-1.17-5.733,2.71-11.178,8.442-12.348s11.248,2.359,12.418,8.091 c1.17,5.733-2.456,11.466-8.189,12.636C370.089,106.493,364.32,102.677,363.151,96.945z"/>
+																	<Path Fill="#b5b8e8" Data="M282.752,398.389c8.691-7.598,21.813-6.256,29.411,2.435c7.598,8.691,6.926,21.591-1.765,29.189 c-8.691,7.598-22.059,6.972-29.657-1.719C273.143,419.603,274.061,405.987,282.752,398.389z"/>
+																	<Path Fill="#FFFFFF" Opacity="0.5" Data="M58.327,220.961c-1.17-5.733,2.71-11.178,8.442-12.348 c5.733-1.17,11.248,2.359,12.418,8.091s-2.456,11.466-8.189,12.636C65.265,230.51,59.496,226.694,58.327,220.961z"/>
+																	<Path Fill="#b5b8e8" Data="M468.947,281.701c-3.725,36.649-37.256,62.098-73.905,58.373 c-36.649-3.725-63.177-35.279-59.452-71.928c3.725-36.649,36.272-64.305,72.921-60.58 C445.16,211.292,472.673,245.052,468.947,281.701z"/>
+																	<Path Fill="#b5b8e8" Data="M173.239,331.136c14.631,25.328,4.867,57.294-20.461,71.925 c-25.328,14.631-57.07,6.642-71.701-18.686c-14.631-25.328-6.526-58.257,18.802-72.888 C125.206,296.855,158.608,305.808,173.239,331.136z"/>
+																	<Path Fill="#040000" Opacity="0.06" Data="M112.818,324.329c18.464-10.666,41.21-8.787,57.855,2.82 c-15.693-22.238-46.847-29.497-70.794-15.663c-25.328,14.631-33.433,47.561-18.802,72.888c4.04,6.993,9.388,12.657,15.541,16.895 c-0.915-1.299-1.788-2.644-2.602-4.052C79.385,371.89,87.49,338.96,112.818,324.329z"/>
+																	<Path Fill="#040000" Opacity="0.06" Data="M349.701,282.093c3.725-36.649,36.272-64.305,72.921-60.579 c12.217,1.242,23.415,5.824,32.783,12.735c-11.007-14.534-27.694-24.73-46.893-26.682c-36.649-3.725-69.196,23.93-72.921,60.579 c-2.465,24.247,8.316,46.261,26.506,59.464C352.777,315.06,347.969,299.128,349.701,282.093z"/>
+																	<Path Fill="#040000" Opacity="0.1" Data="M254.81,381.707c-105.358,0-198.419-52.064-254.72-131.654 c-2.703,99.72,55.552,194.334,153.936,236.742c128.773,55.507,279.648,1.534,335.155-127.239 c15.267-35.419,21.657-72.747,20.288-109.416C453.162,329.68,360.13,381.707,254.81,381.707z"/>
+																</Canvas>
+															</Viewbox>
+															<TextBlock Text="KOYU" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</StackPanel>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
+											<!-- Başlangıçta Otomatik Yenileme -->
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Başlangıçta Otomatik Yenileme" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="Uygulama her açıldığında aktif IPTV listesini sunucudan otomatik günceller" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+													<Button x:Name="AutoRefreshOnBtn" Classes="ActionBtn SettingsToggleBtn" Click="AutoRefreshOn_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
+																<Path Fill="#28a430" Data="M393.401,124.425L179.603,338.208c-15.832,15.835-41.514,15.835-57.361,0L11.878,227.836 c-15.838-15.835-15.838-41.52,0-57.358c15.841-15.841,41.521-15.841,57.355-0.006l81.698,81.699L336.037,67.064 c15.841-15.841,41.523-15.829,57.358,0C409.23,82.902,409.23,108.578,393.401,124.425z"/>
+															</Viewbox>
+															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="AutoRefreshOffBtn" Classes="ActionBtn SettingsToggleBtn" Click="AutoRefreshOff_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
+																<Path Fill="#e61919" Data="F0 M19.207 6.207a1 1 0 0 0-1.414-1.414L12 10.586 6.207 4.793a1 1 0 0 0-1.414 1.414L10.586 12l-5.793 5.793a1 1 0 1 0 1.414 1.414L12 13.414l5.793 5.793a1 1 0 0 0 1.414-1.414L13.414 12l5.793-5.793z"/>
+															</Viewbox>
+															<TextBlock Text="KAPALI" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</StackPanel>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
+											<!-- Oynatıcı Motoru -->
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Oynatıcı Motoru" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="VLC (LibVLCSharp) veya mpv (libmpv) motoru" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+													<Button x:Name="PlayerEngineVlcBtn" Classes="ActionBtn SettingsToggleBtn" Click="PlayerEngineVlc_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6">
+															<Viewbox Width="15" Height="15" VerticalAlignment="Center">
+																<Canvas Width="512" Height="512">
+																	<Border Width="512" Height="512" CornerRadius="76" Background="Transparent"/>
+																	<Path Fill="#f7901e" Data="M437 400l-36-94c-3-10-13-16-23-16H134c-10 0-20 6-23 16l-36 94c-2 3-2 7-2 11 0 16 13 29 29 29h308a29 29 0 0 0 27-40z"/>
+																	<Path Fill="#f7901e" Data="M299 109l-15-51c-3-11-13-18-24-18h-8c-11 0-21 7-24 18l-15 51a307 307 0 0 0 86 0zM256 183c-24 0-46-2-64-6l-19 65c20 8 49 13 83 13s63-5 83-13l-20-65c-17 4-39 6-63 6z"/>
+																	<Path Fill="#f2f2f2" Data="M319 177l-20-68a307 307 0 0 1-86 0l-21 68c18 4 40 6 64 6s46-2 63-6z"/>
+																	<Path Fill="#f2f2f2" Data="M173 242l-18 62c19 14 55 23 101 23s82-9 101-23l-18-62c-20 8-49 13-83 13s-63-5-83-13z"/>
+																</Canvas>
+															</Viewbox>
+															<TextBlock Text="VLC" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="PlayerEngineMpvBtn" Classes="ActionBtn SettingsToggleBtn" Click="PlayerEngineMpv_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6">
+															<Viewbox Width="15" Height="15" VerticalAlignment="Center">
+																<Canvas Width="512" Height="512">
+																	<Ellipse Width="490" Height="490" Canvas.Left="11" Canvas.Top="11" Fill="#E2E2E6"/>
+																	<Ellipse Width="456" Height="456" Canvas.Left="28" Canvas.Top="28" Fill="#5C246E"/>
+																	<Ellipse Width="330" Height="330" Canvas.Left="91" Canvas.Top="91" Fill="#3B1245"/>
+																	<Ellipse Width="220" Height="220" Canvas.Left="146" Canvas.Top="146" Fill="#ECECF0"/>
+																	<Path Fill="#5C246E" Data="M226,194 L326,256 L226,318 Z"/>
+																</Canvas>
+															</Viewbox>
+															<TextBlock Text="MPV" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</StackPanel>
+											</Grid>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</ScrollViewer>
+
+							<!-- 3. SEKME: VERİ & DEPOLAMA -->
+							<ScrollViewer x:Name="SettingsTabData" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
+								<StackPanel Spacing="16">
+									<StackPanel VerticalAlignment="Center">
+										<TextBlock Text="Veri &amp; Depolama Yönetimi" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="İzleme geçmişi, disk ve RAM önbelleği ile uygulama sıfırlama işlemleri." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+									</StackPanel>
+
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="16">
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="İzleme Geçmişini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="Kaldığınız yerden devam etme pozisyonlarını ve izleme geçmişini siler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ClearHistory_Click" Foreground="#dc2626" BorderBrush="#dc2626">
+													<TextBlock Text="GEÇMİŞİ TEMİZLE" VerticalAlignment="Center"/>
+												</Button>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Logo &amp; Görsel Önbelleğini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="İndirilen kanal logolarını ve TMDb poster önbelleğini temizler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ClearCache_Click" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}">
+													<TextBlock Text="ÖNBELLEĞİ TEMİZLE" VerticalAlignment="Center"/>
+												</Button>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Fabrika Ayarlarına Sıfırla" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="Tüm uygulama ayarlarını ve tercihleri varsayılan değerlere döndürür" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ResetApp_Click" Foreground="#dc2626" BorderBrush="#dc2626">
+													<TextBlock Text="UYGULAMAYI SIFIRLA" VerticalAlignment="Center"/>
+												</Button>
+											</Grid>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</ScrollViewer>
+
+							<!-- 4. SEKME: KISAYOLLAR -->
+							<ScrollViewer x:Name="SettingsTabShortcuts" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
+								<StackPanel Spacing="16">
+									<StackPanel VerticalAlignment="Center">
+										<TextBlock Text="Klavye &amp; Fare Kısayolları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="Hızlı gezinme ve medya kontrolü için kullanabileceğiniz kısayollar." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+									</StackPanel>
+
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="12">
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Oynat / Duraklat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Space  /  Sol Tık" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Tam Ekran Aç / Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F  /  Çift Tık" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Sesi Aç / Kapat (Mute)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="M" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="10 Saniye Geri / İleri Sar" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="←  /  →" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Ses Seviyesi Artır / Azalt" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="↑  /  ↓" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Kanal ve İçerik Arama" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Ctrl + F" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Pencereleri ve Modalleri Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Esc" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</ScrollViewer>
+
+							<!-- 5. SEKME: HAKKINDA -->
+							<ScrollViewer x:Name="SettingsTabAbout" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
+								<StackPanel Spacing="16">
+									<StackPanel VerticalAlignment="Center">
+										<TextBlock Text="Hakkında &amp; Topluluk" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="GlyphTV geliştirici bilgileri, lisans ve topluluk bağlantıları." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+									</StackPanel>
+
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="16">
+											<Grid ColumnDefinitions="Auto, *">
+												<Border Grid.Column="0" Width="350" Height="140" CornerRadius="12" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="1" Margin="0,0,14,0">
+													<Image Source="avares://GlyphTV/Assets/glyph_icon.png" Width="380" Height="380" RenderOptions.BitmapInterpolationMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+												</Border>
+												<Border Grid.Column="1" Width="350" Height="140" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10" Padding="18,14">
+													<Grid VerticalAlignment="Center" ColumnDefinitions="Auto, Auto, *" RowDefinitions="Auto, Auto, Auto">
+														<TextBlock Grid.Row="0" Grid.Column="0" Text="Sürüm" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+														<TextBlock Grid.Row="0" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,0"/>
+														<TextBlock Grid.Row="0" Grid.Column="2" Text="2.0.0" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+
+														<TextBlock Grid.Row="1" Grid.Column="0" Text="Geliştirici" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
+														<TextBlock Grid.Row="1" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,10,0,0"/>
+														<TextBlock Grid.Row="1" Grid.Column="2" Text="Barış Ballıkaya" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" Margin="0,10,0,0" FontWeight="SemiBold"/>
+
+														<TextBlock Grid.Row="2" Grid.Column="0" Text="Telif" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
+														<TextBlock Grid.Row="2" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,10,0,0"/>
+														<TextBlock Grid.Row="2" Grid.Column="2" Text="© 2026" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" Margin="0,10,0,0" FontWeight="SemiBold"/>
+													</Grid>
+												</Border>
+											</Grid>
+
+											<!-- GlyphTV Açıklama Paneli -->
+											<Border CornerRadius="10" Padding="18,14" BorderThickness="0">
+												<Border.Background>
+													<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+														<GradientStop Color="#4f8bff" Offset="0.0"/>
+														<GradientStop Color="#ec4899" Offset="1.0"/>
+													</LinearGradientBrush>
+												</Border.Background>
+												<StackPanel Spacing="6">
+													<TextBlock Text="GlyphTV™" FontWeight="Bold" Foreground="White" FontSize="18"/>
+													<TextBlock Text="Modern, hızlı ve minimal IPTV oynatıcı. Avalonia UI, LibVLCSharp ve libmpv ile güçlendirilmiştir." Foreground="#F3F4F6" FontSize="12" TextWrapping="Wrap"/>
+												</StackPanel>
+											</Border>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
+											<Grid ColumnDefinitions="*, *">
+												<Button Grid.Column="0" Classes="ActionBtn" Click="OpenGithub_Click" Background="Transparent" Foreground="{DynamicResource Text}" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,8,0" Cursor="Hand">
+													<Grid ColumnDefinitions="Auto, *">
+														<Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,12,0" VerticalAlignment="Center">
+															<Canvas Width="24" Height="24">
+																<Path Fill="{DynamicResource Text}" Data="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+															</Canvas>
+														</Viewbox>
+														<StackPanel Grid.Column="1" VerticalAlignment="Center">
+															<TextBlock Text="GitHub Deposu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+															<TextBlock Text="Projeyi yıldızlayın veya katkıda bulunun" FontSize="11" Foreground="{DynamicResource TextSec}"/>
+														</StackPanel>
+													</Grid>
+												</Button>
+
+												<Button Grid.Column="1" Classes="ActionBtn" Click="OpenTelegram_Click" Background="Transparent" Foreground="{DynamicResource Text}" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="8,0,0,0" Cursor="Hand">
+													<Grid ColumnDefinitions="Auto, *">
+														<Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,12,0" VerticalAlignment="Center">
+															<Canvas Width="24" Height="24">
+																<Path Fill="{DynamicResource Accent}" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+															</Canvas>
+														</Viewbox>
+														<StackPanel Grid.Column="1" VerticalAlignment="Center">
+															<TextBlock Text="Telegram Topluluğu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+															<TextBlock Text="Duyurular, topluluk ve sohbet" FontSize="11" Foreground="{DynamicResource TextSec}"/>
+														</StackPanel>
+													</Grid>
+												</Button>
+											</Grid>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</ScrollViewer>
+						</Grid>
+					</Grid>
+				</Grid>
+			</Border>
+		</Border>
+
+		<!-- VOD / Dizi Detay Modal (Arka Plan Silüetli Minimal Tasarım) -->
+		<Border x:Name="VodInfoOverlay" Grid.Column="0" Grid.ColumnSpan="2" Background="#A6000000" IsVisible="False" ZIndex="100">
+			<Border Background="{DynamicResource BgCard}" Width="840" MaxHeight="600" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" Padding="0" BorderThickness="1" BorderBrush="{DynamicResource Border}" BoxShadow="0 24 64 0 #AA000000" ClipToBounds="True">
+				<Grid>
+					<!-- 1. Arka Plan Silüeti (Backdrop / Poster) + Karartma Gradyanları -->
+					<Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+						<Image x:Name="VodInfoBackdropImage"
+						       Stretch="UniformToFill"
+						       RenderOptions.BitmapInterpolationMode="HighQuality"
+						       HorizontalAlignment="Stretch"
+						       VerticalAlignment="Stretch"
+						       Opacity="0.88"/>
+						
+						<!-- Soldan Sağa Gradyan Karartma (Metin ve Sol Alan Okunabilirliği) -->
+						<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+							<Border.Background>
+								<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+									<GradientStop Color="#F00b0f19" Offset="0.0"/>
+									<GradientStop Color="#CC0b0f19" Offset="0.35"/>
+									<GradientStop Color="#400b0f19" Offset="0.68"/>
+									<GradientStop Color="#000b0f19" Offset="1.0"/>
+								</LinearGradientBrush>
+							</Border.Background>
+						</Border>
+
+						<!-- Aşağıdan Yukarıya Gradyan Karartma & Zemin Bütünlüğü -->
+						<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+							<Border.Background>
+								<LinearGradientBrush StartPoint="0%,100%" EndPoint="0%,0%">
+									<GradientStop Color="#F00b0f19" Offset="0.0"/>
+									<GradientStop Color="#800b0f19" Offset="0.28"/>
+									<GradientStop Color="#000b0f19" Offset="0.65"/>
+								</LinearGradientBrush>
+							</Border.Background>
+						</Border>
+
+						<!-- Üst Kenar İnce Vignette Çerçevesi -->
+						<Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+							<Border.Background>
+								<LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+									<GradientStop Color="#400b0f19" Offset="0.0"/>
+									<GradientStop Color="#000b0f19" Offset="0.18"/>
+								</LinearGradientBrush>
+							</Border.Background>
+						</Border>
+					</Grid>
+
+					<!-- 2. Ön Plan İçerik Düzeni -->
+					<Grid RowDefinitions="Auto, *">
+						<!-- Sol Üst: Geri / Kapat Butonu (modal.PNG'deki gibi yuvarlak ok) -->
+						<Grid Grid.Row="0" Margin="24,20,24,6" ColumnDefinitions="Auto, *">
+							<Button Grid.Column="0" Click="CloseVodInfo_Click" Classes="IconBtn" Width="36" Height="36" CornerRadius="18" Background="#50000000" BorderBrush="#33ffffff" BorderThickness="1" Foreground="White" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand">
+								<TextBlock Text="←" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0"/>
+							</Button>
+							<TextBlock x:Name="VodInfoModalTitle" Grid.Column="1" IsVisible="False"/>
+							<TextBlock x:Name="VodInfoSource" Grid.Column="1" IsVisible="False"/>
+						</Grid>
+
+						<!-- Ana İçerik Alanı (Kaydırılabilir) -->
+						<ScrollViewer Grid.Row="1" Margin="24,10,24,24" VerticalScrollBarVisibility="Auto">
+							<Grid ColumnDefinitions="Auto, *">
+								<!-- Sol: Poster -->
+								<Border Grid.Column="0" Width="175" Height="260" CornerRadius="10" ClipToBounds="True" BoxShadow="0 14 36 0 #77000000" Background="{DynamicResource PosterPlaceholderBg}" VerticalAlignment="Top">
+									<Grid>
+										<Border x:Name="VodInfoPoster" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+											<TextBlock Text="🎬" FontSize="44" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.75"/>
+										</Border>
+									</Grid>
+								</Border>
+
+								<!-- Sağ: Başlık, Rozetler, Konu/Özet, Oyuncular, Yönetmen, Butonlar -->
+								<StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Top" Spacing="10">
+									<!-- Başlık & Varsa Orijinal İsim -->
+									<StackPanel Spacing="3">
+										<TextBlock x:Name="VodInfoTitle" Text="" FontSize="28" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" MaxLines="2" LineHeight="34"/>
+										<Grid x:Name="VodInfoOrigRow" ColumnDefinitions="Auto, *" IsVisible="False">
+											<TextBlock Text="Orijinal:" FontSize="11" Foreground="#94a3b8" Width="50"/>
+											<TextBlock x:Name="VodInfoOrigName" Grid.Column="1" Text="-" FontSize="11" FontStyle="Italic" Foreground="#cbd5e1" TextWrapping="Wrap"/>
+										</Grid>
+									</StackPanel>
+
+									<!-- Rozetler: Yıl, Tür, Süre, Ülke / Puan (modal.PNG'deki gibi hap şeklinde rozetler) -->
+									<WrapPanel Orientation="Horizontal" Margin="0,2,0,4">
+										<!-- Yıl Rozeti -->
+										<Border x:Name="VodInfoDateRow" Background="#26334155" CornerRadius="6" Padding="12,5" Margin="0,0,8,6" BorderBrush="#475569" BorderThickness="1" IsVisible="False">
+											<TextBlock x:Name="VodInfoDate" Text="-" FontSize="12" FontWeight="Medium" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+										</Border>
+										<!-- Tür Rozeti -->
+										<Border x:Name="VodInfoGenreRow" Background="#26334155" CornerRadius="6" Padding="12,5" Margin="0,0,8,6" BorderBrush="#475569" BorderThickness="1">
+											<TextBlock x:Name="VodInfoGenre" Text="-" FontSize="12" FontWeight="Medium" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+										</Border>
+										<!-- Süre Rozeti -->
+										<Border x:Name="VodInfoDurRow" Background="#26334155" CornerRadius="6" Padding="12,5" Margin="0,0,8,6" BorderBrush="#475569" BorderThickness="1" IsVisible="False">
+											<TextBlock x:Name="VodInfoDuration" Text="-" FontSize="12" FontWeight="Medium" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+										</Border>
+										<!-- Ülke Rozeti -->
+										<Border x:Name="VodInfoCountryRow" Background="#26334155" CornerRadius="6" Padding="12,5" Margin="0,0,8,6" BorderBrush="#475569" BorderThickness="1" IsVisible="False">
+											<TextBlock x:Name="VodInfoCountry" Text="-" FontSize="12" FontWeight="Medium" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+										</Border>
+										<!-- Puan Rozeti (Opsiyonel / Yıldızlı) -->
+										<Border x:Name="VodInfoAgeRow" Background="#26eab308" CornerRadius="6" Padding="10,5" Margin="0,0,8,6" BorderBrush="#80eab308" BorderThickness="1" IsVisible="False">
+											<TextBlock x:Name="VodInfoAge" Text="⭐ -" FontSize="12" FontWeight="Bold" Foreground="#f59e0b" VerticalAlignment="Center"/>
+										</Border>
+										<!-- Kategori (Fallback) -->
+										<TextBlock x:Name="VodInfoCategory" IsVisible="False"/>
+									</WrapPanel>
+
+									<!-- Özet / Konu Metni -->
+									<TextBlock x:Name="VodInfoPlot" Text="" FontSize="13" Foreground="#cbd5e1" TextWrapping="Wrap" LineHeight="21" Margin="0,2,0,6"/>
+									<Border x:Name="VodInfoPlotRow" IsVisible="False"/>
+
+									<!-- Oyuncular -->
+									<StackPanel x:Name="VodInfoCastRow" Spacing="2" Margin="0,0,0,6" IsVisible="False">
+										<TextBlock Text="Oyuncular" FontSize="11" Foreground="#94a3b8"/>
+										<TextBlock x:Name="VodInfoCast" Text="-" FontSize="13" FontWeight="SemiBold" Foreground="#f1f5f9" TextWrapping="Wrap"/>
+									</StackPanel>
+
+									<!-- Yönetmen -->
+									<StackPanel x:Name="VodInfoDirRow" Spacing="2" Margin="0,0,0,6" IsVisible="False">
+										<TextBlock Text="Yönetmen" FontSize="11" Foreground="#94a3b8"/>
+										<TextBlock x:Name="VodInfoDirector" Text="-" FontSize="13" FontWeight="SemiBold" Foreground="#f1f5f9" TextWrapping="Wrap"/>
+									</StackPanel>
+
+									<!-- Aksiyon Butonları (Oynat & Favori) -->
+									<StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+										<Button Classes="ActionBtn" x:Name="VodInfoPlayBtn" Click="VodInfoPlay_Click" CornerRadius="8" Padding="24,10" BorderThickness="0" Cursor="Hand" Background="#0084ff">
+											<StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+												<TextBlock Text="▶" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+												<TextBlock Text="Oynat" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+											</StackPanel>
+										</Button>
+										<Button Classes="ActionBtn" x:Name="VodInfoFavBtn" Click="VodInfoFav_Click" Background="#26334155" Foreground="White" CornerRadius="8" Padding="18,10" BorderThickness="1" BorderBrush="#475569" Cursor="Hand">
+											<TextBlock x:Name="VodInfoFavText" Text="♡ Favori" FontSize="12.5" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+										</Button>
+									</StackPanel>
+								</StackPanel>
+							</Grid>
+						</ScrollViewer>
+					</Grid>
+				</Grid>
+			</Border>
+		</Border>
+
+		<!-- Kaynak Ekleme Modal -->
+		<Border x:Name="ChangeSourceOverlay" Grid.Column="0" Grid.ColumnSpan="2" Background="#B3000000" IsVisible="False" ZIndex="100">
+			<Border Background="{DynamicResource BgCard}" Width="450" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" BoxShadow="0 10 40 0 #88000000">
+				<StackPanel Spacing="16">
+					<Grid ColumnDefinitions="*, Auto">
+						<TextBlock Text="Yeni Kaynak Ekle" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+						<Button Grid.Column="1" Content="✕" Click="CancelChangeSource_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}"/>
+					</Grid>
+					<StackPanel Spacing="6">
+						<TextBlock Text="Kaynak Adı" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBox x:Name="SourceNameInput" Watermark="Örn: Ana Kaynak" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+					</StackPanel>
+					<StackPanel Spacing="6">
+						<TextBlock Text="Kaynak Tipi" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<Grid ColumnDefinitions="*,*,*">
+							<Button x:Name="BtnTypeM3U" Grid.Column="0" Content="M3U" Click="SourceType_Click" Tag="M3U" Classes="ActionBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" Foreground="{DynamicResource Accent}" CornerRadius="8,0,0,8" Padding="8"/>
+							<Button x:Name="BtnTypeLink" Grid.Column="1" Content="Link" Click="SourceType_Click" Tag="Link" Classes="ActionBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1,1,1,1" Foreground="{DynamicResource TextSec}" CornerRadius="0" Padding="8"/>
+							<Button x:Name="BtnTypeXtream" Grid.Column="2" Content="Xtream Code" Click="SourceType_Click" Tag="Xtream" Classes="ActionBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1,1,1,1" Foreground="{DynamicResource TextSec}" CornerRadius="0,8,8,0" Padding="8"/>
+						</Grid>
+						<!-- YENİ: Kaynak türleri arasındaki farkı basitçe açıklayan
+						     yönlendirme metni — "hangi bilgiyi nereden bulacağım"
+						     belirsizliğini azaltmak için. -->
+						<TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,4,0,0">
+							<Run Text="Xtream Code:"/> <Run Text="sağlayıcınızın verdiği sunucu adresi + kullanıcı adı + şifre (bir Xtream/Xtreme Codes panel girişi)." FontWeight="Normal"/>
+							<LineBreak/>
+							<Run Text="M3U:"/> <Run Text="bilgisayarınızdaki bir .m3u/.m3u8 dosyası." FontWeight="Normal"/>  <Run Text="Link:"/> <Run Text="aynı listenin bir internet adresi (URL)." FontWeight="Normal"/>
+						</TextBlock>
+					</StackPanel>
+					<StackPanel x:Name="InputAreaM3U" Spacing="12">
+						<StackPanel x:Name="M3uFilePickerPanel" Spacing="12">
+							<Button Classes="ActionBtn" Background="Transparent" Padding="0" HorizontalAlignment="Stretch" Click="SelectM3uFile_Click">
+								<Panel>
+									<Rectangle Stroke="{DynamicResource Border}" StrokeThickness="2" StrokeDashArray="4,4" RadiusX="10" RadiusY="10" Fill="Transparent" Height="90"/>
+									<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+										<TextBlock Text="📁" FontSize="24" HorizontalAlignment="Center" Foreground="#FFC107"/>
+										<TextBlock Text="M3U dosyasını buraya sürükleyin" Foreground="{DynamicResource Text}" FontWeight="Medium" HorizontalAlignment="Center" FontSize="13"/>
+										<TextBlock Text="veya tıklayın" FontSize="11" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
+									</StackPanel>
+								</Panel>
+							</Button>
+							<TextBlock x:Name="SelectedFileName" Text="" Foreground="{DynamicResource Accent}" FontSize="12" HorizontalAlignment="Center" IsVisible="False"/>
+							<TextBlock x:Name="SelectedFilePath" IsVisible="False"/>
+							<TextBlock Text="veya URL ile ekleyin" FontSize="12" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
+						</StackPanel>
+						<TextBox x:Name="M3uUrlInput" Watermark="http:// veya https:// ile başlayan link" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+
+						<!-- YENİ (EPG): M3U/Link kaynaklarında yayın akışı (EPG)
+						     için sağlayıcının XMLTV linki gerekir; Xtream'in
+						     aksine burada otomatik bir uç nokta yoktur. -->
+						<TextBlock Text="Yayın Akışı (EPG) linki — opsiyonel" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBox x:Name="M3uEpgUrlInput" Watermark="ör: http://saglayici.com/xmltv.php  veya  .../epg.xml.gz" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+						<TextBlock TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Sağlayıcınız genelde bunu 'EPG URL' veya 'XMLTV URL' adıyla panelinde/duyurularında paylaşır. Bulamıyorsanız boş bırakın; kaynağı EPG'siz de kullanabilir, sonradan kaynağı silip bu linkle yeniden ekleyebilirsiniz."/>
+					</StackPanel>
+					<StackPanel x:Name="InputAreaXtream" Spacing="10" IsVisible="False">
+						<TextBox x:Name="XtreamUrlInput" Watermark="Sunucu URL (http://...)" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+						<TextBox x:Name="XtreamUserInput" Watermark="Kullanıcı Adı" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+						<Grid ColumnDefinitions="*, Auto">
+							<TextBox x:Name="XtreamPassInput" Grid.Column="0" Grid.ColumnSpan="2" Watermark="Şifre" PasswordChar="*" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12,12,42,12"/>
+							<Button x:Name="XtreamTogglePassBtn" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Classes="IconBtn" Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand" Click="XtreamTogglePassword_Click" ToolTip.Tip="Şifreyi Göster">
+								<TextBlock x:Name="XtreamPassToggleIcon" Text="👁️" FontSize="14" Foreground="{DynamicResource TextSec}"/>
+							</Button>
+						</Grid>
+						<TextBlock TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Yayın Akışı (EPG) bu tür kaynaklarda otomatik gelir — sunucunuz xmltv.php destekliyorsa ekstra bir şey girmenize gerek yok."/>
+					</StackPanel>
+					<Button Classes="ActionBtn" Click="ConfirmAddSource_Click" CornerRadius="8" Padding="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" BorderThickness="0" Margin="0,10,0,0">
+						<Button.Background>
+							<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+								<GradientStop Color="#4f8bff" Offset="0.0"/>
+								<GradientStop Color="#ec4899" Offset="1.0"/>
+							</LinearGradientBrush>
+						</Button.Background>
+						<TextBlock Text="Kaynak Ekle" Foreground="White" FontWeight="Bold"/>
+					</Button>
+				</StackPanel>
+			</Border>
+		</Border>
+
+		<!-- ============================================================
+		     EPG / Yayın Akışı Zaman Çizelgesi
+		     Sol sütun: kanal isimleri (dikey senkronize scroll)
+		     Sağ taraf: saat cetveli (üstte, sabit) + program blokları
+		     (Canvas üzerinde, hem yatay hem dikey kaydırılabilir).
+		     Mantık MainWindow.Epg.cs içindedir.
+		     ============================================================ -->
+		<Border x:Name="EpgOverlay" Grid.Column="0" Grid.ColumnSpan="2" Background="#B3000000" IsVisible="False" ZIndex="150">
+			<Border Background="{DynamicResource BgCard}" Margin="24" CornerRadius="16" BoxShadow="0 10 40 0 #88000000" ClipToBounds="True">
+				<Grid RowDefinitions="Auto, Auto, Auto, *">
+
+					<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,16,20,0">
+						<TextBlock x:Name="EpgTitleText" Text="🗓️ Yayın Akışı (EPG)" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+						<Button Grid.Column="1" Content="✕" Click="CloseEpg_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}"/>
+					</Grid>
+
+					<Grid Grid.Row="1" ColumnDefinitions="220, Auto, *, Auto, Auto, Auto, Auto" Margin="20,12,20,0">
+						<ComboBox x:Name="EpgCategoryCombo" Grid.Column="0" HorizontalAlignment="Stretch" SelectionChanged="EpgCategoryCombo_SelectionChanged" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+						<TextBlock x:Name="EpgStatusText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSec}" FontSize="11"/>
+						<Button Grid.Column="3" Classes="ActionBtn SettingsToggleBtn" Content="◀ Önceki Gün" Click="EpgPrevDay_Click" Margin="0,0,6,0"/>
+						<Button Grid.Column="4" Classes="ActionBtn SettingsToggleBtn" Content="Bugün / Şimdi" Click="EpgJumpNow_Click" Margin="0,0,6,0"/>
+						<Button Grid.Column="5" Classes="ActionBtn SettingsToggleBtn" Content="Sonraki Gün ▶" Click="EpgNextDay_Click" Margin="0,0,6,0"/>
+						<Button Grid.Column="6" Classes="ActionBtn SettingsToggleBtn" Content="↻" ToolTip.Tip="EPG'yi yeniden indir" Click="EpgRefresh_Click" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}"/>
+					</Grid>
+
+					<Border x:Name="EpgSelectedInfoBar" Grid.Row="2" Margin="20,12,20,0" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10" Padding="14,10" IsVisible="False">
+						<Grid ColumnDefinitions="*, Auto">
+							<StackPanel Grid.Column="0" Spacing="3">
+								<TextBlock x:Name="EpgSelectedTitleText" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap"/>
+								<TextBlock x:Name="EpgSelectedTimeText" FontSize="11" Foreground="{DynamicResource Accent}"/>
+								<TextBlock x:Name="EpgSelectedDescText" FontSize="11" Foreground="{DynamicResource TextSec}" TextWrapping="Wrap" MaxLines="3"/>
+							</StackPanel>
+							<Button Grid.Column="1" x:Name="EpgPlaySelectedBtn" Classes="ActionBtn" Content="▶ Kanalı Oynat" Click="EpgPlaySelected_Click" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="14,8" BorderThickness="0" VerticalAlignment="Center"/>
+						</Grid>
+					</Border>
+
+					<Grid Grid.Row="3" ColumnDefinitions="190, *" Margin="20,12,20,20">
+						<Grid Grid.Column="0" RowDefinitions="40, *">
+							<Border Grid.Row="0" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,1" CornerRadius="8,0,0,0">
+								<TextBlock Text="Kanallar" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center" Margin="10,0"/>
+							</Border>
+							<ScrollViewer x:Name="EpgChannelNamesScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" ScrollChanged="EpgChannelNamesScroll_ScrollChanged">
+								<Canvas x:Name="EpgChannelNamesPanel"/>
+							</ScrollViewer>
+						</Grid>
+
+						<ScrollViewer x:Name="EpgTimelineScroll" Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+							<Grid RowDefinitions="40, *">
+								<Canvas x:Name="EpgHeaderCanvas" Grid.Row="0" Height="40" Background="{DynamicResource BgActive}"/>
+								<ScrollViewer x:Name="EpgRowsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden" ScrollChanged="EpgRowsScroll_ScrollChanged">
+									<Canvas x:Name="EpgRowsCanvas"/>
+								</ScrollViewer>
+							</Grid>
+						</ScrollViewer>
+					</Grid>
+				</Grid>
+			</Border>
+		</Border>
+
+		<!-- Toast Bildirimi -->
+		<Border x:Name="NotificationToast" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,40" Background="{DynamicResource Text}" CornerRadius="20" Padding="20,10" IsVisible="False" ZIndex="200" BoxShadow="0 4 15 0 #40000000">
+			<TextBlock x:Name="NotificationText" Text="Bildirim mesajı" Foreground="{DynamicResource BgCard}" FontWeight="Medium" FontSize="14"/>
+		</Border>
+
+	</Grid>
+</Window>

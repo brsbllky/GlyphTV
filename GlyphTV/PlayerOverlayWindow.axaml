@@ -1,0 +1,831 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GlyphTV.PlayerOverlayWindow"
+        Title="GlyphTV Player Overlay"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        KeyDown="Window_KeyDown">
+
+	<!--
+	PlayerOverlayWindow
+	====================
+	KÖK SEBEP (VLC/mpv video görüntüsü, oynatıcı kontrol butonlarının/rozetlerinin
+	HER ZAMAN önünde kalıyordu — "airspace" sorunu): VideoView (VLC) ve
+	MpvVideoHost (mpv) ikisi de video çıktısını GERÇEK bir native Win32 alt
+	pencere (HWND) üzerinden gösterir. Windows'ta bir native alt pencere, aynı
+	üst pencere (MainWindow) içindeki Avalonia'nın kendi çizdiği (Skia tabanlı)
+	içeriğin HER ZAMAN önünde render edilir — bu, XAML'deki eleman sırası veya
+	ZIndex ile değiştirilemeyen bir Windows pencere kompozisyon kısıtıdır (aynı
+	sorun WPF/WinForms'ta native video kontrolleri için de onlarca yıldır
+	bilinir ve orada da standart çözüm budur).
+	
+	ÇÖZÜM: Oynatıcı kontrol paneli (üst bar, alt bar, kanal listesi/ses/altyazı/
+	enboy popup'ları, medya bilgi rozetleri — eskiden MainWindow.axaml içindeki
+	"PlayerOverlayRoot" Grid'i) artık MainWindow'un ÜZERİNE, video alanının tam
+	koordinatlarına senkronize edilen, şeffaf bir AYRI native pencerede
+	yaşıyor. "Üstte kalma" (Topmost) durumu artık STATİK OLARAK burada
+	değil, MainWindow.PlayerOverlay.cs'te DİNAMİK olarak yönetiliyor —
+	sadece GlyphTV etkin/öndeki pencereyken Topmost=true olur; kullanıcı
+	başka bir uygulamaya geçtiğinde false'a döner (bkz. "hayalet pencere"
+	düzeltmesi, MainWindow.Activated/Deactivated abonelikleri). Statik
+	Topmost="True" öncesinde overlay'i TÜM SİSTEMDEKİ pencerelerin
+	üzerinde tutuyordu — GlyphTV arka plana alınsa bile video kontrol
+	paneli diğer uygulamaların önünde "hayalet" gibi görünmeye devam
+	ediyordu. Video (PlayerVideoHost) MainWindow içinde kalmaya
+	devam ediyor; bu pencere sadece kontrolleri barındırıyor ve MainWindow'un
+	PlayerContainer'ının ekran konumu/boyutu her değiştiğinde (bkz.
+	MainWindow.PlayerOverlay.cs → SyncPlayerOverlayBounds) buna göre taşınıp
+	yeniden boyutlandırılıyor.
+	
+	Tüm x:Name'ler eski MainWindow.axaml'deki İLE BİREBİR AYNI tutuldu ve
+	x:FieldModifier="Public" eklendi ki MainWindow.PlayerOverlay.cs'teki
+	yönlendirme (forwarding) property'leri bunlara erişebilsin — böylece
+	MainWindow.Player.cs/Series.cs/VodInfo.cs/Epg.cs içindeki mevcut kod
+	(PlayerTopBar.IsVisible = ... gibi) HİÇBİR DEĞİŞİKLİK YAPILMADAN aynen
+	çalışmaya devam ediyor.
+	-->
+
+	<Window.Styles>
+		<Style Selector="Button.PlayerIconBtn">
+			<Setter Property="Width" Value="36"/>
+			<Setter Property="Height" Value="36"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="8" Background="Transparent">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayerIconBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Button.PlayerIconBtn:pressed /template/ Border#Root">
+			<Setter Property="Background" Value="#33ffffff"/>
+		</Style>
+		<Style Selector="Button.PlayBtn">
+			<Setter Property="Width" Value="40"/>
+			<Setter Property="Height" Value="40"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="20" Background="White">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#DBEAFE"/>
+		</Style>
+		<Style Selector="Button.PlayBtn:pressed /template/ Border#Root">
+			<Setter Property="Background" Value="#BFDBFE"/>
+		</Style>
+		<Style Selector="Button.PlayerTopBtn">
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="20"
+                            Background="#1Affffff"
+                            BorderBrush="#33ffffff" BorderThickness="1"
+                            Padding="10,5">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayerTopBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#443b82f6"/>
+			<Setter Property="BorderBrush" Value="#773b82f6"/>
+		</Style>
+		<Style Selector="Button.PlayerTopBtn:pressed /template/ Border#Root">
+			<Setter Property="Background" Value="#663b82f6"/>
+			<Setter Property="BorderBrush" Value="#993b82f6"/>
+		</Style>
+		<Style Selector="Button.PlayerIconBtnWide">
+			<Setter Property="Height" Value="36"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="8" Background="Transparent" Padding="6,0">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayerIconBtnWide:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Button.PlayerIconBtnWide:pressed /template/ Border#Root">
+			<Setter Property="Background" Value="#33ffffff"/>
+		</Style>
+		<Style Selector="Button.PlayerCloseBtn">
+			<Setter Property="Width" Value="30"/>
+			<Setter Property="Height" Value="30"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="7"
+                            Background="#18ffffff"
+                            BorderBrush="#2Affffff" BorderThickness="1">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayerCloseBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#BBef4444"/>
+			<Setter Property="BorderBrush" Value="#88ef4444"/>
+		</Style>
+		<Style Selector="Button.PlayerCloseBtn:pressed /template/ Border#Root">
+			<Setter Property="Background" Value="#FFef4444"/>
+			<Setter Property="BorderBrush" Value="#FFef4444"/>
+		</Style>
+		<Style Selector="Button.PlayerChannelBtn">
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Margin" Value="0,1"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="8" Background="Transparent" Padding="12,10">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.PlayerChannelBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Button.PlayerChannelBtn.Active /template/ Border#Root">
+			<Setter Property="Background" Value="#333b82f6"/>
+		</Style>
+		<Style Selector="Button.TrackBtn">
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Template">
+				<ControlTemplate>
+					<Border x:Name="Root" CornerRadius="6" Background="Transparent" Padding="10,6">
+						<ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+		<Style Selector="Button.TrackBtn:pointerover /template/ Border#Root">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Button.TrackBtn.Active /template/ Border#Root">
+			<Setter Property="Background" Value="#3b82f6"/>
+		</Style>
+		<Style Selector="Border#AudioTrackPopup ScrollViewer">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#AudioTrackPopup ScrollViewer /template/ Border">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#AudioTrackPopup ScrollViewer > ContentPresenter">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#SubtitlePopup ScrollViewer">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#SubtitlePopup ScrollViewer /template/ Border">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#SubtitlePopup ScrollViewer > ContentPresenter">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#ChannelListPanel ScrollViewer">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#ChannelListPanel ScrollViewer /template/ Border">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+		<Style Selector="Border#ChannelListPanel ScrollViewer > ContentPresenter">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+
+		<!-- YENİ: MainWindow.axaml'deki Border.SelectListItem stilinin bu
+		     (ayrı) pencere için kopyası — Donanım Çözümlemesi/İnterlacing
+		     kontrolleri artık burada (mpv Ayarları popup'ında) da
+		     gösteriliyor ve aynı seçim-listesi görünümünü kullanıyor.
+		     MainWindow.axaml → Window.Styles bu pencereye miras kalmaz,
+		     bu yüzden ayrı tanımlanması gerekiyor. -->
+		<Style Selector="Border.SelectListItem">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="10,8"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="Border.SelectListItem:pointerover">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Border.SelectListItem.Active">
+			<Setter Property="Background" Value="#333b82f6"/>
+		</Style>
+
+		<!-- YENİ: Dar 4 sütunlu ızgaralar (Hedef Ekran Tepe Parlaklığı gibi)
+		     için SelectListItem'ın daha kompakt (küçük padding/font) versiyonu
+		     — normal SelectListItem'ın 10,8 padding'i bu kadar dar sütunlarda
+		     metnin taşmasına/satırların üst üste binmesine yol açıyordu. -->
+		<Style Selector="Border.SelectListItemCompact">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="CornerRadius" Value="7"/>
+			<Setter Property="Padding" Value="4,8"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+		</Style>
+		<Style Selector="Border.SelectListItemCompact:pointerover">
+			<Setter Property="Background" Value="#22ffffff"/>
+		</Style>
+		<Style Selector="Border.SelectListItemCompact.Active">
+			<Setter Property="Background" Value="#333b82f6"/>
+		</Style>
+	</Window.Styles>
+
+					<Grid x:Name="PlayerOverlayRoot" x:FieldModifier="Public" Background="#01000000" PointerMoved="PlayerContainer_PointerMoved" PointerPressed="PlayerOverlay_PointerPressed">
+
+							<!-- ÜST BAR -->
+							<Border x:Name="PlayerTopBar" x:FieldModifier="Public" VerticalAlignment="Top" HorizontalAlignment="Stretch" Padding="18,12">
+								<Border.Background>
+									<LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+										<GradientStop Color="#CC0b0f19" Offset="0"/>
+										<GradientStop Color="#000b0f19" Offset="1"/>
+									</LinearGradientBrush>
+								</Border.Background>
+								<Grid ColumnDefinitions="Auto, *, Auto">
+									<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+										<Border x:Name="LiveBadge" x:FieldModifier="Public" Background="#22ef4444" BorderBrush="#55ef4444" BorderThickness="1" CornerRadius="12" Padding="7,3" IsVisible="True">
+											<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+												<Border Width="5" Height="5" CornerRadius="3" Background="#ff4d4d"/>
+												<TextBlock Text="CANLI" Foreground="#ff6b6b" FontSize="10" FontWeight="Bold"/>
+											</StackPanel>
+										</Border>
+										<TextBlock x:Name="PlayerTitleText" x:FieldModifier="Public" Text="Kanal Adı" Foreground="White" FontWeight="Medium" FontSize="13" VerticalAlignment="Center" MaxWidth="400" TextTrimming="CharacterEllipsis"/>
+
+										<StackPanel x:Name="MediaInfoBadgesPanel" x:FieldModifier="Public" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" IsVisible="False">
+											<Border x:Name="ResolutionBadge" x:FieldModifier="Public" Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2" IsVisible="False">
+												<TextBlock x:Name="ResolutionBadgeText" x:FieldModifier="Public" Foreground="#DDffffff" FontSize="10" FontWeight="Bold"/>
+											</Border>
+											<Border x:Name="FpsBadge" x:FieldModifier="Public" Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2" IsVisible="False">
+												<TextBlock x:Name="FpsBadgeText" x:FieldModifier="Public" Foreground="#DDffffff" FontSize="10" FontWeight="Bold"/>
+											</Border>
+											<Border x:Name="VideoCodecBadge" x:FieldModifier="Public" Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2" IsVisible="False">
+												<TextBlock x:Name="VideoCodecBadgeText" x:FieldModifier="Public" Foreground="#DDffffff" FontSize="10" FontWeight="Bold"/>
+											</Border>
+											<Border x:Name="AudioCodecBadge" x:FieldModifier="Public" Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2" IsVisible="False">
+												<TextBlock x:Name="AudioCodecBadgeText" x:FieldModifier="Public" Foreground="#DDffffff" FontSize="10" FontWeight="Bold"/>
+											</Border>
+											<Border x:Name="AudioChannelsBadge" x:FieldModifier="Public" Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2" IsVisible="False">
+												<TextBlock x:Name="AudioChannelsBadgeText" x:FieldModifier="Public" Foreground="#DDffffff" FontSize="10" FontWeight="Bold"/>
+											</Border>
+											<!-- YENİ: Bitrate Rozeti (Sadece Canlı Yayınlar İçin) -->
+											<Border x:Name="BitrateBadge" x:FieldModifier="Public" CornerRadius="6" Background="#E60f172a" BorderBrush="#3322c55e" BorderThickness="1" Padding="7,2" Margin="0,0,6,0" IsVisible="False">
+												<TextBlock x:Name="BitrateBadgeText" x:FieldModifier="Public" Text="0 Mb/s" FontSize="11" FontWeight="Bold" Foreground="#4ade80" VerticalAlignment="Center"/>
+											</Border>
+										</StackPanel>
+									</StackPanel>
+
+									<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+										<Border x:Name="BtnAudioTrack" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnAudioTrack_Click" IsVisible="True">
+											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
+												<Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
+												<TextBlock Text="Ses Dili" Foreground="#DDffffff" FontSize="12"/>
+											</StackPanel>
+										</Border>
+										<Border x:Name="BtnChannelList" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnChannelList_Click" IsVisible="True">
+											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
+												<Path Data="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
+												<TextBlock Text="Kanallar" Foreground="#DDffffff" FontSize="12"/>
+											</StackPanel>
+										</Border>
+										<Border x:Name="BtnAspectRatio" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnAspectRatio_Click" IsVisible="True">
+											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
+												<Path Data="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
+												<TextBlock x:Name="AspectRatioText" x:FieldModifier="Public" Text="Auto" Foreground="#DDffffff" FontSize="12"/>
+											</StackPanel>
+										</Border>
+										<Border x:Name="BtnSubtitle" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnSubtitle_Click" IsVisible="False">
+											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
+												<Path Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 10H7v-2h10v2zm0-4H7V6h10v2z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
+												<TextBlock Text="Altyazı / Dil" Foreground="#DDffffff" FontSize="12"/>
+											</StackPanel>
+										</Border>
+										<!-- YENİ: mpv Ayarları (⚙️) — SADECE mpv motoru aktifken
+										     görünür (bkz. MainWindow.Settings.cs →
+										     UpdateMpvSettingsButtonVisibility), VLC'de bu
+										     düzeyde ayrıntılı HDR/görüntü kontrolü yok. -->
+										<!-- YENİ: Kozmetik güncelleme — eski "⚙️ mpv Ayarları" emoji+metin
+										     kombinasyonu yerine özel bir dişli (gear) SVG ikonu ve
+										     "Enhanced" etiketi kullanılıyor. Tıklama davranışı
+										     (MpvSettingsBtn_Click) ve x:Name (dolayısıyla
+										     MainWindow.PlayerOverlay.cs'teki forwarding property)
+										     DEĞİŞMEDİ — sadece görsel içerik güncellendi. -->
+										<Border x:Name="MpvSettingsBtn" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="MpvSettingsBtn_Click" IsVisible="False">
+											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
+												<Viewbox Width="13" Height="13">
+													<Canvas Width="54" Height="54">
+														<Path Fill="#DDffffff" Data="M27,13c-7.72,0-14,6.28-14,14s6.28,14,14,14s14-6.28,14-14S34.72,13,27,13z M27,39c-6.617,0-12-5.383-12-12s5.383-12,12-12 s12,5.383,12,12S33.617,39,27,39z"/>
+														<Path Fill="#DDffffff" Data="M51.22,21h-2.018c-0.515-1.912-1.272-3.742-2.26-5.457l1.426-1.426c0.525-0.525,0.814-1.224,0.814-1.966 c0-0.743-0.289-1.441-0.814-1.967l-4.553-4.553c-1.05-1.049-2.881-1.051-3.933,0l-1.426,1.426C36.74,6.07,34.911,5.313,33,4.798 V2.78C33,1.247,31.753,0,30.22,0H23.78C22.247,0,21,1.247,21,2.78v2.018c-1.911,0.515-3.74,1.272-5.457,2.26l-1.426-1.426 c-1.051-1.052-2.883-1.05-3.933,0l-4.553,4.553c-0.525,0.525-0.814,1.224-0.814,1.967c0,0.742,0.289,1.44,0.814,1.966l1.426,1.426 C6.07,17.258,5.312,19.088,4.798,21H2.78C1.247,21,0,22.247,0,23.78v6.439C0,31.753,1.247,33,2.78,33h2.018 c0.515,1.911,1.272,3.74,2.26,5.457l-1.426,1.426c-0.525,0.525-0.814,1.224-0.814,1.966c0,0.743,0.289,1.441,0.814,1.967 l4.553,4.553c1.05,1.051,2.882,1.052,3.933,0l1.426-1.426c1.717,0.987,3.546,1.745,5.457,2.26v2.018c0,1.533,1.247,2.78,2.78,2.78 h6.439c1.533,0,2.78-1.247,2.78-2.78v-2.018c1.911-0.515,3.74-1.272,5.457-2.26l1.426,1.426c1.052,1.052,2.882,1.05,3.933,0 l4.553-4.553c0.525-0.525,0.814-1.224,0.814-1.967c0-0.742-0.289-1.44-0.814-1.966l-1.426-1.426 c0.987-1.717,1.745-3.546,2.26-5.457h2.018c1.533,0,2.78-1.247,2.78-2.78V23.78C54,22.247,52.753,21,51.22,21z M52,30.22 C52,30.65,51.65,31,51.22,31h-3.592l-0.18,0.773c-0.521,2.237-1.399,4.36-2.613,6.311l-0.42,0.674l2.539,2.539 c0.305,0.305,0.305,0.8,0,1.104l-4.553,4.553c-0.304,0.304-0.799,0.306-1.104,0l-2.539-2.539l-0.674,0.42 c-1.95,1.214-4.073,2.093-6.311,2.613L31,47.628v3.592C31,51.65,30.65,52,30.22,52H23.78C23.35,52,23,51.65,23,51.22v-3.592 l-0.773-0.18c-2.237-0.521-4.36-1.399-6.311-2.613l-0.674-0.42l-2.539,2.539c-0.306,0.306-0.801,0.304-1.104,0l-4.553-4.553 c-0.305-0.305-0.305-0.8,0-1.104l2.539-2.539l-0.42-0.674c-1.214-1.95-2.093-4.073-2.613-6.311L6.372,31H2.78 C2.35,31,2,30.65,2,30.22V23.78C2,23.35,2.35,23,2.78,23h3.592l0.18-0.773c0.521-2.238,1.399-4.361,2.613-6.311l0.42-0.674 l-2.539-2.539c-0.305-0.305-0.305-0.8,0-1.104l4.553-4.553c0.304-0.304,0.799-0.306,1.104,0l2.539,2.539l0.674-0.42 c1.95-1.214,4.073-2.093,6.311-2.613L23,6.372V2.78C23,2.35,23.35,2,23.78,2h6.439C30.65,2,31,2.35,31,2.78v3.592l0.773,0.18 c2.237,0.521,4.36,1.399,6.311,2.613l0.674,0.42l2.539-2.539c0.306-0.306,0.801-0.304,1.104,0l4.553,4.553 c0.305,0.305,0.305,0.8,0,1.104l-2.539,2.539l0.42,0.674c1.214,1.949,2.093,4.072,2.613,6.311L47.628,23h3.592 C51.65,23,52,23.35,52,23.78V30.22z"/>
+														<Path Fill="#DDffffff" Data="M27,17c-5.514,0-10,4.486-10,10s4.486,10,10,10s10-4.486,10-10S32.514,17,27,17z M27,35c-4.411,0-8-3.589-8-8s3.589-8,8-8 s8,3.589,8,8S31.411,35,27,35z"/>
+													</Canvas>
+												</Viewbox>
+												<TextBlock Text="Enhanced" Foreground="#DDffffff" FontSize="12"/>
+											</StackPanel>
+										</Border>
+									</StackPanel>
+								</Grid>
+							</Border>
+
+							<!-- ALT BAR -->
+							<Border x:Name="PlayerBottomBar" x:FieldModifier="Public" VerticalAlignment="Bottom" Padding="18,10,18,14">
+								<Border.Background>
+									<LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+										<GradientStop Color="#000b0f19" Offset="0"/>
+										<GradientStop Color="#EE0b0f19" Offset="1"/>
+									</LinearGradientBrush>
+								</Border.Background>
+								<StackPanel Spacing="8">
+
+									<Grid x:Name="SeekBarContainer" x:FieldModifier="Public" ColumnDefinitions="Auto, *, Auto" IsVisible="False">
+										<TextBlock x:Name="CurrentTimeText" x:FieldModifier="Public" Grid.Column="0" Text="00:00:00" Foreground="#99ffffff" FontSize="11" Margin="0,0,10,0" VerticalAlignment="Center" FontFamily="Consolas,monospace"/>
+										<Slider x:Name="TimeSlider" x:FieldModifier="Public" Classes="PlayerSlider" Grid.Column="1" Minimum="0" Maximum="100" Value="0" ValueChanged="TimeSlider_ValueChanged">
+											<Slider.Resources>
+												<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+												<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+												<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+												<SolidColorBrush x:Key="SliderTrackValueFill" Color="White"/>
+												<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="White"/>
+												<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="White"/>
+												<SolidColorBrush x:Key="SliderTrackFill" Color="#44ffffff"/>
+												<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#55ffffff"/>
+												<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#55ffffff"/>
+											</Slider.Resources>
+										</Slider>
+										<TextBlock x:Name="TotalTimeText" x:FieldModifier="Public" Grid.Column="2" Text="00:00:00" Foreground="#99ffffff" FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center" FontFamily="Consolas,monospace"/>
+									</Grid>
+
+									<Grid ColumnDefinitions="*, Auto">
+										<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+											<Border x:Name="PrevChannelBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="PrevChannel_Click" ToolTip.Tip="Önceki Kanal">
+												<Viewbox Width="18" Height="18" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" Fill="#CCffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<StackPanel x:Name="SkipBackBtn" x:FieldModifier="Public" IsVisible="False" VerticalAlignment="Center" Spacing="1">
+												<Border Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipBack_Click" ToolTip.Tip="10 saniye geri">
+													<Viewbox Width="18" Height="18" IsHitTestVisible="False">
+														<Canvas Width="24" Height="24">
+															<Path Data="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" Fill="#CCffffff"/>
+														</Canvas>
+													</Viewbox>
+												</Border>
+												<TextBlock Text="10s" Foreground="#66ffffff" FontSize="9" HorizontalAlignment="Center" IsHitTestVisible="False"/>
+											</StackPanel>
+
+											<Border x:Name="PlayPauseBtn" x:FieldModifier="Public" Width="40" Height="40" CornerRadius="20" Background="White" Cursor="Hand" PointerPressed="PlayPause_Click" Margin="4,0">
+												<Viewbox Width="18" Height="18" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path x:Name="IconPlay" x:FieldModifier="Public"  Data="M8 5v14l11-7z"                   Fill="#111111" IsVisible="False"/>
+														<Path x:Name="IconPause" x:FieldModifier="Public" Data="M6 19h4V5H6v14zm8-14v14h4V5h-4z" Fill="#111111" IsVisible="True"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<Border x:Name="NextChannelBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="NextChannel_Click" ToolTip.Tip="Sonraki Kanal">
+												<Viewbox Width="18" Height="18" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" Fill="#CCffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<StackPanel x:Name="SkipForwardBtn" x:FieldModifier="Public" IsVisible="False" VerticalAlignment="Center" Spacing="1">
+												<Border Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipForward_Click" ToolTip.Tip="10 saniye ileri">
+													<Viewbox Width="18" Height="18" IsHitTestVisible="False">
+														<Canvas Width="24" Height="24">
+															<Path Data="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" Fill="#CCffffff"/>
+														</Canvas>
+													</Viewbox>
+												</Border>
+												<TextBlock Text="10s" Foreground="#66ffffff" FontSize="9" HorizontalAlignment="Center" IsHitTestVisible="False"/>
+											</StackPanel>
+
+											<Border x:Name="NextEpisodeBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="NextEpisode_Click" IsVisible="False" ToolTip.Tip="Sonraki Bölüm" Margin="2,0,0,0">
+												<Viewbox Width="17" Height="17" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M5 18l8.5-6L5 6v12zm8-12v12l8.5-6L13 6z" Fill="#CCffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<Border x:Name="SpeedBtn" x:FieldModifier="Public" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Speed_Click" IsVisible="False" Padding="6,0" Margin="2,0,0,0">
+												<StackPanel Spacing="1" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+													<Viewbox Width="22" Height="12" HorizontalAlignment="Center">
+														<Canvas Width="512" Height="278.862">
+															<Path Fill="#CCffffff" Data="M0 255.999C0 185.311 28.655 121.31 74.982 74.982 121.311 28.655 185.311 0 256.001 0c55.455 0 106.794 17.638 148.714 47.607l-26.682 22.017c-29.757-19.521-64.47-32.109-101.845-35.468v29.067h-40.377V34.156c-45.225 4.063-86.554 21.643-119.916 48.665l24.793 24.794-28.549 28.549-25.202-25.202c-33.462 38.969-53.685 89.641-53.685 145.037H0zM450.497 89.547C488.837 134.304 512 192.448 512 255.999h-33.252c0-53.029-18.531-101.73-49.467-139.979l21.216-26.473z"/>
+															<Path Fill="#EF1C25" Data="M233.323 220.86c-38.904 32.143 13.131 86.245 48.238 40.188L440.179 63.123l-7.427-6.826L233.323 220.86z"/>
+														</Canvas>
+													</Viewbox>
+													<TextBlock x:Name="SpeedBtnText" x:FieldModifier="Public" Text="1×" Foreground="#CCffffff" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+												</StackPanel>
+											</Border>
+										</StackPanel>
+
+										<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+											<Border x:Name="MuteBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Mute_Click">
+												<Viewbox Width="16" Height="16" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path x:Name="IconMuteOn" x:FieldModifier="Public"  Data="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" Fill="#CCffffff" IsVisible="True"/>
+														<Path x:Name="IconMuteOff" x:FieldModifier="Public" Data="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" Fill="#CCffffff" IsVisible="False"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<Slider x:Name="VolumeSlider" x:FieldModifier="Public" Classes="PlayerSlider" Width="90" Minimum="0" Maximum="200" Value="100" ValueChanged="VolumeSlider_ValueChanged" VerticalAlignment="Center">
+												<Slider.Resources>
+													<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+													<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+													<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+													<SolidColorBrush x:Key="SliderTrackValueFill" Color="White"/>
+													<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="White"/>
+													<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="White"/>
+													<SolidColorBrush x:Key="SliderTrackFill" Color="#44ffffff"/>
+													<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#55ffffff"/>
+													<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#55ffffff"/>
+												</Slider.Resources>
+											</Slider>
+
+											<TextBlock x:Name="VolumeText" x:FieldModifier="Public" Text="100%" Foreground="#66ffffff" FontSize="11" VerticalAlignment="Center" Width="34" FontFamily="Consolas,monospace"/>
+
+											<Border Width="1" Height="18" Background="#22ffffff" Margin="4,0"/>
+
+											<Border Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Fullscreen_Click" ToolTip.Tip="Tam Ekran">
+												<Viewbox Width="17" Height="17" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" Fill="#CCffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<Border x:Name="ClosePlayerBorder" x:FieldModifier="Public" Width="30" Height="30" CornerRadius="7" Background="#18ffffff" BorderBrush="#2Affffff" BorderThickness="1" Cursor="Hand" PointerPressed="ClosePlayer_Click" Margin="4,0,0,0" ToolTip.Tip="Kapat"
+													PointerEntered="CloseBtn_PointerEntered" PointerExited="CloseBtn_PointerExited">
+												<Viewbox Width="13" Height="13" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Fill="#99ffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+										</StackPanel>
+									</Grid>
+								</StackPanel>
+							</Border>
+
+							<!-- KANAL LİSTESİ POPUP -->
+							<Border x:Name="ChannelListPanel" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" Width="280" MaxHeight="460" ZIndex="25">
+								<Grid RowDefinitions="Auto, *">
+									<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="4,0,0,8">
+										<TextBlock Text="Kanallar" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+										<Button Grid.Column="1" Classes="PlayerCloseBtn" Click="CloseChannelList_Click">
+											<Viewbox Width="13" Height="13">
+												<Canvas Width="24" Height="24">
+													<Path Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Fill="#99ffffff"/>
+												</Canvas>
+											</Viewbox>
+										</Button>
+									</Grid>
+									<ScrollViewer Grid.Row="1" Padding="0,4,0,0"
+												  HorizontalScrollBarVisibility="Disabled"
+												  VerticalScrollBarVisibility="Hidden">
+										<ScrollViewer.Styles>
+											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
+												<Setter Property="Background" Value="Transparent"/>
+											</Style>
+										</ScrollViewer.Styles>
+										<StackPanel x:Name="PlayerChannelListContainer" x:FieldModifier="Public" Spacing="1"/>
+									</ScrollViewer>
+								</Grid>
+							</Border>
+
+							<!-- SES DİLİ POPUP -->
+							<Border x:Name="AudioTrackPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" MaxWidth="280" MaxHeight="320" ZIndex="25">
+								<Grid RowDefinitions="Auto, *">
+									<TextBlock Grid.Row="0" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,8"/>
+									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="260">
+										<ScrollViewer.Styles>
+											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
+												<Setter Property="Background" Value="Transparent"/>
+											</Style>
+										</ScrollViewer.Styles>
+										<StackPanel x:Name="AudioTrackContainer" x:FieldModifier="Public" Spacing="2"/>
+									</ScrollViewer>
+								</Grid>
+							</Border>
+
+							<!-- ALTYAZI + SES DİLİ POPUP -->
+							<Border x:Name="SubtitlePopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="220" MaxWidth="300" MaxHeight="420" ZIndex="25">
+								<Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+									<TextBlock Grid.Row="0" Text="Altyazı" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
+									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="140">
+										<ScrollViewer.Styles>
+											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
+												<Setter Property="Background" Value="Transparent"/>
+											</Style>
+										</ScrollViewer.Styles>
+										<StackPanel x:Name="SubtitleContainer" x:FieldModifier="Public" Spacing="2" Margin="0,0,0,4"/>
+									</ScrollViewer>
+									<Border Grid.Row="2" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
+									<TextBlock Grid.Row="3" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
+									<ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="140">
+										<ScrollViewer.Styles>
+											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
+												<Setter Property="Background" Value="Transparent"/>
+											</Style>
+										</ScrollViewer.Styles>
+										<StackPanel x:Name="AudioTrackContainerVod" x:FieldModifier="Public" Spacing="2"/>
+									</ScrollViewer>
+								</Grid>
+							</Border>
+
+							<!-- ASPECT RATIO POPUP -->
+							<Border x:Name="AspectRatioPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" ZIndex="25">
+								<StackPanel>
+									<TextBlock Text="En:Boy Oranı" Foreground="#3b82f6" FontSize="13" FontWeight="Bold" Margin="0,0,0,8"/>
+									<StackPanel x:Name="AspectRatioContainer" x:FieldModifier="Public" Spacing="2"/>
+								</StackPanel>
+							</Border>
+							<!-- ============================================================
+							     YENİ: mpv Ayarları popup'ı (⚙️) — HDR ton eşleme, hedef
+							     tepe parlaklığı, işleme kalitesi, ince görüntü ayarları
+							     (Parlaklık/Kontrast/Doygunluk/Gama) ve Donanım Çözümlemesi/
+							     İnterlacing (bkz. Ayarlar sekmesi kaldırıldı — bu seçenekler
+							     artık SADECE burada yaşıyor). Mantık (SetHdrToneMapping vb.)
+							     MainWindow.Settings.cs'te DEĞİŞMEDEN kalıyor; sadece erişim
+							     noktası değişti.
+							     DÜZELTME (seçenekler üst üste biniyordu / okunmuyordu):
+							     Parlaklık/Kontrast ve Doygunluk/Gama artık YAN YANA (2 sütun),
+							     Hedef Ekran Tepe Parlaklığı artık 4 SÜTUNLU tek bir ızgara
+							     (kullanıcının paylaştığı referans görsele göre) — önceki
+							     dağınık 2'li satır grupları kaldırıldı.
+							     ============================================================ -->
+							<Border x:Name="MpvSettingsPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="14" IsVisible="False" Width="336" MaxHeight="540" ZIndex="25">
+								<Grid RowDefinitions="Auto, *">
+									<StackPanel Grid.Row="0" Margin="0,0,0,10">
+										<Grid ColumnDefinitions="*, Auto, Auto">
+											<TextBlock Text="ENHANCED" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+											<Border Grid.Column="1" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="8" Padding="10,4" Cursor="Hand" Margin="0,0,8,0" PointerPressed="MpvResetSettings_Click">
+												<TextBlock Text="Sıfırla" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+											</Border>
+											<Button Grid.Column="2" Classes="PlayerCloseBtn" Click="CloseMpvSettingsPopup_Click">
+												<Viewbox Width="13" Height="13">
+													<Canvas Width="24" Height="24">
+														<Path Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Fill="#99ffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Button>
+										</Grid>
+										<TextBlock x:Name="MpvPopupStatusText" x:FieldModifier="Public" Text="Aktif: auto" Foreground="#77ffffff" FontSize="11" Margin="0,6,0,0"/>
+										<Border Height="1" Background="#33ffffff" Margin="0,10,0,0"/>
+									</StackPanel>
+
+									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="470">
+										<ScrollViewer.Styles>
+											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
+												<Setter Property="Background" Value="Transparent"/>
+											</Style>
+										</ScrollViewer.Styles>
+										<StackPanel Spacing="4">
+											<TextBlock Text="VİDEO" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+
+											<!-- DÜZELTME: Parlaklık/Kontrast artık yan yana (2 sütun) —
+											     önceden alt alta 4 ayrı slider tüm popup'u gereksiz
+											     uzatıyor ve diğer bölümlerin görünür alanını daraltarak
+											     "üst üste binme" hissi yaratıyordu. -->
+											<Grid ColumnDefinitions="*,*" Margin="0,0,0,4">
+												<StackPanel Grid.Column="0" Margin="0,0,8,0" Spacing="2">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Parlaklık" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="MpvEqBrightnessText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
+													</Grid>
+													<Slider x:Name="MpvEqBrightnessSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqBrightness_ValueChanged">
+														<Slider.Resources>
+															<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+															<SolidColorBrush x:Key="SliderTrackValueFill" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackFill" Color="#33ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#44ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#44ffffff"/>
+														</Slider.Resources>
+													</Slider>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Kontrast" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="MpvEqContrastText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
+													</Grid>
+													<Slider x:Name="MpvEqContrastSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqContrast_ValueChanged">
+														<Slider.Resources>
+															<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+															<SolidColorBrush x:Key="SliderTrackValueFill" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackFill" Color="#33ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#44ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#44ffffff"/>
+														</Slider.Resources>
+													</Slider>
+												</StackPanel>
+											</Grid>
+
+											<Grid ColumnDefinitions="*,*" Margin="0,0,0,10">
+												<StackPanel Grid.Column="0" Margin="0,0,8,0" Spacing="2">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Doygunluk" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="MpvEqSaturationText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
+													</Grid>
+													<Slider x:Name="MpvEqSaturationSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqSaturation_ValueChanged">
+														<Slider.Resources>
+															<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+															<SolidColorBrush x:Key="SliderTrackValueFill" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackFill" Color="#33ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#44ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#44ffffff"/>
+														</Slider.Resources>
+													</Slider>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Gama" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="MpvEqGammaText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
+													</Grid>
+													<Slider x:Name="MpvEqGammaSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqGamma_ValueChanged">
+														<Slider.Resources>
+															<SolidColorBrush x:Key="SliderThumbBackground" Color="White"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#DDDDDD"/>
+															<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#BBBBBB"/>
+															<SolidColorBrush x:Key="SliderTrackValueFill" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#3b82f6"/>
+															<SolidColorBrush x:Key="SliderTrackFill" Color="#33ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#44ffffff"/>
+															<SolidColorBrush x:Key="SliderTrackFillPressed" Color="#44ffffff"/>
+														</Slider.Resources>
+													</Slider>
+												</StackPanel>
+											</Grid>
+
+											<Border Height="1" Background="#33ffffff" Margin="0,4,0,10"/>
+
+											<TextBlock Text="HDR TON EŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<Grid ColumnDefinitions="*,*" Margin="0,0,0,3">
+												<Border Grid.Column="0" x:Name="HdrToneMapAutoItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="auto" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="0,0,3,0">
+													<TextBlock Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
+												</Border>
+												<Border Grid.Column="1" x:Name="HdrToneMapHableItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="hable" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="3,0,0,0">
+													<TextBlock Text="Hable" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
+												</Border>
+											</Grid>
+											<Grid ColumnDefinitions="*,*" Margin="0,0,0,10">
+												<Border Grid.Column="0" x:Name="HdrToneMapMobiusItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="mobius" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="0,0,3,0">
+													<TextBlock Text="Mobius" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
+												</Border>
+												<Border Grid.Column="1" x:Name="HdrToneMapBt2446aItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="bt.2446a" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="3,0,0,0">
+													<TextBlock Text="BT.2446a" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
+												</Border>
+											</Grid>
+											<!-- YENİ (kod uyumluluğu için): checkmark TextBlock'ları görsel
+											     olarak kaldırılmadı (seçim artık sadece kart arka planı
+											     rengiyle — referans görseldeki gibi — belirtiliyor) ama
+											     MainWindow.Settings.cs → SetSelectListItemActive hâlâ bu
+											     alanlara yazdığından derleme uyumluluğu için IsVisible=
+											     False sabit kalacak şekilde ayrı, görünmez olarak
+											     tutuluyor. -->
+											<TextBlock x:Name="HdrToneMapAutoCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrToneMapHableCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrToneMapMobiusCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrToneMapBt2446aCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+
+											<TextBlock Text="HEDEF EKRAN TEPE PARLAKLIĞI" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<!-- DÜZELTME (seçenekler üst üste biniyordu): 2'li satır
+											     grupları yerine TEK bir 4 sütunlu ızgara — referans
+											     görseldeki (mpv.png) düzenin birebir aynısı. -->
+											<Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,4">
+												<Border Grid.Column="0" x:Name="HdrPeakAutoItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="auto" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="0,0,3,0">
+													<TextBlock Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="1" x:Name="HdrPeak100Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="100" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,3,0">
+													<TextBlock Text="100" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="2" x:Name="HdrPeak200Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="200" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,3,0">
+													<TextBlock Text="200" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="3" x:Name="HdrPeak400Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="400" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,0,0">
+													<TextBlock Text="400" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+											</Grid>
+											<Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,10">
+												<Border Grid.Column="0" x:Name="HdrPeak600Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="600" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="0,0,3,0">
+													<TextBlock Text="600" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="1" x:Name="HdrPeak800Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="800" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,3,0">
+													<TextBlock Text="800" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="2" x:Name="HdrPeak1000Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="1000" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,3,0">
+													<TextBlock Text="1000" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="3"/>
+											</Grid>
+											<TextBlock x:Name="HdrPeakAutoCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak100Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak200Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak400Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak600Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak800Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+											<TextBlock x:Name="HdrPeak1000Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
+
+											<TextBlock Text="İŞLEME KALİTESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<Grid ColumnDefinitions="*,*" Margin="0,0,0,10">
+												<Button Grid.Column="0" x:Name="ScalingQualityDefaultBtn" x:FieldModifier="Public" Classes="TrackBtn" Click="ScalingQualityDefault_Click" HorizontalAlignment="Stretch" Margin="0,0,3,0" Padding="8,14">
+													<TextBlock Text="Varsayılan" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+												</Button>
+												<Button Grid.Column="1" x:Name="ScalingQualityHighBtn" x:FieldModifier="Public" Classes="TrackBtn" Click="ScalingQualityHigh_Click" HorizontalAlignment="Stretch" Margin="3,0,0,0" Padding="8,14">
+													<TextBlock Text="Kalite (daha keskin ölçekleme)" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+												</Button>
+											</Grid>
+											<TextBlock Text="Ton eşleme, SDR ekranlarda HDR içeriği etkiler. Kalite ölçekleme daha fazla GPU kullanır." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+											<Border Height="1" Background="#33ffffff" Margin="0,0,0,10"/>
+
+											<!-- ═══════════════════════════════════════════════════
+											     Donanım Çözümlemesi / İnterlacing — Ayarlar sekmesindeki
+											     "Oynatıcı Performansı" kartı KALDIRILDI, bu seçenekler
+											     artık SADECE burada yaşıyor.
+											     ═══════════════════════════════════════════════════ -->
+											<TextBlock Text="DONANIM ÇÖZÜMLEMESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<StackPanel Spacing="2" Margin="0,0,0,10">
+												<Border x:Name="PopupHwDecodeAutoItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="auto" PointerPressed="HwDecodeItem_PointerPressed">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Otomatik / Önerilen" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PopupHwDecodeAutoCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
+													</Grid>
+												</Border>
+												<Border x:Name="PopupHwDecodeD3D11Item" x:FieldModifier="Public" Classes="SelectListItem" Tag="d3d11va" PointerPressed="HwDecodeItem_PointerPressed">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Windows D3D11VA" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PopupHwDecodeD3D11Check" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
+													</Grid>
+												</Border>
+												<Border x:Name="PopupHwDecodeNvdecItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="nvdec" PointerPressed="HwDecodeItem_PointerPressed">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="NVIDIA NVDEC" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PopupHwDecodeNvdecCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
+													</Grid>
+												</Border>
+												<Border x:Name="PopupHwDecodeNvdecCopyItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="nvdec-copy" PointerPressed="HwDecodeItem_PointerPressed">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="NVIDIA NVDEC Copy" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PopupHwDecodeNvdecCopyCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
+													</Grid>
+												</Border>
+												<Border x:Name="PopupHwDecodeOffItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="no" PointerPressed="HwDecodeItem_PointerPressed">
+													<Grid ColumnDefinitions="*, Auto">
+														<TextBlock Text="Kapalı" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PopupHwDecodeOffCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
+													</Grid>
+												</Border>
+											</StackPanel>
+
+											<Border x:Name="PopupInterlaceItem" x:FieldModifier="Public" Classes="SelectListItem" PointerPressed="InterlaceToggle_PointerPressed">
+												<Grid ColumnDefinitions="*, Auto">
+													<StackPanel VerticalAlignment="Center">
+														<TextBlock Text="İnterlacing'i Kaldır" FontWeight="Medium" Foreground="#DDffffff" FontSize="12"/>
+														<TextBlock Text="Taramalı yayınlarda çizgi artefaktlarını azaltır" FontSize="10" Foreground="#88ffffff" Margin="0,2,0,0" TextWrapping="Wrap"/>
+													</StackPanel>
+													<TextBlock x:Name="PopupInterlaceCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False" VerticalAlignment="Center" Margin="6,0,0,0"/>
+												</Grid>
+											</Border>
+										</StackPanel>
+									</ScrollViewer>
+								</Grid>
+							</Border>
+
+						</Grid>
+
+</Window>

@@ -1,0 +1,486 @@
+// ============================================================
+// MainWindow.Series.cs
+// Dizi kartı oluşturma, sezon/bölüm navigasyonu,
+// dizi oynatma, favori, detay modalı
+// ============================================================
+
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace GlyphTV
+{
+    public partial class MainWindow
+    {
+        // ─────────────────────────────────────────────────────────────
+        // SeriesCard oluşturma helper'ı
+        // ─────────────────────────────────────────────────────────────
+        private SeriesCard BuildSeriesCard(string showName, List<Channel> episodes,
+            Dictionary<string, WatchHistory>? historyByUrl = null)
+        {
+            var card = new SeriesCard { ShowName = showName };
+            var first = episodes.FirstOrDefault();
+
+            if (first != null)
+            {
+                card.Group = first.Group;
+                card.LogoUrl = first.LogoUrl;
+
+                if (_tmdbPosterCache.TryGetValue(showName, out var cachedPoster) && cachedPoster != null)
+                    card.LogoBitmap = cachedPoster;
+                else
+                    card.LogoBitmap = first.LogoBitmap;
+            }
+
+            var distinctEpisodes = episodes
+                .GroupBy(e => (e.Season, e.EpisodeNumber))
+                .Select(g => g.First())
+                .ToList();
+
+            // ── YENİ: Kartın en son eklenen bölüm tarihini ve en yüksek Stream ID'sini hesapla ──
+            if (distinctEpisodes.Count > 0)
+            {
+                card.AddedDate = distinctEpisodes
+                    .Select(e => e.AddedDate)
+                    .DefaultIfEmpty(DateTime.MinValue)
+                    .Max();
+
+                long maxStreamId = 0;
+                foreach (var ep in distinctEpisodes)
+                {
+                    string? sid = ExtractXtreamStreamId(ep);
+                    if (long.TryParse(sid, out var id) && id > maxStreamId) maxStreamId = id;
+                    else if (long.TryParse(ep.XuiId, out var xid) && xid > maxStreamId) maxStreamId = xid;
+                }
+                card.LatestStreamId = maxStreamId;
+            }
+
+            // Sezon/bölüm yapısı
+            card.Seasons = distinctEpisodes.Select(e => e.Season).Distinct().OrderBy(s => s).ToList();
+            card.EpisodesBySeason = new Dictionary<string, List<Channel>>();
+            foreach (var season in card.Seasons)
+            {
+                card.EpisodesBySeason[season] = distinctEpisodes
+                    .Where(e => e.Season == season)
+                    .OrderBy(e => e.EpisodeNumber)
+                    .ToList();
+            }
+
+            // Seçim geri yükleme
+            bool restored = false;
+
+            if (_seriesSelections.TryGetValue(showName, out var sel))
+            {
+                card.RestoreSelection(sel.season, sel.episode);
+                restored = true;
+            }
+
+            if (!restored && historyByUrl != null)
+            {
+                WatchHistory? bestHistory = null;
+                Channel? bestEpisode = null;
+
+                foreach (var ep in episodes)
+                {
+                    if (historyByUrl.TryGetValue(ep.Url, out var hist) && hist.Position > 5000)
+                    {
+                        if (bestHistory == null || hist.LastWatched > bestHistory.LastWatched)
+                        {
+                            bestHistory = hist;
+                            bestEpisode = ep;
+                        }
+                    }
+                }
+
+                if (bestEpisode != null && bestHistory != null)
+                {
+                    int sIdx = card.Seasons.IndexOf(bestEpisode.Season);
+                    if (sIdx >= 0)
+                    {
+                        var seasonEps = card.EpisodesBySeason.ContainsKey(bestEpisode.Season)
+                            ? card.EpisodesBySeason[bestEpisode.Season] : new List<Channel>();
+                        int eIdx = seasonEps.FindIndex(e => e.Url == bestEpisode.Url);
+                        if (eIdx >= 0)
+                        {
+                            card.RestoreSelection(sIdx, eIdx);
+                            _seriesSelections[showName] = (sIdx, eIdx);
+                        }
+                    }
+                }
+            }
+
+            // HasResume
+            var selectedEp = card.SelectedEpisode;
+            if (selectedEp != null && historyByUrl != null)
+            {
+                card.HasResume = historyByUrl.TryGetValue(selectedEp.Url, out var hist) && hist.Position > 5000;
+            }
+
+            return card;
+        }
+
+        // Logo yükleme (SeriesCard için) – değişiklik yok
+        private async Task LoadLogosForSeriesCards(List<SeriesCard> cards, List<Channel> channels)
+        {
+            await LoadLogosForChannelsAsync(channels);
+            foreach (var card in cards)
+            {
+                if (card.LogoBitmap == null)
+                {
+                    var ch = channels.FirstOrDefault(c => c.ShowName == card.ShowName && c.LogoBitmap != null);
+                    if (ch != null)
+                        await Dispatcher.UIThread.InvokeAsync(() => card.LogoBitmap = ch.LogoBitmap);
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Sezon / Bölüm navigasyonları – değişiklik yok
+        // ─────────────────────────────────────────────────────────────
+        private void PrevSeason_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+            card.SelectedSeasonIndex = card.SelectedSeasonIndex > 0
+                ? card.SelectedSeasonIndex - 1
+                : card.Seasons.Count - 1;
+            SaveSeriesSelection(card);
+            UpdateSeriesPlayButton(card);
+        }
+
+        private void NextSeason_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+            card.SelectedSeasonIndex = card.SelectedSeasonIndex < card.Seasons.Count - 1
+                ? card.SelectedSeasonIndex + 1
+                : 0;
+            SaveSeriesSelection(card);
+            UpdateSeriesPlayButton(card);
+        }
+
+        private void PrevEpisode_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+            card.SelectedEpisodeIndex = card.SelectedEpisodeIndex > 0
+                ? card.SelectedEpisodeIndex - 1
+                : card.CurrentEpisodes.Count - 1;
+            SaveSeriesSelection(card);
+            UpdateSeriesPlayButton(card);
+        }
+
+        private void NextEpisode_Click2(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+            card.SelectedEpisodeIndex = card.SelectedEpisodeIndex < card.CurrentEpisodes.Count - 1
+                ? card.SelectedEpisodeIndex + 1
+                : 0;
+            SaveSeriesSelection(card);
+            UpdateSeriesPlayButton(card);
+        }
+
+        private void SaveSeriesSelection(SeriesCard card) =>
+            _seriesSelections[card.ShowName] = (card.SelectedSeasonIndex, card.SelectedEpisodeIndex);
+
+        // ─────────────────────────────────────────────────────────────
+        // DÜZELTME: Oynatma sırasında (Sonraki Bölüm butonu / otomatik bölüm
+        // geçişi) _currentChannel değişiyordu ama ekrandaki ya da önbellekteki
+        // SeriesCard nesnelerinin SelectedSeasonIndex/SelectedEpisodeIndex'i
+        // hiç güncellenmiyordu. Bu yüzden art arda birkaç bölüm izleyip
+        // player'ı kapattığınızda kart hâlâ ilk açılan bölümü seçili
+        // gösteriyor, "Devam Et" de yanlış bölümü oynatıyordu. Doğru seçim
+        // sadece uygulama yeniden başlatılıp BuildSeriesCard watch history'den
+        // seçimi yeniden hesapladığında ortaya çıkıyordu.
+        //
+        // Bu metod gerçek oynatılan bölümü; görünür gridlerdeki, sayfalama
+        // listelerindeki ve kategori/favori önbelleklerindeki TÜM SeriesCard
+        // kopyalarına anında yansıtır.
+        // ─────────────────────────────────────────────────────────────
+        private void SyncSeriesCardSelection(Channel? episode, bool? hasResume = null)
+        {
+            if (episode == null || episode.Type != "Dizi" || string.IsNullOrEmpty(episode.ShowName))
+                return;
+
+            void TryUpdate(SeriesCard card)
+            {
+                if (card.ShowName != episode.ShowName) return;
+
+                int seasonIdx = card.Seasons.IndexOf(episode.Season);
+                if (seasonIdx >= 0)
+                {
+                    var seasonEps = card.EpisodesBySeason.TryGetValue(episode.Season, out var eps)
+                        ? eps : new List<Channel>();
+                    int episodeIdx = seasonEps.FindIndex(e => e.Url == episode.Url);
+                    if (episodeIdx >= 0)
+                    {
+                        card.RestoreSelection(seasonIdx, episodeIdx);
+                        _seriesSelections[episode.ShowName] = (seasonIdx, episodeIdx);
+                    }
+                }
+
+                if (hasResume.HasValue) card.HasResume = hasResume.Value;
+            }
+
+            try
+            {
+                // KALICI DÜZELTME: ItemsSource cast'i yerine artık sabit
+                // ObservableCollection referansları doğrudan kullanılıyor.
+                foreach (var c in _displaySeriesCards) TryUpdate(c);
+                foreach (var c in _displayFavoriSeriesCards) TryUpdate(c);
+
+                foreach (var c in _allFilteredCards) TryUpdate(c);
+                foreach (var c in _allFavoriSeriesCards) TryUpdate(c);
+
+                foreach (var r in _displayResumeItems) if (r.SeriesCard != null) TryUpdate(r.SeriesCard);
+                foreach (var r in _allResumeItems) if (r.SeriesCard != null) TryUpdate(r.SeriesCard);
+
+                foreach (var cacheList in _seriesCardCache.Values)
+                    foreach (var c in cacheList) TryUpdate(c);
+            }
+            catch { }
+        }
+
+        private void UpdateSeriesPlayButton(SeriesCard card)
+        {
+            // HasResume hesaplamak için historyByUrl oluşturmak pahalı olabilir,
+            // o yüzden direkt watch history listesini kullanıyoruz (buton tıklamaları seyrek).
+            var ep = card.SelectedEpisode;
+            if (ep != null)
+            {
+                var hist = _watchHistory.FirstOrDefault(h => h.Url == ep.Url);
+                card.HasResume = hist != null && hist.Position > 5000;
+            }
+            else
+            {
+                card.HasResume = false;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Dizi oynat / devam et – değişiklik yok
+        // ─────────────────────────────────────────────────────────────
+        private async void PlaySeries_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+
+            var episode = card.SelectedEpisode;
+            if (episode == null) { ShowToast("Bölüm bulunamadı"); return; }
+
+            SaveSeriesSelection(card);
+
+            _scrollOffsetBeforePlayer = ContentScrollViewer.Offset.Y;
+
+            _currentChannel = episode;
+            PlayerTitleText.Text = episode.Name;
+            PlayerContainer.IsVisible = true;
+            PlayerVideoHost.IsVisible = true;
+            PlayerContainer.Background = Avalonia.Media.Brushes.Black;
+            PlayerContainer.Height = 450;
+
+            _resumePosition = 0;
+            await PlayChannel(episode.Url);
+        }
+
+        private async void PlaySeriesResume_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+
+            var episode = card.SelectedEpisode;
+            if (episode == null) return;
+
+            SaveSeriesSelection(card);
+
+            _scrollOffsetBeforePlayer = ContentScrollViewer.Offset.Y;
+
+            _currentChannel = episode;
+            PlayerTitleText.Text = episode.Name;
+            PlayerContainer.IsVisible = true;
+            PlayerVideoHost.IsVisible = true;
+            PlayerContainer.Background = Avalonia.Media.Brushes.Black;
+            PlayerContainer.Height = 450;
+
+            _resumePosition = 0;
+            var hist = _watchHistory.FirstOrDefault(h => h.Url == episode.Url);
+            if (hist != null && hist.Position > 5000)
+            {
+                _resumePosition = hist.Position;
+                var ts = System.TimeSpan.FromMilliseconds(hist.Position);
+                ShowToast($"{ts.Hours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2} konumundan devam ediliyor");
+            }
+
+            await PlayChannel(episode.Url);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Dizi favori toggle – değişiklik yok
+        // ─────────────────────────────────────────────────────────────
+        // YENİ metod (SeriesFav_Click'in hemen üstüne ekleyin):
+        private bool ToggleSeriesFavorite(string showName)
+        {
+            if (string.IsNullOrEmpty(showName)) return false;
+
+            var allEpisodes = _allChannels.Where(c => c.Type == "Dizi" && c.ShowName == showName).ToList();
+            if (allEpisodes.Count == 0) return false;
+
+            bool currentlyFavorite = allEpisodes.Any(ep => ep.IsFavorite);
+            bool newState = !currentlyFavorite;
+            foreach (var ep in allEpisodes) ep.IsFavorite = newState;
+
+            void RefreshCard(SeriesCard c)
+            {
+                if (c.ShowName != showName) return;
+                c.OnPropertyChanged("IsFavorite");
+                c.OnPropertyChanged("FavoriteIcon");
+                c.OnPropertyChanged("FavoriteBrush");
+            }
+
+            try
+            {
+                foreach (var c in _displaySeriesCards) RefreshCard(c);
+                foreach (var c in _displayFavoriSeriesCards) RefreshCard(c);
+                foreach (var c in _allFilteredCards) RefreshCard(c);
+                foreach (var c in _allFavoriSeriesCards) RefreshCard(c);
+                foreach (var cacheList in _seriesCardCache.Values)
+                    foreach (var c in cacheList) RefreshCard(c);
+
+                foreach (var res in _displayResumeItems)
+                {
+                    if (res.SeriesCard != null && res.SeriesCard.ShowName == showName)
+                    {
+                        RefreshCard(res.SeriesCard);
+                        res.NotifyFavoriteChanged();
+                    }
+                }
+                foreach (var res in _allResumeItems)
+                {
+                    if (res.SeriesCard != null && res.SeriesCard.ShowName == showName)
+                    {
+                        RefreshCard(res.SeriesCard);
+                        res.NotifyFavoriteChanged();
+                    }
+                }
+            }
+            catch { }
+
+            var activeSource = _sources.FirstOrDefault(s => s.IsActive);
+            if (activeSource != null) SaveChannelsForSource(activeSource.Id);
+
+            if (_currentTab == "Favori" && _viewState == "Categories")
+                RefreshFavoriGrids();
+
+            return newState;
+        }
+
+        // SeriesFav_Click GÜNCELLENDİ:
+        private void SeriesFav_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not SeriesCard card) return;
+            if (card.SelectedEpisode == null) return;
+
+            bool newState = ToggleSeriesFavorite(card.ShowName);
+            ShowToast(newState ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Dizi detay modalı – değişiklik yok
+        // ─────────────────────────────────────────────────────────────
+        private async void SeriesInfo_Click(object? sender, RoutedEventArgs e)
+        {
+            var card = (sender as Button)?.Tag as SeriesCard ?? sender as SeriesCard;
+            if (card == null) return;
+
+            var episode = card.SelectedEpisode;
+            if (episode == null) return;
+
+            _currentVodInfo = episode;
+            _currentVodInfoSeriesCard = card;
+
+            VodInfoOrigRow.IsVisible  = false;
+            VodInfoDirRow.IsVisible   = false;
+            VodInfoCastRow.IsVisible  = false;
+            VodInfoDurRow.IsVisible   = false;
+            VodInfoDateRow.IsVisible  = false;
+            VodInfoAgeRow.IsVisible   = false;
+            VodInfoCountryRow.IsVisible = false;
+            VodInfoPlotRow.IsVisible  = false;
+
+            // HD Backdrop ve Poster silüetini anında ve kesintisiz göstermek için cache'den en hızlı şekilde al
+            var posterBmp = GetBestAvailablePosterForSeries(card);
+            if (posterBmp != null && card.LogoBitmap == null)
+            {
+                card.LogoBitmap = posterBmp;
+            }
+
+            var backdropBmp = GetBestAvailableBackdropForSeries(card);
+            VodInfoBackdropImage.Source = backdropBmp ?? posterBmp;
+
+            VodInfoModalTitle.Text = "Dizi Detayları";
+            VodInfoTitle.Text      = card.ShowName;
+            VodInfoCategory.Text   = card.Group;
+            VodInfoGenre.Text      = card.Group;
+            VodInfoFavText.Text    = episode.IsFavorite ? "❤️ Favorilerde" : "♡ Favori";
+
+            var activeSource = _sources.FirstOrDefault(s => s.IsActive);
+            VodInfoSource.Text = activeSource?.Name ?? "Bilinmeyen Kaynak";
+
+            VodInfoPoster.Child = null;
+            if (posterBmp != null)
+            {
+                VodInfoPoster.Background = Avalonia.Media.Brushes.Transparent;
+                VodInfoPoster.Child = new Avalonia.Controls.Image
+                {
+                    Source = posterBmp,
+                    Stretch = Avalonia.Media.Stretch.UniformToFill
+                };
+            }
+            else
+            {
+                VodInfoPoster.Background = Avalonia.Media.Brush.Parse("#1A4f8bff");
+                VodInfoPoster.Child = new Avalonia.Controls.TextBlock
+                {
+                    Text = "🎞️", FontSize = 40,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    VerticalAlignment   = Avalonia.Layout.VerticalAlignment.Center,
+                    Opacity = 0.5
+                };
+            }
+
+            VodInfoOverlay.IsVisible = true;
+
+            // YENİ: Sağlayıcının get_series_info yanıtından okunup episode
+            // (Channel) nesnesine zaten yazılmış olan plot/cast/director/
+            // genre/rating/tarih bilgisini (bkz. MainWindow.Sources.cs →
+            // FetchXtreamSeriesChannels) TMDb aramasından ÖNCE modale taban
+            // olarak yaz. TMDb bulunamazsa (örn. TRT belgeselleri gibi
+            // TMDb'de hiç kaydı olmayan diziler) modal artık tamamen boş
+            // kalmıyor; TMDb bulursa aşağıdaki FetchTmdbInfo sadece dolu
+            // alanları üzerine yazar (bkz. ApplyProviderFallbackInfo).
+            ApplyProviderFallbackInfo(
+                !string.IsNullOrEmpty(episode.ProviderGenre) ? episode.ProviderGenre : card.Group,
+                episode.ProviderDirector, episode.ProviderCast, "",
+                episode.ProviderReleaseDate, episode.ProviderRating, episode.ProviderPlot);
+
+            // DÜZELTME: Sağlayıcı get_series_info yanıtında tmdb_id/o_name
+            // sağladıysa (bkz. MainWindow.Sources.cs → FetchXtreamSeriesChannels)
+            // bu, seçili bölümün Channel nesnesine zaten yazılmıştır — isimle
+            // arama tamamen atlanıp doğrudan doğru TMDb kaydına gidilir.
+            // Sağlanmadıysa (yaygın durum) mevcut isimle-arama akışı aynen
+            // çalışmaya devam eder.
+            int? knownTmdbId = episode.TmdbId > 0 ? episode.TmdbId : null;
+            string? knownOriginalName = !string.IsNullOrEmpty(episode.OriginalName) ? episode.OriginalName : null;
+
+            // DÜZELTME: kısa/jenerik isimli dizilerde (aynı isimle TMDb'de
+            // birden fazla kayıt olduğunda) PickConfidentMatch yıl bilgisi
+            // olmadan reddediyor — bkz. MainWindow.Tmdb.cs → FetchTmdbInfo notu.
+            int? knownYear = ParseYearFromProviderDate(episode.ProviderReleaseDate);
+
+            await FetchTmdbInfo(card.ShowName, "Dizi", card, knownTmdbId, knownOriginalName, knownYear);
+        }
+
+    }
+}
