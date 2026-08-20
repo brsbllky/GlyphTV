@@ -188,7 +188,7 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 **Video Oynatıcı (Player Overlay)**  
 ![Player](screenshots/player.PNG)
 
-**Favoriler Sekmesi **  
+**Favoriler Sekmesi**  
 ![Favoriler](screenshots/favoriler.PNG)
 
 **Arama Deneyimi**  
