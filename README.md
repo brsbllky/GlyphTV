@@ -166,33 +166,33 @@ Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacakt
 > 📌 **Not**: GlyphTV herhangi bir çalma listesi veya dijital yayın içeriği barındırmaz ve sağlamaz. Ekran görüntülerindeki kanallar ve görseller sadece arayüz gösterimi amaçlıdır.
 
 **Anasayfa & TMDb Hero Banner**  
-![Anasayfa](screenshots/home.png)
+![Anasayfa](screenshots/home.PNG)
 
 **Bağımsız Ayarlar Modalı**  
-![Ayarlar](screenshots/ayarlar.png)
+![Ayarlar](screenshots/ayarlar.PNG)
 
 **Canlı TV — Kategori & Kanal Listesi**  
-![Canlı TV](screenshots/canli.png)
-![Canlı TV](screenshots/canli2.png)
+![Canlı TV](screenshots/canli.PNG)
+![Canlı TV](screenshots/canli2.PNG)
 
 **Filmler & Diziler Kataloğu**  
-![Filmler](screenshots/vod.png)
-![Diziler](screenshots/dizi.png)
+![Filmler](screenshots/vod.PNG)
+![Diziler](screenshots/dizi.PNG)
 
 **Minimalist Film & Dizi Detay Modalı**  
-![Film Detayı](screenshots/vod2.png)
+![Film Detayı](screenshots/vod2.PNG)
 
 **Canlı TV — EPG Yayın Akışı Modalı**  
-![EPG Modalı](screenshots/epg.png)
+![EPG Modalı](screenshots/epg.PNG)
 
 **Video Oynatıcı (Player Overlay)**  
-![Player](screenshots/player.png)
+![Player](screenshots/player.PNG)
 
 **Favoriler Sekmesi **  
-![Favoriler](screenshots/favoriler.png)
+![Favoriler](screenshots/favoriler.PNG)
 
 **Arama Deneyimi**  
-![Arama](screenshots/arama.png)
+![Arama](screenshots/arama.PNG)
 
 ---
 
