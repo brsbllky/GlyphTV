@@ -110,7 +110,13 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 
 ### Kaynak Koddan Derleme
 
-> **TMDb API Key (Opsiyonel ama Önerilen)** — Poster ve film/dizi metaverileri için [themoviedb.org](https://www.themoviedb.org) adresinden ücretsiz bir API key alarak Ayarlar penceresinden girebilirsiniz.
+> **TMDB API Key Gereklidir** — Poster ve film/dizi bilgileri için [themoviedb.org](https://www.themoviedb.org) adresinden ücretsiz bir API key alın. Aldığınız key'i `MainWindow.axaml.cs` dosyasındaki şu satıra girin:
+
+```csharp
+private const string TMDB_API_KEY = "buraya_api_keyinizi_girin";
+```
+
+> Key girilmezse uygulama çalışmaya devam eder; yalnızca poster ve detay bilgileri görüntülenmez.
 
 ```bash
 # Depoyu klonlayın
