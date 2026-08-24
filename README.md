@@ -11,24 +11,10 @@ Avalonia UI ve .NET 10 mimarisiyle geliştirilmiş, akıcı ve zengin özellikli
 [![Avalonia](https://img.shields.io/badge/Avalonia-11.3.13-8B5CF6?style=flat&logo=avalonia)](https://avaloniaui.net/)
 [![MPV](https://img.shields.io/badge/Engine-MPV-9B59B6?style=flat&logo=mpv)](https://mpv.io/)
 [![VLC](https://img.shields.io/badge/Engine-LibVLC-FF8800?style=flat&logo=vlcmediaplayer)](https://www.videolan.org/vlc/)
-[![Telegram](https://img.shields.io/badge/Telegram-Topluluk-2CA5E0?style=flat&logo=telegram)](https://t.me/glyphtv)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?style=flat&logo=windows)](https://www.microsoft.com/windows)
 
 </div>
-
----
-
-## 🚀 v2.0 ile Gelen Öne Çıkan Yenilikler
-
-- ⚡ **Çift Oynatıcı Motoru (MPV & LibVLC Engine)** — Ultra düşük gecikmeli, donanım hızlandırmalı (D3D11VA, NVDEC, VAAPI) **MPV Oynatıcısı** entegre edildi. Kanal geçişlerinde önceki kare patlaması (ghosting) ve donmalar giderildi.
-- 🌟 **Anasayfa & Akıllı TMDb Trend Hero Banner** — Otomatik geçişli, yüksek çözünürlüklü backdrop ve çift yönlü karartma gradyanına sahip dinamik popüler vitrin; Levenshtein ve yıl bazlı akıllı eşleştirme algoritması sayesinde çalma listesinde bulunmayan popüler içerikler için dahi doğrudan zengin TMDb detayları (orijinal afiş, konu, oyuncular).
-- ⏱️ **Gerçek Zamanlı "Devam Et" Motoru** — Film ve dizi bölümleri için izleme süresi ve ilerleme takibi; oynatıcı kapandığı anda sekme değiştirmeye gerek kalmadan anında güncellenen izleme geçmişi.
-- 📅 **Yenilenen EPG (Elektronik Program Rehberi) Modalı** — Canlı yayın ilerleme çubuğu, anlık yayın durumu, günlük yayın akış çizelgesi ve tek tıkla kanala geçiş.
-- 🚀 **Sanallaştırılmış Liste Düzeni (UI Virtualization)** — Canlı TV, VOD ve Dizi listelerinde binlerce içerik olsa dahi %100 CPU sıçramalarını engelleyen, pürüzsüz kaydırma ve kategori konumu koruma sistemi.
-- 🎬 **Modern Kart Formunda VOD & Dizi Detay Modalı** — Arka plan afiş silüeti (`VodInfoBackdropImage`), zıplamayan sabit kapatma butonu, hiyerarşik sezon/bölüm seçici ve TMDb metaverileri.
-- ⚙️ **Bağımsız Ayarlar Overlay Modalı (`SettingsModalOverlay`)** — Sekmeden bağımsız üst katman penceresi; her açılışta doğrudan "Kaynaklar" sekmesiyle başlayan, arka plandaki yayını kesmeden kaynak yönetimi, Xtream abonelik bitiş tarihi (`exp_date`), MPV/VLC motor tercihleri ve önbellek kontrolü.
-- 🎨 **Midnight Navy & Mavi Vurgu Teması** — Modern koyu lacivert renk paleti, mavi vurgu tonları ve dinamik tema uyumlu açılır menüler.
 
 ---
 
@@ -93,11 +79,11 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 
 | Alan | Detay |
 |------|-------|
-| Sürüm | v2.0.0 |
+| Sürüm | v2.1.0 |
 | Dosya | GlyphTV.exe |
 | SHA256 | 8f866c0d390a05dfc68a270045bd5cc1c19a89df1f13903e1ec5b8d90a36b059 |
-| Sonuç | 0/68 tespit | 
-| Rapor | https://www.virustotal.com/gui/file/8f866c0d390a05dfc68a270045bd5cc1c19a89df1f13903e1ec5b8d90a36b059?nocache=1 |
+| Sonuç | 0/70 tespit | 
+| Rapor | https://www.virustotal.com/gui/file/0192831026f657d870a577eff5d733692311714298deb596b572aea6e15b8126?nocache=1 |
 
 ---
 
