@@ -95,10 +95,10 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Bellek temizliği — değişiklik yok
+        // Bellek temizliği — Modern & Non-blocking .NET GC yönetimi
         // ─────────────────────────────────────────────────────────────
         private static int _playerCloseCountSinceFullTrim = 0;
-        private const int FULL_TRIM_EVERY_N_CLOSES = 6;
+        private const int FULL_TRIM_EVERY_N_CLOSES = 8;
 
         internal static void TrimProcessMemoryLight()
         {
@@ -119,17 +119,10 @@ namespace GlyphTV
 
         internal static void TrimProcessMemory()
         {
-            try { DwmFlush(); } catch { }
-
-            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-            GC.WaitForPendingFinalizers();
-            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-
             try
             {
-                using var proc = Process.GetCurrentProcess();
-                EmptyWorkingSet(proc.Handle);
-                SetProcessWorkingSetSize(proc.Handle, new IntPtr(-1), new IntPtr(-1));
+                DwmFlush();
+                GC.Collect(2, GCCollectionMode.Optimized, blocking: false, compacting: false);
             }
             catch { }
         }
@@ -287,28 +280,48 @@ namespace GlyphTV
             UpdateHdrToneMappingItemsActiveState();
             UpdateHdrTargetPeakItemsActiveState();
             UpdateScalingQualityButtonsActiveState();
-
-            LoadWatchHistory();
-            LoadCachedTmdbPopular();
-            RefreshHomeResumeSection();
-            LoadSources();
-            _ = LoadWeeklyPopularFromTmdbAsync();
             UpdateAutoRefreshButtonsActiveState();
+            UpdateCheckUpdatesButtonsActiveState();
 
             InitSidebarClock();
 
             this.Opened += (s, e) =>
             {
-                // Motor başlatma arka planda güvenli şekilde başlatılır
-                _ = Task.Run(async () => await EnsureEngineInitializedAsync());
-
+                // 1. Izgara sütunlarını hesapla
                 ApplyGridColumnsRecalcWithRetries();
 
-                if (_appSettings.AutoRefreshOnStartup)
+                // 2. Motoru arka planda HEMEN ön-ısıt (Pre-Warming)
+                _ = Task.Run(async () => await EnsureEngineInitializedAsync());
+
+                // 3. Verileri tamamen arka planda yükle (UI Thread 0 milisaniye bile bloklanmaz)
+                _ = Task.Run(async () =>
                 {
-                    var activeSource = _sources.FirstOrDefault(src => src.IsActive);
-                    if (activeSource != null)
-                        _ = RefreshSourceInternal(activeSource);
+                    LoadWatchHistory();
+                    LoadCachedTmdbPopular();
+                    Dispatcher.UIThread.Post(RefreshHomeResumeSection);
+                    _ = LoadWeeklyPopularFromTmdbAsync();
+
+                    await LoadSourcesAsync();
+
+                    if (_appSettings.AutoRefreshOnStartup)
+                    {
+                        var activeSource = _sources.FirstOrDefault(src => src.IsActive);
+                        if (activeSource != null)
+                            _ = RefreshSourceInternal(activeSource);
+                    }
+                });
+
+                // 4. Açılışta sessiz çevrimiçi güncelleme denetimi (açılış arayüzünü geciktirmemek için 3 sn sonra)
+                if (_appSettings.CheckUpdatesOnStartup)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000);
+                        await Dispatcher.UIThread.InvokeAsync(async () =>
+                        {
+                            await CheckForUpdatesAsync(manualTrigger: false);
+                        });
+                    });
                 }
             };
         }
@@ -350,6 +363,9 @@ namespace GlyphTV
                         newEngine.Initialize();
                         newEngine.SetHardwareDecoding(_appSettings.HwDecodeMode);
                         newEngine.SetDeinterlace(_appSettings.RemoveInterlacing);
+                        newEngine.SetFastZapping(_appSettings.FastZapping);
+                        newEngine.SetAudioEnhancement(_appSettings.AudioEnhancement);
+                        newEngine.SetShaderMode(_appSettings.ShaderMode);
 
                         if (newEngine is MpvPlayerEngine mpvNewEngine)
                         {
@@ -575,15 +591,10 @@ namespace GlyphTV
             }
             catch { }
 
-            // NOT: Bu bekleme sadece pencere kapanış sırasında çalışır;
-            // native handle'ın (VLC HWND / mpv wid penceresi) bırakılması
-            // için kısa bir süre veriyoruz — eski davranışla aynı.
-            Thread.Sleep(150);
             try { DwmFlush(); } catch { }
 
             try { _engine?.Dispose(); } catch { }
             _engine = null;
-            Thread.Sleep(100);
 
             DisposeBitmapCaches();
 

@@ -193,7 +193,7 @@ namespace GlyphTV
     /// </summary>
     public class ResumeWatchItem : INotifyPropertyChanged
     {
-        public WatchHistory History { get; set; } = new();
+        public WatchHistory? History { get; set; }
         public Channel? Channel { get; set; }
 
         private SeriesCard? _seriesCard;
@@ -225,10 +225,13 @@ namespace GlyphTV
                 _position = value;
                 OnPropertyChanged(nameof(Position));
                 OnPropertyChanged(nameof(HasResume));
+                OnPropertyChanged(nameof(HasProgress));
                 OnPropertyChanged(nameof(ProgressRatio));
                 OnPropertyChanged(nameof(ProgressPercent));
                 OnPropertyChanged(nameof(ProgressPercentText));
                 OnPropertyChanged(nameof(PositionFormatted));
+                OnPropertyChanged(nameof(RemainingMilliseconds));
+                OnPropertyChanged(nameof(RemainingTimeText));
             }
         }
 
@@ -241,14 +244,18 @@ namespace GlyphTV
                 if (_duration == value) return;
                 _duration = value;
                 OnPropertyChanged(nameof(Duration));
+                OnPropertyChanged(nameof(HasProgress));
                 OnPropertyChanged(nameof(ProgressRatio));
                 OnPropertyChanged(nameof(ProgressPercent));
                 OnPropertyChanged(nameof(ProgressPercentText));
                 OnPropertyChanged(nameof(PositionFormatted));
+                OnPropertyChanged(nameof(RemainingMilliseconds));
+                OnPropertyChanged(nameof(RemainingTimeText));
             }
         }
 
         public bool HasResume => Position > 5000;
+        public bool HasProgress => Position > 5000;
 
         private bool? _overrideFavorite;
         public bool IsFavorite
@@ -288,6 +295,42 @@ namespace GlyphTV
             : 0.0;
         public double ProgressPercent => Math.Round(ProgressRatio * 100);
         public string ProgressPercentText => $"%{ProgressPercent:0}";
+
+        public long RemainingMilliseconds => Math.Max(0, Duration - Position);
+
+        public string RemainingTimeText
+        {
+            get
+            {
+                if (Duration <= 0)
+                {
+                    if (Position > 5000)
+                    {
+                        var ts = TimeSpan.FromMilliseconds(Position);
+                        int mins = (int)ts.TotalMinutes;
+                        if (mins < 1) return "< 1 dk";
+                        if (mins >= 60) return $"{mins / 60} sa {mins % 60} dk";
+                        return $"{mins} dk";
+                    }
+                    return "";
+                }
+
+                var rem = TimeSpan.FromMilliseconds(RemainingMilliseconds);
+                int totalMinutes = (int)Math.Round(rem.TotalMinutes);
+                if (totalMinutes <= 1)
+                {
+                    return "1 dk kaldı";
+                }
+                if (totalMinutes >= 60)
+                {
+                    int hours = totalMinutes / 60;
+                    int mins = totalMinutes % 60;
+                    if (mins == 0) return $"{hours} sa kaldı";
+                    return $"{hours} sa {mins} dk kaldı";
+                }
+                return $"{totalMinutes} dk kaldı";
+            }
+        }
 
         public string PositionFormatted
         {

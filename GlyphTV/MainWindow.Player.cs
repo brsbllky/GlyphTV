@@ -9,7 +9,9 @@ using GlyphTV.PlayerEngines;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GlyphTV
@@ -114,6 +116,11 @@ namespace GlyphTV
             if (this.WindowState == WindowState.FullScreen)
                 Fullscreen_Click(sender, e);
 
+            if (_isPipMode)
+            {
+                ExitPipMode(restoreLayout: true);
+            }
+
             PlayerContainer.Height = 0;
             PlayerContainer.IsVisible = false;
             PlayerVideoHost.IsVisible = false;
@@ -189,20 +196,29 @@ namespace GlyphTV
 
                 System.Threading.Interlocked.Exchange(ref _isEndReachedHandlingInt, 0);
 
-                _engine.VideoSurface.IsVisible = true;
-
                 CurrentTimeText.Text = "00:00:00";
                 TotalTimeText.Text = "00:00:00";
+                _isUpdatingSliderFromCode = true;
                 TimeSlider.Value = 0;
+                _isUpdatingSliderFromCode = false;
                 PlayerTitleText.Text = _currentChannel?.Name ?? "";
 
-                if (AspectRatioText != null) AspectRatioText.Text = "Auto";
-                _engine?.SetAspectRatio("12:5");
+                if (_isPipMode)
+                {
+                    if (AspectRatioText != null) AspectRatioText.Text = "Fill";
+                    _engine?.SetAspectRatio("fill");
+                }
+                else
+                {
+                    if (AspectRatioText != null) AspectRatioText.Text = "Auto";
+                    _engine?.SetAspectRatio("12:5");
+                }
 
                 ResetMediaInfoBadges();
                 ResetMpvEnhancedSettingsForNewContent();
 
                 _isLiveContent = _currentChannel?.Type == "Canlı";
+                _engine?.SetIsLiveStream(_isLiveContent);
                 ConfigurePlayerUIForContentType();
 
                 _engine?.Play(url, _resumePosition);
@@ -264,6 +280,9 @@ namespace GlyphTV
             }
         }
 
+        private int _currentSubtitleDelayMs = 0;
+        private int _currentAudioDelayMs = 0;
+
         private void ResetMpvEnhancedSettingsForNewContent()
         {
             _appSettings.Brightness = 0;
@@ -273,16 +292,18 @@ namespace GlyphTV
             _appSettings.HdrToneMapping = "auto";
             _appSettings.HdrTargetPeak = "auto";
 
+            _engine?.SetBrightness(0);
+            _engine?.SetContrast(0);
+            _engine?.SetSaturation(0);
+            _engine?.SetGamma(0);
             if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine)
             {
-                mpvEngine.SetBrightness(0);
-                mpvEngine.SetContrast(0);
-                mpvEngine.SetSaturation(0);
-                mpvEngine.SetGamma(0);
                 mpvEngine.SetHdrToneMapping("auto");
                 mpvEngine.SetHdrTargetPeak("auto");
             }
 
+            SetSubtitleDelay(0);
+            SetAudioDelay(0);
             InitializeMpvEqSliderValues();
             UpdateHdrToneMappingItemsActiveState();
             UpdateHdrTargetPeakItemsActiveState();
@@ -369,6 +390,22 @@ namespace GlyphTV
             }
         }
 
+        private void PrewarmChannelConnection(string? url)
+        {
+            if (string.IsNullOrEmpty(url) || !url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
+            Task.Run(async () =>
+            {
+                try
+                {
+                    EnsureDownloadHttpClient();
+                    using var request = new HttpRequestMessage(HttpMethod.Head, url);
+                    using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
+                    await _downloadHttpClient!.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                }
+                catch { }
+            });
+        }
+
         internal void PrevChannel_Click(object? sender, PointerPressedEventArgs e)
         {
             e.Handled = true;
@@ -387,6 +424,12 @@ namespace GlyphTV
             {
                 _currentChannel = list[next];
                 PlayerTitleText.Text = _currentChannel.Name;
+
+                // Bir sonraki muhtemel kanalın soketini önceden ısıt
+                int prewarmIdx = next <= 0 ? list.Count - 1 : next - 1;
+                if (prewarmIdx >= 0 && prewarmIdx < list.Count)
+                    PrewarmChannelConnection(list[prewarmIdx].Url);
+
                 await PlayChannel(_currentChannel.Url);
             }
         }
@@ -409,6 +452,12 @@ namespace GlyphTV
             {
                 _currentChannel = list[next];
                 PlayerTitleText.Text = _currentChannel.Name;
+
+                // Bir sonraki muhtemel kanalın soketini önceden ısıt
+                int prewarmIdx = (next >= list.Count - 1) ? 0 : next + 1;
+                if (prewarmIdx >= 0 && prewarmIdx < list.Count)
+                    PrewarmChannelConnection(list[prewarmIdx].Url);
+
                 await PlayChannel(_currentChannel.Url);
             }
         }
@@ -564,6 +613,228 @@ namespace GlyphTV
 
             SpeedBtnText.Text = label;
             ShowToast($"Oynatma hızı: {label}");
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: PiP (Picture-in-Picture / Resim İçinde Resim) Modu
+        // ─────────────────────────────────────────────────────────────
+        internal bool _isPipMode = false;
+        internal bool _isSyncingPipPosition = false;
+
+        private WindowState _prePipWindowState = WindowState.Normal;
+        private double _prePipWidth = 1280;
+        private double _prePipHeight = 775;
+        private PixelPoint _prePipPosition;
+        private double _prePipPlayerHeight = 450;
+        private double _prePipMinWidth = 0;
+        private double _prePipMinHeight = 0;
+
+        internal void Pip_Click(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            TogglePipMode();
+        }
+        internal void Pip_Click(object? sender, RoutedEventArgs e) => TogglePipMode();
+
+        public void TogglePipMode()
+        {
+            if (_isPipMode)
+            {
+                ExitPipMode();
+            }
+            else
+            {
+                EnterPipMode();
+            }
+        }
+
+        public void EnterPipMode()
+        {
+            if (PlayerContainer.Height <= 0 && !double.IsNaN(PlayerContainer.Height)) return;
+
+            if (this.WindowState == WindowState.FullScreen)
+            {
+                Fullscreen_Core();
+            }
+
+            _isPipMode = true;
+
+            // Önceki pencere ve yerleşim durumlarını sakla
+            _prePipWindowState = this.WindowState;
+            _prePipWidth = this.Width;
+            _prePipHeight = this.Height;
+            _prePipPosition = this.Position;
+            _prePipPlayerHeight = PlayerContainer.Height;
+            _prePipMinWidth = this.MinWidth;
+            _prePipMinHeight = this.MinHeight;
+
+            // Video haricindeki tüm ana uygulama arayüz elemanlarını gizle
+            SidebarPanel.IsVisible = false;
+            TitleBarPanel.IsVisible = false;
+            RootGrid.ColumnDefinitions[0].Width = new GridLength(0);
+            MainContentGrid.RowDefinitions[0].Height = new GridLength(0);
+            ContentScrollViewer.IsVisible = false;
+            CategoryListPanel.IsVisible = false;
+
+            // Oynatıcıyı tüm pencereyi kaplayacak şekilde ayarla
+            PlayerRowGrid.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+            PlayerRowGrid.RowDefinitions[1].Height = new GridLength(0);
+            PlayerContainer.Height = double.NaN;
+            PlayerContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+
+            // Pencereyi kompakt boyutlara küçült
+            this.MinWidth = 320;
+            this.MinHeight = 180;
+
+            double pipW = 620;
+            double pipH = 380;
+
+            _isSyncingPipPosition = true;
+            try
+            {
+                this.WindowState = WindowState.Normal;
+                this.Width = pipW;
+                this.Height = pipH;
+                if (_playerOverlay != null)
+                {
+                    _playerOverlay.Width = pipW;
+                    _playerOverlay.Height = pipH;
+                }
+            }
+            finally
+            {
+                _isSyncingPipPosition = false;
+            }
+
+            // Ekranın tam ortasına konumlandır
+            void CenterPipWindow()
+            {
+                try
+                {
+                    var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+                    if (screen != null)
+                    {
+                        var workArea = screen.WorkingArea;
+                        int targetW = (int)(pipW * screen.Scaling);
+                        int targetH = (int)(pipH * screen.Scaling);
+                        int x = workArea.X + (workArea.Width - targetW) / 2;
+                        int y = workArea.Y + (workArea.Height - targetH) / 2;
+                        this.Position = new PixelPoint(x, y);
+                        if (_playerOverlay != null)
+                        {
+                            _playerOverlay.Position = new PixelPoint(x, y);
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            CenterPipWindow();
+
+            this.Topmost = true;
+            if (_playerOverlay != null)
+            {
+                if (!_playerOverlay.IsVisible)
+                {
+                    _playerOverlay.Show(this);
+                }
+                _playerOverlay.Topmost = false;
+                _playerOverlay.Topmost = true;
+            }
+
+            // Layout ve WindowState geçişinden sonra da kesin ortalanmasını garanti et
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_isPipMode)
+                {
+                    CenterPipWindow();
+                    SyncPlayerOverlayBounds();
+                    if (_playerOverlay != null)
+                    {
+                        _playerOverlay.Topmost = false;
+                        _playerOverlay.Topmost = true;
+                    }
+                    ShowPlayerControls();
+                    ResetMediaInfoBadges();
+                }
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+
+            SetPipButtonActive(true);
+            SyncPlayerOverlayBounds();
+            ShowPlayerControls();
+            ResetMediaInfoBadges();
+            ResetInactivityTimer();
+
+            // PİP modunda En:Boy oranını ekrana sığdır (fill) yap
+            if (AspectRatioText != null) AspectRatioText.Text = "Fill";
+            _engine?.SetAspectRatio("fill");
+
+            ShowToast("PiP Modu Aktif (Sürükleyip Taşıyabilirsiniz) [Shift+T]");
+        }
+
+        public void ExitPipMode(bool restoreLayout = true)
+        {
+            _isPipMode = false;
+            this.Topmost = false;
+            if (_playerOverlay != null)
+            {
+                _playerOverlay.Topmost = false;
+                _playerOverlay.Topmost = true;
+            }
+
+            SetPipButtonActive(false);
+
+            this.MinWidth = _prePipMinWidth > 0 ? _prePipMinWidth : 0;
+            this.MinHeight = _prePipMinHeight > 0 ? _prePipMinHeight : 0;
+
+            if (restoreLayout)
+            {
+                this.Width = _prePipWidth > 0 ? _prePipWidth : 1280;
+                this.Height = _prePipHeight > 0 ? _prePipHeight : 775;
+                if (_prePipPosition.X != 0 || _prePipPosition.Y != 0)
+                {
+                    this.Position = _prePipPosition;
+                }
+                this.WindowState = _prePipWindowState;
+
+                SidebarPanel.IsVisible = true;
+                TitleBarPanel.IsVisible = true;
+                RootGrid.ColumnDefinitions[0].Width = new GridLength(200);
+                MainContentGrid.RowDefinitions[0].Height = new GridLength(46);
+
+                PlayerContainer.Height = _prePipPlayerHeight > 0 ? _prePipPlayerHeight : 450;
+                PlayerContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+
+                PlayerRowGrid.RowDefinitions[0].Height = GridLength.Auto;
+                PlayerRowGrid.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+
+                ContentScrollViewer.IsVisible = true;
+                ShowPlayerControls();
+                ApplyGridColumnsRecalcWithRetries();
+                UpdateView();
+            }
+
+            SyncPlayerOverlayBounds();
+            UpdateMediaInfoBadges();
+
+            // Normal moda dönüldüğünde Auto (12:5) oranına geri dön
+            if (AspectRatioText != null) AspectRatioText.Text = "Auto";
+            _engine?.SetAspectRatio("12:5");
+
+            ShowToast("PiP Modu Kapatıldı");
+        }
+
+        private void SetPipButtonActive(bool active)
+        {
+            try
+            {
+                if (PipBtn != null)
+                {
+                    PipBtn.Background = active ? Brush.Parse("#3b82f6") : Brushes.Transparent;
+                    ToolTip.SetTip(PipBtn, active ? "PiP Modundan Çık [Shift+T]" : "Picture-in-Picture (PiP) [Shift+T]");
+                }
+            }
+            catch { }
         }
 
         internal void Fullscreen_Click(object? sender, PointerPressedEventArgs e)
@@ -841,8 +1112,28 @@ namespace GlyphTV
                 return;
             }
 
-            if (e.ClickCount == 2 && e.Source is not Slider && !IsPointerOverControlBar(e))
-                Fullscreen_Core();
+            if (_isPipMode)
+            {
+                if (e.ClickCount == 2)
+                {
+                    TogglePipMode();
+                    e.Handled = true;
+                    return;
+                }
+
+                var point = e.GetCurrentPoint(_playerOverlay ?? (Visual)this);
+                if (point.Properties.IsLeftButtonPressed && !IsPointerOverControlBar(e))
+                {
+                    _playerOverlay?.BeginMoveDrag(e);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else
+            {
+                if (e.ClickCount == 2 && e.Source is not Slider && !IsPointerOverControlBar(e))
+                    Fullscreen_Core();
+            }
         }
 
         private bool IsPointerOverControlBar(PointerEventArgs e)
@@ -881,10 +1172,13 @@ namespace GlyphTV
                 case Key.Space:
                     PlayPause_Core(); e.Handled = true; break;
                 case Key.F:
+                    if (_isPipMode) ExitPipMode(restoreLayout: true);
                     Fullscreen_Core(); e.Handled = true; break;
                 case Key.Escape:
                     if (this.WindowState == WindowState.FullScreen)
                     { Fullscreen_Core(); e.Handled = true; }
+                    else if (_isPipMode)
+                    { TogglePipMode(); e.Handled = true; }
                     break;
                 case Key.M:
                     Mute_Core(); e.Handled = true; break;
@@ -901,6 +1195,57 @@ namespace GlyphTV
                     break;
                 case Key.Right:
                     if (!_isLiveContent) { SkipForward_Core(); e.Handled = true; }
+                    break;
+                case Key.G:
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) AdjustSubtitleDelay(-500);
+                    else AdjustSubtitleDelay(-50);
+                    e.Handled = true;
+                    break;
+                case Key.H:
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) AdjustSubtitleDelay(500);
+                    else AdjustSubtitleDelay(50);
+                    e.Handled = true;
+                    break;
+                case Key.Z:
+                    SetSubtitleDelay(0, showToast: true);
+                    e.Handled = true;
+                    break;
+                case Key.J:
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) AdjustAudioDelay(-500);
+                    else AdjustAudioDelay(-50);
+                    e.Handled = true;
+                    break;
+                case Key.K:
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) AdjustAudioDelay(500);
+                    else AdjustAudioDelay(50);
+                    e.Handled = true;
+                    break;
+                case Key.L:
+                    SetAudioDelay(0, showToast: true);
+                    e.Handled = true;
+                    break;
+                case Key.T:
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                    {
+                        TogglePipMode();
+                        e.Handled = true;
+                    }
+                    break;
+                case Key.F1:
+                    ApplyPicturePreset("natural");
+                    e.Handled = true;
+                    break;
+                case Key.F2:
+                    ApplyPicturePreset("vivid");
+                    e.Handled = true;
+                    break;
+                case Key.F3:
+                    ApplyPicturePreset("sports");
+                    e.Handled = true;
+                    break;
+                case Key.F4:
+                    ApplyPicturePreset("cinema");
+                    e.Handled = true;
                     break;
             }
         }
@@ -1253,6 +1598,7 @@ namespace GlyphTV
                     FontSize = 12,
                     Margin = new Thickness(10, 6)
                 });
+                UpdateAudioDelayDisplay();
                 return;
             }
 
@@ -1292,6 +1638,8 @@ namespace GlyphTV
                 };
                 container.Children.Add(border);
             }
+
+            UpdateAudioDelayDisplay();
         }
 
         private void PopulateSubtitles(StackPanel container)
@@ -1374,6 +1722,90 @@ namespace GlyphTV
                 };
                 container.Children.Add(border);
             }
+
+            UpdateSubtitleDelayDisplay();
+        }
+
+        internal void SubDelayMinus500_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(-500); }
+        internal void SubDelayMinus100_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(-100); }
+        internal void SubDelayMinus50_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(-50); }
+        internal void SubDelayPlus50_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(50); }
+        internal void SubDelayPlus100_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(100); }
+        internal void SubDelayPlus500_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustSubtitleDelay(500); }
+        internal void SubDelayReset_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; SetSubtitleDelay(0, showToast: true); }
+
+        internal void AudioDelayMinus500_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(-500); }
+        internal void AudioDelayMinus100_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(-100); }
+        internal void AudioDelayMinus50_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(-50); }
+        internal void AudioDelayPlus50_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(50); }
+        internal void AudioDelayPlus100_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(100); }
+        internal void AudioDelayPlus500_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; AdjustAudioDelay(500); }
+        internal void AudioDelayReset_Click(object? sender, PointerPressedEventArgs e) { e.Handled = true; SetAudioDelay(0, showToast: true); }
+
+        private void AdjustAudioDelay(int deltaMs)
+        {
+            SetAudioDelay(_currentAudioDelayMs + deltaMs, showToast: true);
+        }
+
+        private void SetAudioDelay(int delayMs, bool showToast = false)
+        {
+            _currentAudioDelayMs = delayMs;
+            if (_engine != null)
+            {
+                _engine.SetAudioDelay(delayMs);
+            }
+            UpdateAudioDelayDisplay();
+            if (showToast)
+            {
+                string sign = delayMs > 0 ? "+" : "";
+                ShowToast($"Ses Senkron: {sign}{delayMs} ms");
+            }
+        }
+
+        private void UpdateAudioDelayDisplay()
+        {
+            try
+            {
+                if (AudioDelayText != null)
+                {
+                    string sign = _currentAudioDelayMs > 0 ? "+" : "";
+                    AudioDelayText.Text = $"{sign}{_currentAudioDelayMs} ms";
+                }
+            }
+            catch { }
+        }
+
+        private void AdjustSubtitleDelay(int deltaMs)
+        {
+            SetSubtitleDelay(_currentSubtitleDelayMs + deltaMs, showToast: true);
+        }
+
+        private void SetSubtitleDelay(int delayMs, bool showToast = false)
+        {
+            _currentSubtitleDelayMs = delayMs;
+            if (_engine != null)
+            {
+                _engine.SetSubtitleDelay(delayMs);
+            }
+            UpdateSubtitleDelayDisplay();
+            if (showToast)
+            {
+                string sign = delayMs > 0 ? "+" : "";
+                ShowToast($"Altyazı Senkron: {sign}{delayMs} ms");
+            }
+        }
+
+        private void UpdateSubtitleDelayDisplay()
+        {
+            try
+            {
+                if (SubtitleDelayText != null)
+                {
+                    string sign = _currentSubtitleDelayMs > 0 ? "+" : "";
+                    SubtitleDelayText.Text = $"{sign}{_currentSubtitleDelayMs} ms";
+                }
+            }
+            catch { }
         }
 
         internal void CloseBtn_PointerEntered(object? sender, PointerEventArgs e)
@@ -1410,6 +1842,12 @@ namespace GlyphTV
         {
             try
             {
+                if (_isPipMode)
+                {
+                    ResetMediaInfoBadges();
+                    return;
+                }
+
                 if (_engine == null) return;
                 var info = _engine.GetMediaInfo();
                 bool anyVisible = false;

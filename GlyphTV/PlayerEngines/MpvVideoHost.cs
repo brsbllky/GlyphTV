@@ -74,7 +74,14 @@ namespace GlyphTV.PlayerEngines
         {
             if (_hwnd == IntPtr.Zero) return;
             _isRevealed = true;
-            this.IsVisible = true;
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                this.IsVisible = true;
+            }
+            else
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => this.IsVisible = true);
+            }
             _ = ShowWindow(_hwnd, SW_SHOW);
             _ = SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
@@ -84,9 +91,18 @@ namespace GlyphTV.PlayerEngines
         {
             if (_hwnd == IntPtr.Zero) return;
             _isRevealed = false;
-            this.IsVisible = false;
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                this.IsVisible = false;
+            }
+            else
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => this.IsVisible = false);
+            }
             FillBackgroundBlack(_hwnd);
             _ = ShowWindow(_hwnd, SW_HIDE);
+            _ = SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_HIDEWINDOW);
         }
 
         public void SetOverlayVisibility(bool visible)
@@ -94,12 +110,26 @@ namespace GlyphTV.PlayerEngines
             if (_hwnd == IntPtr.Zero) return;
             if (visible && _isRevealed)
             {
-                this.IsVisible = true;
+                if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                {
+                    this.IsVisible = true;
+                }
+                else
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => this.IsVisible = true);
+                }
                 _ = ShowWindow(_hwnd, SW_SHOW);
             }
             else
             {
-                this.IsVisible = false;
+                if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                {
+                    this.IsVisible = false;
+                }
+                else
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => this.IsVisible = false);
+                }
                 _ = ShowWindow(_hwnd, SW_HIDE);
             }
         }
@@ -193,6 +223,7 @@ namespace GlyphTV.PlayerEngines
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_FRAMECHANGED = 0x0020;
         private const uint SWP_SHOWWINDOW = 0x0040;
+        private const uint SWP_HIDEWINDOW = 0x0080;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT

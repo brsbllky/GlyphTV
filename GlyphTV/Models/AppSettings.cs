@@ -9,6 +9,12 @@ namespace GlyphTV
     {
         public bool AutoRefreshOnStartup { get; set; } = false;
 
+        // YENİ: Uygulama açılışında otomatik çevrimiçi güncelleme denetimi (Açık / Kapalı)
+        public bool CheckUpdatesOnStartup { get; set; } = true;
+
+        // Son güncelleme denetimi zaman damgası (ISO formatında veya yerel gösterim)
+        public string LastUpdateCheckTime { get; set; } = "";
+
         // ─────────────────────────────────────────────────────────────
         // YENİ (manuel kategori sıralaması): Her sekme (Canlı / VOD /
         // Dizi) için kullanıcının belirlediği kategori sırası. Anahtar
@@ -55,6 +61,12 @@ namespace GlyphTV
         // gereksiz yere açık bırakmak hafif bir CPU/GPU maliyeti ekler.
         public bool RemoveInterlacing { get; set; } = false;
 
+        // YENİ: Deinterlace Modu ("yadif2x", "yadif", "bob", "linear"). Varsayılan "yadif2x".
+        public string DeinterlaceMode { get; set; } = "yadif2x";
+
+        // YENİ: Resim Modu / Preseti ("natural", "vivid", "sports", "cinema", "custom"). Varsayılan "natural".
+        public string PicturePreset { get; set; } = "natural";
+
         // ─────────────────────────────────────────────────────────────
         // YENİ: HDR / Görüntü İşleme ayarları — SADECE mpv motorunda etki
         // eder (VLC'de bu düzeyde ayrıntılı HDR ton eşleme/ölçekleme
@@ -92,5 +104,17 @@ namespace GlyphTV
         public int Contrast { get; set; } = 0;
         public int Saturation { get; set; } = 0;
         public int Gamma { get; set; } = 0;
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: İleri Düzey (Enhanced) Oynatıcı Özellikleri
+        // ─────────────────────────────────────────────────────────────
+        // "off" | "cas" (AMD FidelityFX CAS) | "fsr" (AMD FSR 1.0). Varsayılan "off". (Sadece MPV)
+        public string ShaderMode { get; set; } = "off";
+
+        // Canlı TV kanallarında düşük gecikmeli / anlık kanal açılış modu (Ultra-Fast Zapping). Varsayılan true. (MPV & VLC)
+        public bool FastZapping { get; set; } = true;
+
+        // "off" | "loudnorm" (EBU R128 Ses Dengeleme) | "night" (Gece Modu / Dinamik Kompresör). Varsayılan "off". (MPV & VLC)
+        public string AudioEnhancement { get; set; } = "off";
     }
 }

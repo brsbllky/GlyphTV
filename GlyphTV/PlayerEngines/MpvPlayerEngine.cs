@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,10 +20,12 @@ namespace GlyphTV.PlayerEngines
         private const ulong OBS_TIME_POS = 1;
         private const ulong OBS_TRACK_LIST_COUNT = 2;
         private const ulong OBS_DURATION = 3;
+        private const ulong OBS_VO_FRAME_COUNT = 4;
 
         private long _lastKnownLengthMs = 0;
         private bool _pendingWid = false;
-        private volatile bool _revealScheduled = false;
+        private long _baseVoFrameCount = 0;
+        private volatile bool _hasRevealedCurrentPlayback = false;
         private int _playGeneration = 0;
         private volatile bool _isPlaying = false;
         private volatile bool _isSurfaceVisible = false;
@@ -31,25 +34,52 @@ namespace GlyphTV.PlayerEngines
         private double _smoothedBitrateKbps = 0;
         private DateTime _lastBitrateTime = DateTime.MinValue;
 
-        private void ScheduleReveal()
+        private long GetCurrentVoFrameCount()
         {
+            if (_ctx == IntPtr.Zero) return 0;
+            long count = 0;
+            try
+            {
+                MpvInterop.mpv_get_property(_ctx, "vo-frame-count", MpvInterop.mpv_format.MPV_FORMAT_INT64, ref count);
+            }
+            catch { }
+            return count;
+        }
+
+        /// <summary>
+        /// Yeni kanal/içerik açılırken önceki kanalın son karesinin anlık patlamasını (ghost/flash frame) önlemek için;
+        /// video yüzeyi SADECE yeni akışın İLK video karesi GPU tarafından ekrana basıldığında gösterilir.
+        /// </summary>
+        private void TriggerNewFrameReveal()
+        {
+            if (_hasRevealedCurrentPlayback) return;
             if (!_isPlaying || !_isSurfaceVisible) return;
-            if (_revealScheduled) return;
-            _revealScheduled = true;
+            _hasRevealedCurrentPlayback = true;
 
             int myGeneration = _playGeneration;
 
-            Dispatcher.UIThread.Post(async () =>
+            Dispatcher.UIThread.Post(() =>
             {
-                try
+                if (myGeneration != _playGeneration) return;
+                if (!_isPlaying || !_isSurfaceVisible) return;
+                _host.RevealVideoSurface();
+            });
+        }
+
+        private void ScheduleFallbackReveal()
+        {
+            int myGeneration = _playGeneration;
+            // Güvenlik zamanlayıcısı: Video karesi olmayan radyo/ses akışları veya aşırı yavaş bağlantılar için fallback
+            // Erken açılıp önceki kanalın karesini patlatmaması için süre 1500 ms olarak ayarlanır.
+            int delayMs = 1500;
+            Task.Run(async () =>
+            {
+                await Task.Delay(delayMs);
+                if (myGeneration != _playGeneration) return;
+                if (!_hasRevealedCurrentPlayback && _isPlaying && _isSurfaceVisible)
                 {
-                    // Yeni akışın video karesinin D3D11 swapchain'e tam yazılmasını sağlamak için kısa bir tampon gecikmesi (120ms)
-                    await Task.Delay(120);
-                    if (myGeneration != _playGeneration) return;
-                    if (!_isPlaying || !_isSurfaceVisible) return;
-                    _host.RevealVideoSurface();
+                    TriggerNewFrameReveal();
                 }
-                catch { }
             });
         }
 
@@ -190,6 +220,44 @@ namespace GlyphTV.PlayerEngines
         public int ActiveAudioTrackId => GetIntProperty("aid", -1);
         public int ActiveSubtitleTrackId => GetIntProperty("sid", -1);
 
+        private long _subtitleDelayMs = 0;
+        public long SubtitleDelayMs
+        {
+            get => _subtitleDelayMs;
+            set => SetSubtitleDelay(value);
+        }
+
+        public void SetSubtitleDelay(long delayMs)
+        {
+            _subtitleDelayMs = delayMs;
+            if (_ctx != IntPtr.Zero)
+            {
+                // mpv sub-delay saniye cinsindendir: örn. 500 ms = 0.5 s, -100 ms = -0.1 s
+                double sec = delayMs / 1000.0;
+                MpvInterop.mpv_set_property_string(_ctx, "sub-delay",
+                    sec.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        private long _audioDelayMs = 0;
+        public long AudioDelayMs
+        {
+            get => _audioDelayMs;
+            set => SetAudioDelay(value);
+        }
+
+        public void SetAudioDelay(long delayMs)
+        {
+            _audioDelayMs = delayMs;
+            if (_ctx != IntPtr.Zero)
+            {
+                // mpv audio-delay saniye cinsindendir: örn. 500 ms = 0.5 s, -100 ms = -0.1 s
+                double sec = delayMs / 1000.0;
+                MpvInterop.mpv_set_property_string(_ctx, "audio-delay",
+                    sec.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
         public event EventHandler<long>? TimeChanged;
         public event EventHandler? EndReached;
         public event EventHandler? TracksChanged;
@@ -218,25 +286,44 @@ namespace GlyphTV.PlayerEngines
                         if (ctx == IntPtr.Zero) return;
 
                         MpvInterop.mpv_set_option_string(ctx, "wid", _hwnd.ToString());
+                        MpvInterop.mpv_set_option_string(ctx, "vo", "gpu-next");
+                        MpvInterop.mpv_set_option_string(ctx, "target-colorspace-hint", "yes");
                         MpvInterop.mpv_set_option_string(ctx, "hwdec", MapHwDecodeToMpv(_hwDecodeMode));
                         MpvInterop.mpv_set_option_string(ctx, "hwdec-codecs", "all");
                         MpvInterop.mpv_set_option_string(ctx, "deinterlace", _deinterlace ? "yes" : "no");
-                        MpvInterop.mpv_set_option_string(ctx, "cache", "yes");
-                        MpvInterop.mpv_set_option_string(ctx, "cache-secs", "10");
-                        MpvInterop.mpv_set_option_string(ctx, "demuxer-max-bytes", "32MiB");
-                        MpvInterop.mpv_set_option_string(ctx, "demuxer-max-back-bytes", "8MiB");
-                        MpvInterop.mpv_set_option_string(ctx, "demuxer-readahead-secs", "5");
+                        if (_deinterlace)
+                        {
+                            string vfFilter = _deinterlaceMode switch
+                            {
+                                "yadif2x" => "yadif=mode=send_field",
+                                "yadif"   => "yadif=mode=send_frame",
+                                "bob"     => "yadif=mode=send_field:parity=auto",
+                                "linear"  => "bwdif=mode=send_frame",
+                                _         => "yadif=mode=send_field"
+                            };
+                            MpvInterop.mpv_set_option_string(ctx, "vf", vfFilter);
+                        }
                         MpvInterop.mpv_set_option_string(ctx, "gpu-api", "d3d11");
                         MpvInterop.mpv_set_option_string(ctx, "vd-lavc-dr", "yes");
-                        MpvInterop.mpv_set_option_string(ctx, "vd-lavc-threads", "4");
+                        MpvInterop.mpv_set_option_string(ctx, "vd-lavc-threads", "0");
+                        MpvInterop.mpv_set_option_string(ctx, "video-sync", "audio");
+                        MpvInterop.mpv_set_option_string(ctx, "framedrop", "vo");
 
                         _ctx = ctx;
+                        ApplyDemuxerAndCachingProfile(useOptionApi: true);
+                        ApplyShaderOptions(useOptionApi: true);
+                        ApplyAudioEnhancement(useOptionApi: true);
                         ApplyHdrToneMappingOptions(useOptionApi: true);
                         ApplyScalingQualityOptions(useOptionApi: true);
                         ApplyEqOptions(useOptionApi: true);
                         MpvInterop.mpv_set_option_string(ctx, "osc", "no");
                         MpvInterop.mpv_set_option_string(ctx, "keep-open", "no");
-                        MpvInterop.mpv_set_option_string(ctx, "reset-on-next-file", "all");
+                        MpvInterop.mpv_set_option_string(ctx, "gapless-audio", "yes");
+                        MpvInterop.mpv_set_option_string(ctx, "volume-max", "200");
+                        MpvInterop.mpv_set_option_string(ctx, "audio-normalize-downmix", "yes");
+                        MpvInterop.mpv_set_option_string(ctx, "audio-pitch-correction", "yes");
+                        MpvInterop.mpv_set_option_string(ctx, "audio-buffer", "0.2");
+                        MpvInterop.mpv_set_option_string(ctx, "reset-on-next-file", "pause,video-pan-x,video-pan-y,video-zoom");
                         MpvInterop.mpv_set_option_string(ctx, "background-color", "#000000");
 
                         int rc = MpvInterop.mpv_initialize(ctx);
@@ -251,6 +338,7 @@ namespace GlyphTV.PlayerEngines
                         MpvInterop.mpv_observe_property(ctx, OBS_TIME_POS, "time-pos", MpvInterop.mpv_format.MPV_FORMAT_DOUBLE);
                         MpvInterop.mpv_observe_property(ctx, OBS_DURATION, "duration", MpvInterop.mpv_format.MPV_FORMAT_DOUBLE);
                         MpvInterop.mpv_observe_property(ctx, OBS_TRACK_LIST_COUNT, "track-list/count", MpvInterop.mpv_format.MPV_FORMAT_INT64);
+                        MpvInterop.mpv_observe_property(ctx, OBS_VO_FRAME_COUNT, "vo-frame-count", MpvInterop.mpv_format.MPV_FORMAT_INT64);
 
                         _stopping = false;
                         _eventThread = new Thread(EventLoop) { IsBackground = true, Name = "GlyphTV-mpv-events" };
@@ -258,12 +346,13 @@ namespace GlyphTV.PlayerEngines
 
                         IsInitialized = true;
 
-                        if (_pendingPlayUrl != null)
+                        if (!string.IsNullOrEmpty(_pendingPlayUrl))
                         {
-                            string pendingUrl = _pendingPlayUrl;
-                            long pendingStartMs = _pendingPlayStartMs;
+                            string url = _pendingPlayUrl;
+                            long pos = _pendingPlayStartMs;
                             _pendingPlayUrl = null;
-                            Play(pendingUrl, pendingStartMs);
+                            _pendingPlayStartMs = 0;
+                            Dispatcher.UIThread.Post(() => Play(url, pos));
                         }
                     }
                     catch (Exception ex)
@@ -288,33 +377,45 @@ namespace GlyphTV.PlayerEngines
             }
 
             _pendingPlayUrl = null;
+            _pendingPlayStartMs = 0;
             _lastKnownLengthMs = 0;
             _smoothedBitrateKbps = 0;
             _lastBitrateTime = DateTime.MinValue;
 
-            _revealScheduled = false;
+            _baseVoFrameCount = GetCurrentVoFrameCount();
+            _hasRevealedCurrentPlayback = false;
             _playGeneration++;
             _host.HideForReload();
+            ScheduleFallbackReveal();
 
             ApplyAspectRatioAndResetPan(_lastAspectRatio);
-
-            if (_ctx != IntPtr.Zero)
-            {
-                SendCommand("stop");
-            }
 
             if (startPositionMs > 0)
             {
                 double startSec = startPositionMs / 1000.0;
-                MpvInterop.mpv_set_option_string(_ctx, "start",
-                    startSec.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                string startSecStr = startSec.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                try
+                {
+                    MpvInterop.mpv_set_property(_ctx, "start", MpvInterop.mpv_format.MPV_FORMAT_DOUBLE, ref startSec);
+                    MpvInterop.mpv_set_property_string(_ctx, "start", startSecStr);
+                    MpvInterop.mpv_set_property_string(_ctx, "file-local-options/start", startSecStr);
+                }
+                catch { }
+                SendCommand("loadfile", url, "replace", "0", $"start={startSecStr}");
             }
             else
             {
-                MpvInterop.mpv_set_option_string(_ctx, "start", "0");
+                try
+                {
+                    double zero = 0.0;
+                    MpvInterop.mpv_set_property(_ctx, "start", MpvInterop.mpv_format.MPV_FORMAT_DOUBLE, ref zero);
+                    MpvInterop.mpv_set_property_string(_ctx, "start", "0");
+                    MpvInterop.mpv_set_property_string(_ctx, "file-local-options/start", "0");
+                }
+                catch { }
+                SendCommand("loadfile", url, "replace", "0", "start=0");
             }
 
-            SendCommand("loadfile", url, "replace");
             MpvInterop.mpv_set_property_string(_ctx, "pause", "no");
         }
 
@@ -328,7 +429,7 @@ namespace GlyphTV.PlayerEngines
         {
             _isPlaying = false;
             _isSurfaceVisible = false;
-            _revealScheduled = false;
+            _hasRevealedCurrentPlayback = false;
             _playGeneration++;
             _smoothedBitrateKbps = 0;
             _lastBitrateTime = DateTime.MinValue;
@@ -338,6 +439,14 @@ namespace GlyphTV.PlayerEngines
 
             if (_ctx != IntPtr.Zero)
             {
+                try
+                {
+                    double zero = 0.0;
+                    MpvInterop.mpv_set_property(_ctx, "start", MpvInterop.mpv_format.MPV_FORMAT_DOUBLE, ref zero);
+                    MpvInterop.mpv_set_property_string(_ctx, "start", "0");
+                    MpvInterop.mpv_set_property_string(_ctx, "file-local-options/start", "0");
+                }
+                catch { }
                 SendCommand("stop");
             }
         }
@@ -354,6 +463,8 @@ namespace GlyphTV.PlayerEngines
             MpvInterop.mpv_set_property_string(_ctx, "sid", id <= 0 ? "no" : id.ToString());
         }
 
+        private string _deinterlaceMode = "yadif2x";
+
         public void SetHardwareDecoding(string mode)
         {
             _hwDecodeMode = string.IsNullOrEmpty(mode) ? "auto" : mode;
@@ -361,11 +472,43 @@ namespace GlyphTV.PlayerEngines
                 MpvInterop.mpv_set_property_string(_ctx, "hwdec", MapHwDecodeToMpv(_hwDecodeMode));
         }
 
-        public void SetDeinterlace(bool enabled)
+        public void SetDeinterlace(bool enabled, string mode = "yadif2x")
         {
             _deinterlace = enabled;
-            if (_ctx != IntPtr.Zero)
-                MpvInterop.mpv_set_property_string(_ctx, "deinterlace", enabled ? "yes" : "no");
+            if (!string.IsNullOrEmpty(mode)) _deinterlaceMode = mode;
+            ApplyDeinterlace();
+        }
+
+        public void SetDeinterlaceMode(string mode)
+        {
+            _deinterlaceMode = string.IsNullOrEmpty(mode) ? "yadif2x" : mode;
+            if (_deinterlace) ApplyDeinterlace();
+        }
+
+        private void ApplyDeinterlace()
+        {
+            if (_ctx == IntPtr.Zero) return;
+            try
+            {
+                MpvInterop.mpv_set_property_string(_ctx, "deinterlace", _deinterlace ? "yes" : "no");
+                if (_deinterlace)
+                {
+                    string vfFilter = _deinterlaceMode switch
+                    {
+                        "yadif2x" => "yadif=mode=send_field",
+                        "yadif"   => "yadif=mode=send_frame",
+                        "bob"     => "yadif=mode=send_field:parity=auto",
+                        "linear"  => "bwdif=mode=send_frame",
+                        _         => "yadif=mode=send_field"
+                    };
+                    MpvInterop.mpv_set_property_string(_ctx, "vf", vfFilter);
+                }
+                else
+                {
+                    MpvInterop.mpv_set_property_string(_ctx, "vf", "");
+                }
+            }
+            catch { }
         }
 
         public void SetHdrToneMapping(string mode)
@@ -462,6 +605,168 @@ namespace GlyphTV.PlayerEngines
             {
                 MpvInterop.mpv_set_property_string(_ctx, "scale", scaler);
                 MpvInterop.mpv_set_property_string(_ctx, "cscale", scaler);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: AMD FidelityFX CAS & FSR GLSL Shader Yönetimi
+        // ─────────────────────────────────────────────────────────────
+        private string _shaderMode = "off";
+
+        public void SetShaderMode(string mode)
+        {
+            _shaderMode = string.IsNullOrEmpty(mode) ? "off" : mode;
+            ApplyShaderOptions();
+        }
+
+        private static string GetOrExtractShaderPath(string shaderName)
+        {
+            try
+            {
+                string appDataDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "GlyphTV", "shaders");
+                if (!Directory.Exists(appDataDir)) Directory.CreateDirectory(appDataDir);
+
+                string targetFile = Path.Combine(appDataDir, $"{shaderName}.glsl");
+                if (File.Exists(targetFile) && new FileInfo(targetFile).Length > 0)
+                    return targetFile;
+
+                string localAppFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Shaders", $"{shaderName}.glsl");
+                if (File.Exists(localAppFile))
+                {
+                    File.Copy(localAppFile, targetFile, true);
+                    return targetFile;
+                }
+            }
+            catch { }
+
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Shaders", $"{shaderName}.glsl");
+        }
+
+        private void ApplyShaderOptions(bool useOptionApi = false)
+        {
+            string shaderPath = "";
+            if (_shaderMode == "cas")
+                shaderPath = GetOrExtractShaderPath("cas");
+            else if (_shaderMode == "fsr")
+                shaderPath = GetOrExtractShaderPath("fsr");
+
+            if (useOptionApi)
+            {
+                MpvInterop.mpv_set_option_string(_ctx, "glsl-shaders", shaderPath);
+            }
+            else
+            {
+                if (_ctx != IntPtr.Zero)
+                    MpvInterop.mpv_set_property_string(_ctx, "glsl-shaders", shaderPath);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: Canlı TV Ultra-Fast Zapping & Tampon Yönetimi
+        // ─────────────────────────────────────────────────────────────
+        private bool _fastZapping = true;
+        private bool _isLiveStream = false;
+
+        public void SetFastZapping(bool enabled)
+        {
+            _fastZapping = enabled;
+            ApplyDemuxerAndCachingProfile();
+        }
+
+        public void SetIsLiveStream(bool isLive)
+        {
+            _isLiveStream = isLive;
+            ApplyDemuxerAndCachingProfile();
+        }
+
+        private void ApplyDemuxerAndCachingProfile(bool useOptionApi = false)
+        {
+            if (_ctx == IntPtr.Zero) return;
+            try
+            {
+                if (_isLiveStream && _fastZapping)
+                {
+                    // Canlı TV (FHD/4K/HEVC) Ultra-Stabil & Hızlı Zapping Profili:
+                    // 512 KB probesize ve 2 sn akıllı tampon sayesinde yüksek çözünürlüklü akışlarda
+                    // kare atlama, donma ve ses asenkronluğu tamamen önlenir; kanal geçiş hızı korunur.
+                    if (useOptionApi)
+                    {
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-analyzeduration", "0.5");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-probesize", "524288");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-o", "reorder_queue_size=500");
+                        MpvInterop.mpv_set_option_string(_ctx, "cache", "yes");
+                        MpvInterop.mpv_set_option_string(_ctx, "cache-secs", "2");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-readahead-secs", "1");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-max-bytes", "32MiB");
+                    }
+                    else
+                    {
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-analyzeduration", "0.5");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-probesize", "524288");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-o", "reorder_queue_size=500");
+                        MpvInterop.mpv_set_property_string(_ctx, "cache", "yes");
+                        MpvInterop.mpv_set_property_string(_ctx, "cache-secs", "2");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-readahead-secs", "1");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-max-bytes", "32MiB");
+                    }
+                }
+                else
+                {
+                    if (useOptionApi)
+                    {
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-analyzeduration", "1.5");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-probesize", "1048576");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-lavf-o", "");
+                        MpvInterop.mpv_set_option_string(_ctx, "cache", "yes");
+                        MpvInterop.mpv_set_option_string(_ctx, "cache-secs", "15");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-readahead-secs", "8");
+                        MpvInterop.mpv_set_option_string(_ctx, "demuxer-max-bytes", "64MiB");
+                    }
+                    else
+                    {
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-analyzeduration", "1.5");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-probesize", "1048576");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-lavf-o", "");
+                        MpvInterop.mpv_set_property_string(_ctx, "cache", "yes");
+                        MpvInterop.mpv_set_property_string(_ctx, "cache-secs", "15");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-readahead-secs", "8");
+                        MpvInterop.mpv_set_property_string(_ctx, "demuxer-max-bytes", "64MiB");
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: Akıllı Ses İşleme (EBU R128 Loudnorm & Gece Modu Kompresör)
+        // ─────────────────────────────────────────────────────────────
+        private string _audioEnhancement = "off";
+
+        public void SetAudioEnhancement(string mode)
+        {
+            _audioEnhancement = string.IsNullOrEmpty(mode) ? "off" : mode;
+            ApplyAudioEnhancement();
+        }
+
+        private void ApplyAudioEnhancement(bool useOptionApi = false)
+        {
+            string afFilter = _audioEnhancement switch
+            {
+                "loudnorm" => "loudnorm=I=-16:TP=-1.5:LRA=11",
+                "night"    => "acompressor=threshold=-25dB:ratio=4:attack=200:release=1000",
+                _          => ""
+            };
+
+            if (useOptionApi)
+            {
+                MpvInterop.mpv_set_option_string(_ctx, "af", afFilter);
+            }
+            else
+            {
+                if (_ctx != IntPtr.Zero)
+                    MpvInterop.mpv_set_property_string(_ctx, "af", afFilter);
             }
         }
 
@@ -777,7 +1082,7 @@ namespace GlyphTV.PlayerEngines
                         break;
 
                     case MpvInterop.mpv_event_id.MPV_EVENT_PLAYBACK_RESTART:
-                        ScheduleReveal();
+                        // Akış başladı, gerçek ilk kare GPU tarafından swapchain'e sunulana kadar yüzeyi kapalı tut
                         break;
                 }
             }
@@ -788,12 +1093,24 @@ namespace GlyphTV.PlayerEngines
             if (ev.data == IntPtr.Zero) return;
             var prop = Marshal.PtrToStructure<MpvInterop.mpv_event_property>(ev.data);
 
-            if (ev.reply_userdata == OBS_TIME_POS && prop.format == MpvInterop.mpv_format.MPV_FORMAT_DOUBLE && prop.data != IntPtr.Zero)
+            if (ev.reply_userdata == OBS_VO_FRAME_COUNT && prop.format == MpvInterop.mpv_format.MPV_FORMAT_INT64 && prop.data != IntPtr.Zero)
+            {
+                long frameCount = Marshal.PtrToStructure<long>(prop.data);
+                // Yeni akışın en az 1 karesi GPU tarafından swapchain'e sunulduğunda yüzeyi pürüzsüz aç
+                if (frameCount > _baseVoFrameCount || (frameCount > 0 && _baseVoFrameCount == 0))
+                {
+                    TriggerNewFrameReveal();
+                }
+            }
+            else if (ev.reply_userdata == OBS_TIME_POS && prop.format == MpvInterop.mpv_format.MPV_FORMAT_DOUBLE && prop.data != IntPtr.Zero)
             {
                 double sec = Marshal.PtrToStructure<double>(prop.data);
                 long ms = (long)(sec * 1000.0);
                 Dispatcher.UIThread.Post(() => TimeChanged?.Invoke(this, ms));
-                ScheduleReveal();
+                if (sec >= 0.3)
+                {
+                    TriggerNewFrameReveal();
+                }
             }
             else if (ev.reply_userdata == OBS_DURATION && prop.format == MpvInterop.mpv_format.MPV_FORMAT_DOUBLE && prop.data != IntPtr.Zero)
             {
@@ -811,6 +1128,7 @@ namespace GlyphTV.PlayerEngines
             _stopping = true;
             _playGeneration++;
             _pendingPlayUrl = null;
+            _pendingPlayStartMs = 0;
             try
             {
                 if (_ctx != IntPtr.Zero)

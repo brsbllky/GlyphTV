@@ -273,6 +273,8 @@ namespace GlyphTV
         private string GetHistoryPath()  => _historyPath;
         private static string GetTmdbPopularCachePath() => _tmdbPopularCachePath;
         private string GetChannelsPath(string sourceId) => Path.Combine(_appDataDir, $"channels_{sourceId}.json");
+        private string GetCategoriesPath(string sourceId) => Path.Combine(_appDataDir, $"categories_{sourceId}.json");
+        private string GetSeriesDetailsDiskPath(string sourceId) => Path.Combine(_appDataDir, $"series_details_{sourceId}.json");
 
         private static readonly string _tmdbPosterDir = InitTmdbPosterDir();
         private static string InitTmdbPosterDir()

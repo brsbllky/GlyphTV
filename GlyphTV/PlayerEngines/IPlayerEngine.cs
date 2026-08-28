@@ -36,6 +36,12 @@ namespace GlyphTV.PlayerEngines
         int ActiveAudioTrackId { get; }
         int ActiveSubtitleTrackId { get; }
 
+        long SubtitleDelayMs { get; set; }
+        void SetSubtitleDelay(long delayMs);
+
+        long AudioDelayMs { get; set; }
+        void SetAudioDelay(long delayMs);
+
         void Initialize();
         void Play(string url, long startPositionMs = 0);
         void PauseToggle();
@@ -55,7 +61,18 @@ namespace GlyphTV.PlayerEngines
         double GetBitrateKbps();
 
         void SetHardwareDecoding(string mode);
-        void SetDeinterlace(bool enabled);
+        void SetDeinterlace(bool enabled, string mode = "yadif2x");
+        void SetDeinterlaceMode(string mode);
+
+        void SetBrightness(int value);
+        void SetContrast(int value);
+        void SetSaturation(int value);
+        void SetGamma(int value);
+
+        void SetShaderMode(string mode);
+        void SetFastZapping(bool enabled);
+        void SetAudioEnhancement(string mode);
+        void SetIsLiveStream(bool isLive);
 
         event EventHandler<long>? TimeChanged;
         event EventHandler? EndReached;

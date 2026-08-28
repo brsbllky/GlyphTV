@@ -107,6 +107,9 @@ namespace GlyphTV.PlayerEngines
         public static extern int mpv_set_property_string(IntPtr ctx, string name, string data);
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern int mpv_set_property(IntPtr ctx, string name, mpv_format format, ref double value);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern IntPtr mpv_get_property_string(IntPtr ctx, string name);
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]

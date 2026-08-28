@@ -29,7 +29,7 @@ namespace GlyphTV.PlayerEngines
                     "--network-caching=300",
                     "--live-caching=800",
                     "--file-caching=300",
-                    "--avcodec-hw=any",
+                    "--avcodec-hw=none",
                     "--avcodec-fast",
                     "--stats",
                     "--no-video-title-show",
@@ -65,6 +65,7 @@ namespace GlyphTV.PlayerEngines
         private long _lastReadBytes = 0;
         private DateTime _lastBitrateCalcTime = DateTime.MinValue;
         private double _smoothedBitrateKbps = 0;
+        private string? _currentAspectRatio = "12:5";
 
         public VlcPlayerEngine()
         {
@@ -76,6 +77,14 @@ namespace GlyphTV.PlayerEngines
             {
                 _videoView = Dispatcher.UIThread.Invoke(() => new VideoView { IsVisible = false });
             }
+
+            _videoView.PropertyChanged += (s, e) =>
+            {
+                if (e.Property == Avalonia.Visual.BoundsProperty && _currentAspectRatio == "fill")
+                {
+                    ApplyAspectRatio("fill");
+                }
+            };
         }
 
         public PlayerEngineType EngineType => PlayerEngineType.Vlc;
@@ -125,15 +134,163 @@ namespace GlyphTV.PlayerEngines
         public int ActiveAudioTrackId => _mediaPlayer?.AudioTrack ?? -1;
         public int ActiveSubtitleTrackId => _mediaPlayer?.Spu ?? -1;
 
+        private long _subtitleDelayMs = 0;
+        public long SubtitleDelayMs
+        {
+            get => _subtitleDelayMs;
+            set => SetSubtitleDelay(value);
+        }
+
+        public void SetSubtitleDelay(long delayMs)
+        {
+            _subtitleDelayMs = delayMs;
+            if (_mediaPlayer != null)
+            {
+                try
+                {
+                    // LibVLC subtitle delay mikrosaniye (µs) cinsindendir (1 ms = 1000 µs)
+                    _mediaPlayer.SetSpuDelay(delayMs * 1000L);
+                }
+                catch { }
+            }
+        }
+
+        private long _audioDelayMs = 0;
+        public long AudioDelayMs
+        {
+            get => _audioDelayMs;
+            set => SetAudioDelay(value);
+        }
+
+        public void SetAudioDelay(long delayMs)
+        {
+            _audioDelayMs = delayMs;
+            if (_mediaPlayer != null)
+            {
+                try
+                {
+                    // LibVLC audio delay mikrosaniye (µs) cinsindendir (1 ms = 1000 µs)
+                    _mediaPlayer.SetAudioDelay(delayMs * 1000L);
+                }
+                catch { }
+            }
+        }
+
+        private int _brightness = 0;
+        private int _contrast = 0;
+        private int _saturation = 0;
+        private int _gamma = 0;
+
+        public void SetBrightness(int value)
+        {
+            _brightness = Math.Clamp(value, -100, 100);
+            ApplyVideoAdjustments();
+        }
+
+        public void SetContrast(int value)
+        {
+            _contrast = Math.Clamp(value, -100, 100);
+            ApplyVideoAdjustments();
+        }
+
+        public void SetSaturation(int value)
+        {
+            _saturation = Math.Clamp(value, -100, 100);
+            ApplyVideoAdjustments();
+        }
+
+        public void SetGamma(int value)
+        {
+            _gamma = Math.Clamp(value, -100, 100);
+            ApplyVideoAdjustments();
+        }
+
+        public void ApplyVideoAdjustments()
+        {
+            if (_mediaPlayer == null) return;
+            try
+            {
+                _mediaPlayer.SetAdjustInt(VideoAdjustOption.Enable, 1);
+
+                // LibVLC Brightness: 1.0f varsayılan (0.0f .. 2.0f)
+                float bVal = 1.0f + (_brightness / 100.0f);
+                _mediaPlayer.SetAdjustFloat(VideoAdjustOption.Brightness, bVal);
+
+                // LibVLC Contrast: 1.0f varsayılan (0.0f .. 2.0f)
+                float cVal = 1.0f + (_contrast / 100.0f);
+                _mediaPlayer.SetAdjustFloat(VideoAdjustOption.Contrast, cVal);
+
+                // LibVLC Saturation: 1.0f varsayılan (0.0f .. 3.0f)
+                float sVal = 1.0f + (_saturation / 100.0f);
+                _mediaPlayer.SetAdjustFloat(VideoAdjustOption.Saturation, sVal);
+
+                // LibVLC Gamma: 1.0f varsayılan (0.01f .. 10.0f)
+                float gVal = _gamma >= 0
+                    ? 1.0f + (_gamma / 25.0f)
+                    : Math.Max(0.01f, 1.0f + (_gamma / 105.0f));
+                _mediaPlayer.SetAdjustFloat(VideoAdjustOption.Gamma, gVal);
+            }
+            catch { }
+        }
+
         public event EventHandler<long>? TimeChanged;
         public event EventHandler? EndReached;
         public event EventHandler? TracksChanged;
 
         private string _hwDecodeMode = "auto";
         private bool _deinterlace = false;
+        private string _deinterlaceMode = "yadif2x";
+
+        private bool _fastZapping = true;
+        private bool _isLiveStream = false;
+        private string _audioEnhancement = "off";
+
+        public void SetShaderMode(string mode) { /* VLC GLSL shader desteklemez */ }
+        public void SetFastZapping(bool enabled) => _fastZapping = enabled;
+        public void SetIsLiveStream(bool isLive) => _isLiveStream = isLive;
+        public void SetAudioEnhancement(string mode) => _audioEnhancement = string.IsNullOrEmpty(mode) ? "off" : mode;
 
         public void SetHardwareDecoding(string mode) => _hwDecodeMode = string.IsNullOrEmpty(mode) ? "auto" : mode;
-        public void SetDeinterlace(bool enabled) => _deinterlace = enabled;
+
+        public void SetDeinterlace(bool enabled, string mode = "yadif2x")
+        {
+            _deinterlace = enabled;
+            if (!string.IsNullOrEmpty(mode)) _deinterlaceMode = mode;
+            ApplyDeinterlace();
+        }
+
+        public void SetDeinterlaceMode(string mode)
+        {
+            _deinterlaceMode = string.IsNullOrEmpty(mode) ? "yadif2x" : mode;
+            if (_deinterlace) ApplyDeinterlace();
+        }
+
+        private void ApplyDeinterlace()
+        {
+            if (_mediaPlayer == null) return;
+            try
+            {
+                if (_deinterlace)
+                {
+                    string vlcMode = MapDeinterlaceToVlc(_deinterlaceMode);
+                    _mediaPlayer.SetDeinterlace(vlcMode);
+                }
+                else
+                {
+                    _mediaPlayer.SetDeinterlace("");
+                }
+            }
+            catch { }
+        }
+
+        private static string MapDeinterlaceToVlc(string mode) => mode switch
+        {
+            "yadif2x" => "yadif2x",
+            "yadif" => "yadif",
+            "bob" => "bob",
+            "linear" => "linear",
+            _ => "yadif2x"
+        };
 
         private static string MapHwDecodeToVlc(string mode) => mode == "no" ? "none" : "any";
 
@@ -148,8 +305,11 @@ namespace GlyphTV.PlayerEngines
 
                 _mediaPlayer = new MediaPlayer(_libVLC) { Volume = 100 };
                 _mediaPlayer.TimeChanged += OnVlcTimeChanged;
+                _mediaPlayer.Playing += (s, e) => Dispatcher.UIThread.Post(() => ApplyAspectRatio(_currentAspectRatio));
                 _mediaPlayer.ESAdded += (s, e) => TracksChanged?.Invoke(this, EventArgs.Empty);
                 _mediaPlayer.EndReached += (s, e) => Dispatcher.UIThread.Post(() => EndReached?.Invoke(this, EventArgs.Empty));
+
+                ApplyVideoAdjustments();
 
                 IsInitialized = true;
 
@@ -205,13 +365,47 @@ namespace GlyphTV.PlayerEngines
                 double startSec = startPositionMs / 1000.0;
                 media.AddOption($":start-time={startSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
             }
+            else
+            {
+                media.AddOption(":start-time=0");
+            }
 
             media.AddOption($":avcodec-hw={MapHwDecodeToVlc(_hwDecodeMode)}");
             media.AddOption(_deinterlace ? ":deinterlace=1" : ":deinterlace=0");
-            if (_deinterlace) media.AddOption(":deinterlace-mode=blend");
+            if (_deinterlace) media.AddOption($":deinterlace-mode={MapDeinterlaceToVlc(_deinterlaceMode)}");
 
-            _mediaPlayer.AspectRatio = "12:5";
+            if (_isLiveStream && _fastZapping)
+            {
+                // Canlı TV için ses çıtırtısını ve jitter patlamalarını önleyen dengeli tampon
+                media.AddOption(":network-caching=500");
+                media.AddOption(":live-caching=800");
+                media.AddOption(":clock-jitter=500");
+                media.AddOption(":clock-synchro=1");
+                media.AddOption(":audio-time-stretch=1");
+                media.AddOption(":drop-late-frames");
+            }
+            else
+            {
+                media.AddOption(":network-caching=800");
+                media.AddOption(":live-caching=1200");
+                media.AddOption(":audio-time-stretch=1");
+            }
+
+            if (_audioEnhancement == "loudnorm")
+            {
+                media.AddOption(":audio-filter=normvol");
+            }
+            else if (_audioEnhancement == "night")
+            {
+                media.AddOption(":audio-filter=compressor");
+            }
+
+            ApplyAspectRatio(_currentAspectRatio);
             _mediaPlayer.Play(media);
+
+            ApplyVideoAdjustments();
+            if (_subtitleDelayMs != 0) SetSubtitleDelay(_subtitleDelayMs);
+            if (_audioDelayMs != 0) SetAudioDelay(_audioDelayMs);
         }
 
         public void PauseToggle()
@@ -235,16 +429,42 @@ namespace GlyphTV.PlayerEngines
 
         public void SetAspectRatio(string? ratio)
         {
+            _currentAspectRatio = ratio;
+            ApplyAspectRatio(ratio);
+        }
+
+        private void ApplyAspectRatio(string? ratio)
+        {
             if (_mediaPlayer == null) return;
-            if (string.IsNullOrEmpty(ratio) || ratio == "fill")
+            try
             {
-                _mediaPlayer.AspectRatio = null;
-                _mediaPlayer.Scale = 0;
+                if (string.IsNullOrEmpty(ratio) || ratio == "original")
+                {
+                    _mediaPlayer.AspectRatio = null;
+                    _mediaPlayer.Scale = 0;
+                }
+                else if (ratio == "fill")
+                {
+                    double vw = _videoView.Bounds.Width;
+                    double vh = _videoView.Bounds.Height;
+                    if (vw > 0 && vh > 0)
+                    {
+                        _mediaPlayer.AspectRatio = $"{(int)vw}:{(int)vh}";
+                        _mediaPlayer.Scale = 0;
+                    }
+                    else
+                    {
+                        _mediaPlayer.AspectRatio = null;
+                        _mediaPlayer.Scale = 0;
+                    }
+                }
+                else
+                {
+                    _mediaPlayer.AspectRatio = ratio;
+                    _mediaPlayer.Scale = 0;
+                }
             }
-            else
-            {
-                _mediaPlayer.AspectRatio = ratio;
-            }
+            catch { }
         }
 
         public void SetVideoSurfaceVisible(bool visible)
@@ -355,23 +575,43 @@ namespace GlyphTV.PlayerEngines
             try
             {
                 info.BitrateKbps = GetBitrateKbps();
-                var tracks = _mediaPlayer?.Media?.Tracks;
-                if (tracks == null) return info;
 
-                foreach (var t in tracks)
+                // 1. Doğrudan video boyutu ve FPS okuma (en hızlı ve kesin yol)
+                if (_mediaPlayer != null)
                 {
-                    if (t.TrackType == TrackType.Video && info.Width == 0)
+                    uint w = 0, h = 0;
+                    try { _mediaPlayer.Size(0, ref w, ref h); } catch { }
+                    info.Width = w;
+                    info.Height = h;
+
+                    try
                     {
-                        var v = t.Data.Video;
-                        info.Width = v.Width;
-                        info.Height = v.Height;
-                        if (v.FrameRateDen > 0) info.Fps = (double)v.FrameRateNum / v.FrameRateDen;
-                        info.VideoCodec = FourCcToString(t.Codec);
+                        float fps = _mediaPlayer.Fps;
+                        if (fps > 0) info.Fps = fps;
                     }
-                    if (t.TrackType == TrackType.Audio && string.IsNullOrEmpty(info.AudioCodec))
+                    catch { }
+                }
+
+                // 2. Medya / Çalma izlerini tara (Codec, Format, Kanal Sayısı vb.)
+                var tracks = _mediaPlayer?.Media?.Tracks;
+
+                if (tracks != null)
+                {
+                    foreach (var t in tracks)
                     {
-                        info.AudioCodec = FourCcToString(t.Codec);
-                        info.AudioChannels = (int)t.Data.Audio.Channels;
+                        if (t.TrackType == TrackType.Video)
+                        {
+                            var v = t.Data.Video;
+                            if (info.Width == 0) info.Width = v.Width;
+                            if (info.Height == 0) info.Height = v.Height;
+                            if (info.Fps == 0 && v.FrameRateDen > 0) info.Fps = (double)v.FrameRateNum / v.FrameRateDen;
+                            if (string.IsNullOrEmpty(info.VideoCodec)) info.VideoCodec = FourCcToString(t.Codec);
+                        }
+                        if (t.TrackType == TrackType.Audio)
+                        {
+                            if (string.IsNullOrEmpty(info.AudioCodec)) info.AudioCodec = FourCcToString(t.Codec);
+                            if (info.AudioChannels == 0) info.AudioChannels = (int)t.Data.Audio.Channels;
+                        }
                     }
                 }
             }

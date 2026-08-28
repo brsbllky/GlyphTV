@@ -13,7 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -30,10 +32,104 @@ namespace GlyphTV
 
         private string? _draggingCategory = null;
 
+        // ─── Anlık Kategori ve İçerik İndeksi (0 ms Kategori Açılışı) ──────────
+        private static readonly Dictionary<string, List<string>> _cachedCategoriesByTab =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Dictionary<string, Dictionary<string, List<Channel>>> _channelsByTypeAndGroup =
+            new(StringComparer.OrdinalIgnoreCase);
+
         // ─── Kategori içerik önbellek limitleri (RAM optimizasyonu) ────
         private const int MAX_CATEGORY_CACHE = 8;
         private static readonly Queue<string> _contentCacheOrder = new();
         private static readonly Queue<string> _seriesCardCacheOrder = new();
+
+        private void RebuildCategoriesCache(string? sourceId = null, bool saveDisk = true)
+        {
+            if (_allChannels.Count == 0) return;
+
+            // 1. Tek geçişte hem kategorileri hem de kanal indeksini O(N) oluştur
+            _channelsByTypeAndGroup.Clear();
+            var distinctGroupsByType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+            var types = new[] { "Canlı", "VOD", "Dizi" };
+            foreach (var t in types)
+            {
+                _channelsByTypeAndGroup[t] = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+                distinctGroupsByType[t] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var ch in _allChannels)
+            {
+                if (ch.IsHidden || string.IsNullOrEmpty(ch.Group) || string.IsNullOrEmpty(ch.Type)) continue;
+
+                if (!_channelsByTypeAndGroup.TryGetValue(ch.Type, out var groupDict))
+                {
+                    groupDict = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+                    _channelsByTypeAndGroup[ch.Type] = groupDict;
+                    distinctGroupsByType[ch.Type] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                if (!groupDict.TryGetValue(ch.Group, out var list))
+                {
+                    list = new List<Channel>();
+                    groupDict[ch.Group] = list;
+                    distinctGroupsByType[ch.Type].Add(ch.Group);
+                }
+                list.Add(ch);
+            }
+
+            // 2. Kategori sıralamasını uygula ve önbelleğe yaz
+            var dictToSave = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var type in types)
+            {
+                if (distinctGroupsByType.TryGetValue(type, out var set))
+                {
+                    var ordered = ApplyCategoryOrder(type, set.ToList());
+                    _cachedCategoriesByTab[type] = ordered;
+                    dictToSave[type] = ordered;
+                }
+                else
+                {
+                    _cachedCategoriesByTab[type] = new List<string>();
+                    dictToSave[type] = new List<string>();
+                }
+            }
+
+            if (saveDisk && !string.IsNullOrEmpty(sourceId))
+            {
+                string catPath = GetCategoriesPath(sourceId);
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        File.WriteAllText(catPath, JsonSerializer.Serialize(dictToSave, JsonOptions));
+                    }
+                    catch { }
+                });
+            }
+        }
+
+        private void LoadCategoriesCacheFromDisk(string sourceId)
+        {
+            try
+            {
+                string catPath = GetCategoriesPath(sourceId);
+                if (File.Exists(catPath))
+                {
+                    var json = File.ReadAllText(catPath);
+                    var loaded = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(json, JsonOptions);
+                    if (loaded != null)
+                    {
+                        foreach (var kvp in loaded)
+                        {
+                            _cachedCategoriesByTab[kvp.Key] = kvp.Value;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
 
         private static void SetContentCache(string key, List<Channel> channels)
         {
@@ -75,8 +171,22 @@ namespace GlyphTV
             if (col == null) return;
             var list = items is IList<T> l ? l : items.ToList();
 
-            // RowGroupedCollection ve Avalonia UI'ın sıralama değişimini
-            // kesin olarak algılaması için temizleyip yeniden ekliyoruz:
+            // Performans & Donma Önleme: Eğer koleksiyon zaten aynı elemanlara sahipse
+            // UI ağacını ve butonları yıkıp baştan yapma! Tıklamalar kesilmesin.
+            if (col.Count == list.Count)
+            {
+                bool isSame = true;
+                for (int i = 0; i < col.Count; i++)
+                {
+                    if (!EqualityComparer<T>.Default.Equals(col[i], list[i]))
+                    {
+                        isSame = false;
+                        break;
+                    }
+                }
+                if (isSame) return;
+            }
+
             col.Clear();
             foreach (var item in list)
             {
@@ -131,7 +241,6 @@ namespace GlyphTV
                 SearchBox.Text = "";
             }
 
-            Dispatcher.UIThread.Post(() => TrimProcessMemoryLight(), Avalonia.Threading.DispatcherPriority.Background);
             UpdateView();
             ResetScrollToTop();
         }
@@ -323,14 +432,17 @@ namespace GlyphTV
 
                 if (seriesResults.Count > 0)
                 {
-                    var showNames = seriesResults.Select(c => c.ShowName).Distinct().Take(50).ToList();
+                    var showNames = seriesResults.Select(c => c.ShowName).Distinct().Take(50).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var seriesCards = new List<SeriesCard>();
+                    var seriesByShow = _allChannels
+                        .Where(c => !c.IsHidden && c.Type == "Dizi" && !string.IsNullOrEmpty(c.ShowName) && showNames.Contains(c.ShowName))
+                        .GroupBy(c => c.ShowName!)
+                        .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
                     foreach (var sn in showNames)
                     {
-                        var eps = _allChannels
-                            .Where(c => !c.IsHidden && c.Type == "Dizi" && c.ShowName == sn)
-                            .ToList();
-                        seriesCards.Add(BuildSeriesCard(sn, eps, historyByUrl));
+                        if (seriesByShow.TryGetValue(sn, out var eps))
+                            seriesCards.Add(BuildSeriesCard(sn, eps, historyByUrl));
                     }
                     ReplaceCollection(_displaySeriesCards, seriesCards);
                     SeriesContentGrid.IsVisible = true;
@@ -459,16 +571,25 @@ namespace GlyphTV
                 BackBtn.IsVisible = false;
                 SetGridVisibility(true, false);
 
-                var filteredList = _allChannels
-                    .Where(c => !c.IsHidden && c.Type == _currentTab)
-                    .ToList();
+                List<string> groups;
+                if (_cachedCategoriesByTab.TryGetValue(_currentTab, out var cachedGroups) && cachedGroups.Count > 0)
+                {
+                    groups = cachedGroups;
+                }
+                else
+                {
+                    var filteredList = _allChannels
+                        .Where(c => !c.IsHidden && c.Type == _currentTab)
+                        .ToList();
 
-                var groups = filteredList
-                    .Select(c => c.Group)
-                    .Distinct()
-                    .ToList();
+                    groups = filteredList
+                        .Select(c => c.Group)
+                        .Distinct()
+                        .ToList();
 
-                groups = ApplyCategoryOrder(_currentTab, groups);
+                    groups = ApplyCategoryOrder(_currentTab, groups);
+                    if (groups.Count > 0) _cachedCategoriesByTab[_currentTab] = groups;
+                }
 
                 ReplaceCollection(_displayCategories, groups);
                 UpdateCategorySelectionVisual();
@@ -484,7 +605,6 @@ namespace GlyphTV
                 PageTitle.IsVisible = true;
                 BackBtn.IsVisible = true;
                 SetGridVisibility(true, true);
-                _displayContents.Clear();
 
                 bool isFavoriLive = _currentTab == "Favori" && _favoriCategoryType == "Canlı";
                 bool isCanlı = _currentTab == "Canlı" || isFavoriLive;
@@ -518,19 +638,37 @@ namespace GlyphTV
                 {
                     ContentScrollViewer.Offset = new Avalonia.Vector(0, 0);
 
-                    IEnumerable<Channel> filteredContents = _allChannels
-                        .Where(c => !c.IsHidden && c.Group == _currentCategory);
-
-                    if (_currentTab == "Favori")
-                        filteredContents = filteredContents
-                            .Where(c => c.IsFavorite && c.Type == _favoriCategoryType);
+                    List<Channel> allContents;
+                    if (_channelsByTypeAndGroup.TryGetValue(_currentTab, out var groupDict) &&
+                        groupDict.TryGetValue(_currentCategory, out var preIndexedList))
+                    {
+                        if (string.IsNullOrEmpty(searchText))
+                        {
+                            allContents = preIndexedList;
+                        }
+                        else
+                        {
+                            allContents = preIndexedList
+                                .Where(c => c.Name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
+                                .ToList();
+                        }
+                    }
                     else
-                        filteredContents = filteredContents.Where(c => c.Type == _currentTab);
+                    {
+                        IEnumerable<Channel> filteredContents = _allChannels
+                            .Where(c => !c.IsHidden && c.Group == _currentCategory);
 
-                    var allContents = filteredContents
-                        .Where(c => string.IsNullOrEmpty(searchText) ||
-                                    c.Name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
-                        .ToList();
+                        if (_currentTab == "Favori")
+                            filteredContents = filteredContents
+                                .Where(c => c.IsFavorite && c.Type == _favoriCategoryType);
+                        else
+                            filteredContents = filteredContents.Where(c => c.Type == _currentTab);
+
+                        allContents = filteredContents
+                            .Where(c => string.IsNullOrEmpty(searchText) ||
+                                        c.Name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
+                            .ToList();
+                    }
 
                     if (!isCanlı) allContents = ApplyContentSort(_currentTab, allContents).ToList();
 
@@ -598,27 +736,28 @@ namespace GlyphTV
                 {
                     ContentScrollViewer.Offset = new Avalonia.Vector(0, 0);
 
-                    var seriesEpisodes = _allChannels
-                        .Where(c => !c.IsHidden && c.Type == "Dizi" && c.Group == _currentCategory)
-                        .ToList();
+                    List<Channel> seriesEpisodes;
+                    if (_channelsByTypeAndGroup.TryGetValue("Dizi", out var diziGroups) &&
+                        diziGroups.TryGetValue(_currentCategory, out var indexedEps))
+                    {
+                        seriesEpisodes = indexedEps;
+                    }
+                    else
+                    {
+                        seriesEpisodes = _allChannels
+                            .Where(c => !c.IsHidden && c.Type == "Dizi" && c.Group == _currentCategory)
+                            .ToList();
+                    }
 
-                    var showNames = seriesEpisodes
-                        .Select(c => c.ShowName)
-                        .Distinct()
-                        .Where(s => string.IsNullOrEmpty(searchText) ||
-                                    s.Contains(searchText, StringComparison.CurrentCultureIgnoreCase))
-                        .ToList();
-
-                    Debug.WriteLine($"[SHOWS] Toplam Dizi Sayısı: {showNames.Count}, Toplam Bölüm: {seriesEpisodes.Count}");
+                    var showGroups = seriesEpisodes
+                        .Where(c => !string.IsNullOrEmpty(c.ShowName) &&
+                                    (string.IsNullOrEmpty(searchText) || c.ShowName.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)))
+                        .GroupBy(c => c.ShowName!, StringComparer.OrdinalIgnoreCase);
 
                     var allCards = new List<SeriesCard>();
-                    foreach (var showName in showNames)
+                    foreach (var g in showGroups)
                     {
-                        var episodes = seriesEpisodes.Where(c => c.ShowName == showName).ToList();
-                        if (episodes.Count > 0)
-                        {
-                            allCards.Add(BuildSeriesCard(showName, episodes, historyByUrl));
-                        }
+                        allCards.Add(BuildSeriesCard(g.Key, g.ToList(), historyByUrl));
                     }
 
                     // Doğrudan oluşturulan kartları seçili moda göre sıralıyoruz
@@ -853,6 +992,8 @@ namespace GlyphTV
 
         private void UpdateCategorySelectionVisual()
         {
+            if (string.IsNullOrEmpty(_currentCategory)) return;
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (CategoriesGrid.ItemContainerGenerator == null) return;
@@ -861,16 +1002,22 @@ namespace GlyphTV
                 {
                     var container = CategoriesGrid.ContainerFromIndex(i);
                     if (container is not Control c) continue;
-                    var btn = c.FindDescendantOfType<Button>();
+                    var btn = c as Button ?? c.FindDescendantOfType<Button>();
                     if (btn == null) continue;
                     bool selected = btn.Tag?.ToString() == _currentCategory;
-                    if (selected) btn.Classes.Add("Selected");
-                    else btn.Classes.Remove("Selected");
-                    if (selected) selectedButton = btn;
+                    if (selected)
+                    {
+                        btn.Classes.Add("Selected");
+                        selectedButton = btn;
+                    }
+                    else
+                    {
+                        btn.Classes.Remove("Selected");
+                    }
                 }
-                if (selectedButton != null && !string.IsNullOrEmpty(_currentCategory))
+                if (selectedButton != null)
                     selectedButton.BringIntoView();
-            }, DispatcherPriority.Loaded);
+            }, DispatcherPriority.Background);
         }
 
         // ─────────────────────────────────────────────────────────────

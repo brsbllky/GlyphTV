@@ -24,8 +24,21 @@ namespace GlyphTV
         // URL'yi okuyabilmek için var; okunur okunmaz null'a çekilir ve
         // bir daha asla yazılmaz.
         // ─────────────────────────────────────────────────────────────
+        private string _url = "";
+
         [JsonIgnore]
-        public string Url { get; set; } = "";
+        public string Url
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_url) && !string.IsNullOrEmpty(UrlEncrypted))
+                {
+                    _url = MainWindow.UnprotectString(UrlEncrypted);
+                }
+                return _url;
+            }
+            set => _url = value;
+        }
 
         [JsonPropertyName("Url")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

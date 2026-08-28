@@ -675,7 +675,7 @@
 								<ItemsControl x:Name="CategoriesGrid">
 									<ItemsControl.ItemsPanel>
 										<ItemsPanelTemplate>
-											<StackPanel Orientation="Vertical"/>
+											<VirtualizingStackPanel Orientation="Vertical"/>
 										</ItemsPanelTemplate>
 									</ItemsControl.ItemsPanel>
 									<ItemsControl.ItemTemplate>
@@ -1168,6 +1168,17 @@
 																	<Border Background="{DynamicResource PosterOverlayBg}" IsVisible="{Binding HasLogo}">
 																		<Image Source="{Binding LogoBitmap}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
 																	</Border>
+
+																	<!-- Devam Et: Kalan Süre Rozeti ve İlerleme Çubuğu -->
+																	<Grid VerticalAlignment="Bottom" RowDefinitions="Auto, Auto" IsVisible="{Binding HasProgress}">
+																		<!-- Kalan Süre Rozeti -->
+																		<Border Grid.Row="0" Margin="4,0,4,6" HorizontalAlignment="Center" Background="#D90b1120" BorderBrush="#40ffffff" BorderThickness="1" CornerRadius="6" Padding="6,2">
+																			<TextBlock Text="{Binding RemainingTimeText}" FontSize="10" FontWeight="Bold" Foreground="#F9FAFB" HorizontalAlignment="Center"/>
+																		</Border>
+
+																		<!-- İlerleme Çubuğu (Bar) -->
+																		<ProgressBar Grid.Row="1" Height="4" MinHeight="0" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" Foreground="{DynamicResource Accent}" Background="#80000000" BorderThickness="0" CornerRadius="0"/>
+																	</Grid>
 																</Grid>
 															</Border>
 
@@ -1591,7 +1602,7 @@
 								<!-- Alt Bilgi / Sürüm Rozeti -->
 								<Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
 									<StackPanel Spacing="2">
-										<TextBlock Text="GlyphTV™ v2.0" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="GlyphTV™ v2.1" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Text}"/>
 										<TextBlock Text="Designed by AkuLaTa" FontSize="9.5" Foreground="{DynamicResource TextSec}"/>
 									</StackPanel>
 								</Border>
@@ -1757,6 +1768,34 @@
 
 											<Border Height="1" Background="{DynamicResource Border}"/>
 
+											<!-- Açılışta Güncellemeleri Denetle -->
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock Text="Açılışta Güncellemeleri Denetle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock Text="Uygulama başladığında arka planda sessizce yeni sürüm olup olmadığını kontrol eder" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+													<Button x:Name="CheckUpdatesOnBtn" Classes="ActionBtn SettingsToggleBtn" Click="CheckUpdatesOn_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
+																<Path Fill="#28a430" Data="M393.401,124.425L179.603,338.208c-15.832,15.835-41.514,15.835-57.361,0L11.878,227.836 c-15.838-15.835-15.838-41.52,0-57.358c15.841-15.841,41.521-15.841,57.355-0.006l81.698,81.699L336.037,67.064 c15.841-15.841,41.523-15.829,57.358,0C409.23,82.902,409.23,108.578,393.401,124.425z"/>
+															</Viewbox>
+															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="CheckUpdatesOffBtn" Classes="ActionBtn SettingsToggleBtn" Click="CheckUpdatesOff_Click">
+														<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
+																<Path Fill="#e61919" Data="F0 M19.207 6.207a1 1 0 0 0-1.414-1.414L12 10.586 6.207 4.793a1 1 0 0 0-1.414 1.414L10.586 12l-5.793 5.793a1 1 0 1 0 1.414 1.414L12 13.414l5.793 5.793a1 1 0 0 0 1.414-1.414L13.414 12l5.793-5.793z"/>
+															</Viewbox>
+															<TextBlock Text="KAPALI" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</StackPanel>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
 											<!-- Oynatıcı Motoru -->
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
@@ -1848,15 +1887,18 @@
 							</ScrollViewer>
 
 							<!-- 4. SEKME: KISAYOLLAR -->
-							<ScrollViewer x:Name="SettingsTabShortcuts" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
-								<StackPanel Spacing="16">
+							<ScrollViewer x:Name="SettingsTabShortcuts" Margin="24,18,24,24" VerticalScrollBarVisibility="Hidden" IsVisible="False">
+								<StackPanel Spacing="18">
 									<StackPanel VerticalAlignment="Center">
 										<TextBlock Text="Klavye &amp; Fare Kısayolları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-										<TextBlock Text="Hızlı gezinme ve medya kontrolü için kullanabileceğiniz kısayollar." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										<TextBlock Text="Hızlı gezinme, medya kontrolü, resim modları ve ses/altyazı senkronizasyonu için kullanabileceğiniz tüm kısayollar." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 									</StackPanel>
 
+									<!-- 1. GRUP: TEMEL & OYNATMA KONTROLLERİ -->
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="12">
+											<TextBlock Text="Oynatma &amp; Medya Kontrolleri" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+
 											<Grid ColumnDefinitions="*, Auto">
 												<TextBlock Text="Oynat / Duraklat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Space  /  Sol Tık" FontWeight="Bold" FontSize="11"/></Border>
@@ -1868,17 +1910,22 @@
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Resim İçinde Resim (PiP) Modu" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Shift + T" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
 												<TextBlock Text="Sesi Aç / Kapat (Mute)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="M" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="10 Saniye Geri / İleri Sar" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock Text="10 Saniye Geri / İleri Sar (Film &amp; Dizi)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="←  /  →" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Ses Seviyesi Artır / Azalt" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock Text="Ses Seviyesi (Film/Dizi) / Kanal Değiştir (Canlı)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="↑  /  ↓" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
@@ -1888,8 +1935,72 @@
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Pencereleri ve Modalleri Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock Text="Pencereleri, PiP ve Modalleri Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Esc" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+										</StackPanel>
+									</Border>
+
+									<!-- 2. GRUP: GÖRÜNTÜ VE RESİM MODLARI -->
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="12">
+											<TextBlock Text="Görüntü ve Resim Modları" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Resim Modu: Doğal (Nötr / Standart Renkler)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F1" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Resim Modu: Canlı (Yüksek Doygunluk &amp; Dinamik Kontrast)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F2" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Resim Modu: Spor (Akıcı Hareket &amp; Canlı Saha/Zemin Tonları)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F3" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Resim Modu: Sinema (Sıcak Film Tonları &amp; Derin Siyahlar)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F4" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+										</StackPanel>
+									</Border>
+
+									<!-- 3. GRUP: SES VE ALTYAZI SENKRONİZASYONU -->
+									<Border Classes="SettingsCard">
+										<StackPanel Spacing="12">
+											<TextBlock Text="Ses ve Altyazı Senkronizasyonu" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Sesi İlerlet / Hızlı İlerlet (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="J  /  Shift + J" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Sesi Geciktir / Hızlı Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="K  /  Shift + K" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="L" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Altyazıyı Erken / Çok Erken Ver (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="G  /  Shift + G" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Altyazıyı Geciktir / Çok Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="H  /  Shift + H" FontWeight="Bold" FontSize="11"/></Border>
+											</Grid>
+											<Border Height="1" Background="{DynamicResource Border}"/>
+											<Grid ColumnDefinitions="*, Auto">
+												<TextBlock Text="Altyazı Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Z" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 										</StackPanel>
 									</Border>
@@ -1914,7 +2025,7 @@
 													<Grid VerticalAlignment="Center" ColumnDefinitions="Auto, Auto, *" RowDefinitions="Auto, Auto, Auto">
 														<TextBlock Grid.Row="0" Grid.Column="0" Text="Sürüm" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
 														<TextBlock Grid.Row="0" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,0"/>
-														<TextBlock Grid.Row="0" Grid.Column="2" Text="2.0.0" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+														<TextBlock Grid.Row="0" Grid.Column="2" Text="2.1.0" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
 
 														<TextBlock Grid.Row="1" Grid.Column="0" Text="Geliştirici" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
 														<TextBlock Grid.Row="1" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,10,0,0"/>
@@ -1941,10 +2052,39 @@
 												</StackPanel>
 											</Border>
 
-											<Border Height="1" Background="{DynamicResource Border}"/>
-
+											<!-- Güncellemeler ve GitHub Yan Yana -->
 											<Grid ColumnDefinitions="*, *">
-												<Button Grid.Column="0" Classes="ActionBtn" Click="OpenGithub_Click" Background="Transparent" Foreground="{DynamicResource Text}" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,8,0" Cursor="Hand">
+												<!-- Çevrimiçi Güncelleme Denetim Kartı -->
+												<Border Grid.Column="0" Background="Transparent" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" Margin="0,0,8,0">
+													<Grid ColumnDefinitions="*, Auto">
+														<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
+															<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+																<TextBlock Text="Yazılım Güncellemesi" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+																<Border x:Name="SettingsAboutStatusBadge" CornerRadius="5" Padding="6,2" Background="#223b82f6" VerticalAlignment="Center">
+																	<TextBlock x:Name="SettingsAboutStatusBadgeText" Text="Sürüm Güncel" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/>
+																</Border>
+															</StackPanel>
+															<Panel VerticalAlignment="Center">
+																<TextBlock x:Name="SettingsAboutLastCheckText" Text="Otomatik denetim aktif" FontSize="11" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+																<Border x:Name="SettingsAboutUpdateBadge" CornerRadius="5" Padding="6,2" Background="#2222c55e" VerticalAlignment="Center" HorizontalAlignment="Left" IsVisible="False">
+																	<TextBlock x:Name="SettingsAboutUpdateBadgeText" Text="Yeni Sürüm Mevcut: v0.0.0" FontSize="10" FontWeight="SemiBold" Foreground="#16a34a"/>
+																</Border>
+															</Panel>
+														</StackPanel>
+
+														<Button Grid.Column="1" x:Name="SettingsAboutCheckUpdatesBtn" Classes="ActionBtn" Click="CheckForUpdatesManual_Click" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="6" Padding="10,5" VerticalAlignment="Center" Margin="8,0,0,0" Cursor="Hand">
+															<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+																<Viewbox Width="12" Height="12" VerticalAlignment="Center">
+																	<Path Fill="White" Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+																</Viewbox>
+																<TextBlock x:Name="SettingsAboutCheckUpdatesText" Text="Kontrol Et" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+															</StackPanel>
+														</Button>
+													</Grid>
+												</Border>
+
+												<!-- GitHub Butonu -->
+												<Button Grid.Column="1" Classes="ActionBtn" Click="OpenGithub_Click" Background="Transparent" Foreground="{DynamicResource Text}" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0" Cursor="Hand">
 													<Grid ColumnDefinitions="Auto, *">
 														<Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,12,0" VerticalAlignment="Center">
 															<Canvas Width="24" Height="24">
@@ -1954,20 +2094,6 @@
 														<StackPanel Grid.Column="1" VerticalAlignment="Center">
 															<TextBlock Text="GitHub Deposu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
 															<TextBlock Text="Projeyi yıldızlayın veya katkıda bulunun" FontSize="11" Foreground="{DynamicResource TextSec}"/>
-														</StackPanel>
-													</Grid>
-												</Button>
-
-												<Button Grid.Column="1" Classes="ActionBtn" Click="OpenTelegram_Click" Background="Transparent" Foreground="{DynamicResource Text}" CornerRadius="10" Padding="14,12" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="8,0,0,0" Cursor="Hand">
-													<Grid ColumnDefinitions="Auto, *">
-														<Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,12,0" VerticalAlignment="Center">
-															<Canvas Width="24" Height="24">
-																<Path Fill="{DynamicResource Accent}" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-															</Canvas>
-														</Viewbox>
-														<StackPanel Grid.Column="1" VerticalAlignment="Center">
-															<TextBlock Text="Telegram Topluluğu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
-															<TextBlock Text="Duyurular, topluluk ve sohbet" FontSize="11" Foreground="{DynamicResource TextSec}"/>
 														</StackPanel>
 													</Grid>
 												</Button>
@@ -2257,6 +2383,97 @@
 							</Grid>
 						</ScrollViewer>
 					</Grid>
+				</Grid>
+			</Border>
+		</Border>
+
+		<!-- ============================================================
+		     YENİ: Çevrimiçi Güncelleme Bildirim & Kurulum Modalı
+		     GitHub Releases API'den yeni bir sürüm tespit edildiğinde
+		     veya kullanıcı Ayarlar'dan denetlediğinde açılır.
+		     ============================================================ -->
+		<Border x:Name="UpdateModalOverlay" Grid.Column="0" Grid.ColumnSpan="2" Background="#B3000000" IsVisible="False" ZIndex="180">
+			<Border Background="{DynamicResource BgCard}" Width="560" MaxHeight="620" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" Padding="0" BorderThickness="1" BorderBrush="{DynamicResource Border}" BoxShadow="0 24 64 0 #AA000000" ClipToBounds="True">
+				<Grid RowDefinitions="Auto, Auto, *, Auto">
+					
+					<!-- 1. Üst Başlık ve Gradyan Şerit -->
+					<Border Grid.Row="0" Padding="20,18,20,14" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+						<Grid ColumnDefinitions="Auto, *, Auto">
+							<Border Grid.Column="0" Width="40" Height="40" CornerRadius="10" Background="{DynamicResource Accent}" Margin="0,0,14,0">
+								<TextBlock Text="🚀" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+							</Border>
+							<StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+								<TextBlock x:Name="UpdateModalTitleText" Text="GlyphTV Güncellemesi Mevcut!" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+								<StackPanel Orientation="Horizontal" Spacing="8">
+									<Border CornerRadius="4" Padding="6,1" Background="#2222c55e">
+										<TextBlock x:Name="UpdateModalVersionBadgeText" Text="v2.1.0" FontSize="11" FontWeight="Bold" Foreground="#16a34a"/>
+									</Border>
+									<TextBlock x:Name="UpdateModalCurrentVersionText" Text="Mevcut: v2.1.0" FontSize="11" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+								</StackPanel>
+							</StackPanel>
+							<Button Grid.Column="2" Content="✕" Click="CloseUpdateModal_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}" VerticalAlignment="Top"/>
+						</Grid>
+					</Border>
+
+					<!-- 2. Meta Bilgi Çubuğu (Yayın Tarihi & Dosya Boyutu) -->
+					<Border Grid.Row="1" Background="{DynamicResource BgHover}" Padding="20,10" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+						<Grid ColumnDefinitions="*, *">
+							<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+								<TextBlock Text="📅" FontSize="12"/>
+								<TextBlock x:Name="UpdateModalDateText" Text="22 Ağustos 2026" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+							</StackPanel>
+							<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
+								<TextBlock Text="📦" FontSize="12"/>
+								<TextBlock x:Name="UpdateModalSizeText" Text="Setup Paketi" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+							</StackPanel>
+						</Grid>
+					</Border>
+
+					<!-- 3. Sürüm Notları (Changelog) -->
+					<Grid Grid.Row="2" RowDefinitions="Auto, *" Margin="20,14,20,14">
+						<TextBlock Grid.Row="0" Text="SÜRÜM NOTLARI &amp; YENİLİKLER" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" Margin="0,0,0,8"/>
+						<Border Grid.Row="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="14,10" MaxHeight="220">
+							<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+								<TextBlock x:Name="UpdateModalChangelogText" Text="Yenilikler..." Foreground="{DynamicResource Text}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+							</ScrollViewer>
+						</Border>
+					</Grid>
+
+					<!-- 4. Alt İşlem / İndirme İlerleme Alanı -->
+					<Border Grid.Row="3" Background="{DynamicResource BgCard}" Padding="20,14,20,18" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+						<Grid>
+							<!-- İndirme İlerleme Çubuğu (İndirilirken Görünür) -->
+							<StackPanel x:Name="UpdateDownloadPanel" Spacing="8" IsVisible="False">
+								<Grid ColumnDefinitions="*, Auto">
+									<TextBlock x:Name="UpdateProgressStatusText" Text="İndiriliyor... %0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+								</Grid>
+								<ProgressBar x:Name="UpdateProgressBar" Height="8" Minimum="0" Maximum="100" Value="0" CornerRadius="4" Foreground="{DynamicResource Accent}"/>
+								<TextBlock Text="İndirme tamamlandığında GlyphTV otomatik güncellenip yeniden başlayacaktır." FontSize="11" Foreground="{DynamicResource TextSec}"/>
+							</StackPanel>
+
+							<!-- İşlem Butonları (Normal Durumda Görünür) -->
+							<Grid x:Name="UpdateActionButtonsPanel" ColumnDefinitions="*, Auto, Auto" Margin="0" HorizontalAlignment="Stretch">
+								<Button Grid.Column="0" x:Name="BtnUpdateNow" Classes="ActionBtn" Click="UpdateNow_Click" CornerRadius="8" Padding="16,10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
+									<Button.Background>
+										<LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+											<GradientStop Color="#4f8bff" Offset="0.0"/>
+											<GradientStop Color="#ec4899" Offset="1.0"/>
+										</LinearGradientBrush>
+									</Button.Background>
+									<TextBlock Text="🚀 Şimdi Güncelle" Foreground="White" FontWeight="Bold" FontSize="13"/>
+								</Button>
+
+								<Button Grid.Column="1" Classes="ActionBtn" Click="UpdateOpenGithub_Click" Background="Transparent" Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,10,0" Cursor="Hand">
+									<TextBlock Text="🌐 GitHub'da Aç" FontSize="12" FontWeight="Medium"/>
+								</Button>
+
+								<Button Grid.Column="2" Classes="ActionBtn" Click="CloseUpdateModal_Click" Background="Transparent" Foreground="{DynamicResource TextSec}" BorderThickness="0" CornerRadius="8" Padding="12,10" Cursor="Hand">
+									<TextBlock Text="Daha Sonra" FontSize="12"/>
+								</Button>
+							</Grid>
+						</Grid>
+					</Border>
+
 				</Grid>
 			</Border>
 		</Border>

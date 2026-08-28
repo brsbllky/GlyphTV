@@ -62,16 +62,11 @@ namespace GlyphTV
                 card.LatestStreamId = maxStreamId;
             }
 
-            // Sezon/bölüm yapısı
-            card.Seasons = distinctEpisodes.Select(e => e.Season).Distinct().OrderBy(s => s).ToList();
-            card.EpisodesBySeason = new Dictionary<string, List<Channel>>();
-            foreach (var season in card.Seasons)
-            {
-                card.EpisodesBySeason[season] = distinctEpisodes
-                    .Where(e => e.Season == season)
-                    .OrderBy(e => e.EpisodeNumber)
-                    .ToList();
-            }
+            // Sezon/bölüm yapısı (Tek geçişli O(N) gruplama)
+            card.EpisodesBySeason = distinctEpisodes
+                .GroupBy(e => e.Season)
+                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EpisodeNumber).ToList());
+            card.Seasons = card.EpisodesBySeason.Keys.OrderBy(s => s).ToList();
 
             // Seçim geri yükleme
             bool restored = false;
@@ -250,15 +245,40 @@ namespace GlyphTV
             // HasResume hesaplamak için historyByUrl oluşturmak pahalı olabilir,
             // o yüzden direkt watch history listesini kullanıyoruz (buton tıklamaları seyrek).
             var ep = card.SelectedEpisode;
+            WatchHistory? hist = null;
             if (ep != null)
             {
-                var hist = _watchHistory.FirstOrDefault(h => h.Url == ep.Url);
+                hist = _watchHistory.FirstOrDefault(h => h.Url == ep.Url);
                 card.HasResume = hist != null && hist.Position > 5000;
             }
             else
             {
                 card.HasResume = false;
             }
+
+            // Devam Et listesindeki bu karta bağlı ResumeWatchItem varsa pozisyon ve süresini güncelle
+            try
+            {
+                void UpdateResumeItem(ResumeWatchItem r)
+                {
+                    if (r.SeriesCard == card)
+                    {
+                        if (hist != null && hist.Position > 5000)
+                        {
+                            r.Position = hist.Position;
+                            r.Duration = hist.Duration;
+                        }
+                        else
+                        {
+                            r.Position = 0;
+                            r.Duration = 0;
+                        }
+                    }
+                }
+                foreach (var r in _displayResumeItems) UpdateResumeItem(r);
+                foreach (var r in _allResumeItems) UpdateResumeItem(r);
+            }
+            catch { }
         }
 
         // ─────────────────────────────────────────────────────────────

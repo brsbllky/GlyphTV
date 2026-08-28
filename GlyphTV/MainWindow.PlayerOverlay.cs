@@ -202,6 +202,18 @@ namespace GlyphTV
             bool playerShouldBeOpen = double.IsNaN(h) || h > 0;
             if (!playerShouldBeOpen) return;
 
+            // PiP modundayken kullanıcı başka bir uygulamaya odaklansa bile
+            // video ve overlay'i her zaman görünür ve en üstte tut
+            if (_isPipMode)
+            {
+                if (!_playerOverlay.IsVisible)
+                    ShowPlayerOverlay();
+                this.Topmost = true;
+                _playerOverlay.Topmost = false;
+                _playerOverlay.Topmost = true;
+                return;
+            }
+
             if (_mainWindowActive || _overlayActive)
             {
                 // DÜZELTME (üst çubukta kalıcı/ara sıra beliren "çizgi" —
@@ -226,7 +238,7 @@ namespace GlyphTV
                 // Bu noktaya kadar (gecikme süresince) durum değişip
                 // yeniden aktif olunmuş olabilir — son durumu tekrar
                 // kontrol etmeden gizleme yapma.
-                if (!_mainWindowActive && !_overlayActive)
+                if (!_mainWindowActive && !_overlayActive && !_isPipMode)
                     HidePlayerOverlay();
             }, DispatcherPriority.Input);
         }
@@ -301,7 +313,7 @@ namespace GlyphTV
                 }
                 else if (!_playerOverlay.IsVisible)
                 {
-                    _playerOverlay.Show();
+                    _playerOverlay.Show(this);
                 }
 
                 // Overlay ilk gösterildiğinde (kullanıcı az önce oynat'a
@@ -310,7 +322,9 @@ namespace GlyphTV
                 // bu durum yukarıdaki Activated/Deactivated abonelikleri
                 // tarafından otomatik güncellenir (bkz. "hayalet pencere"
                 // düzeltmesi notu, InitPlayerOverlay).
+                _playerOverlay.Topmost = false;
                 _playerOverlay.Topmost = true;
+                SetPipButtonActive(_isPipMode);
 
                 SyncPlayerOverlayBounds();
                 Dispatcher.UIThread.Post(SyncPlayerOverlayBounds, DispatcherPriority.Loaded);
@@ -370,6 +384,7 @@ namespace GlyphTV
         private void SyncPlayerOverlayBounds()
         {
             if (_playerOverlay == null) return;
+            if (_isPipMode && _isSyncingPipPosition) return;
             try
             {
                 var size = PlayerContainer.Bounds.Size;
@@ -464,6 +479,7 @@ namespace GlyphTV
         private Border NextEpisodeBtn => _playerOverlay!.NextEpisodeBtn;
         private Border SpeedBtn => _playerOverlay!.SpeedBtn;
         private TextBlock SpeedBtnText => _playerOverlay!.SpeedBtnText;
+        private Border PipBtn => _playerOverlay!.PipBtn;
 
         private Border MuteBtn => _playerOverlay!.MuteBtn;
         private Avalonia.Controls.Shapes.Path IconMuteOn => _playerOverlay!.IconMuteOn;
@@ -478,9 +494,11 @@ namespace GlyphTV
 
         private Border AudioTrackPopup => _playerOverlay!.AudioTrackPopup;
         private StackPanel AudioTrackContainer => _playerOverlay!.AudioTrackContainer;
+        private TextBlock AudioDelayText => _playerOverlay!.AudioDelayText;
 
         private Border SubtitlePopup => _playerOverlay!.SubtitlePopup;
         private StackPanel SubtitleContainer => _playerOverlay!.SubtitleContainer;
+        private TextBlock SubtitleDelayText => _playerOverlay!.SubtitleDelayText;
         private StackPanel AudioTrackContainerVod => _playerOverlay!.AudioTrackContainerVod;
 
         private Border AspectRatioPopup => _playerOverlay!.AspectRatioPopup;
@@ -530,6 +548,11 @@ namespace GlyphTV
         private Slider MpvEqGammaSlider => _playerOverlay!.MpvEqGammaSlider;
         private TextBlock MpvEqGammaText => _playerOverlay!.MpvEqGammaText;
 
+        private Border PresetNaturalItem => _playerOverlay!.PresetNaturalItem;
+        private Border PresetVividItem => _playerOverlay!.PresetVividItem;
+        private Border PresetSportsItem => _playerOverlay!.PresetSportsItem;
+        private Border PresetCinemaItem => _playerOverlay!.PresetCinemaItem;
+
         // ─────────────────────────────────────────────────────────────
         // YENİ: "Oynatıcı Performansı" kartındaki Donanım Çözümlemesi /
         // İnterlacing seçenekleri artık mpv Ayarları (⚙️) popup'ında da
@@ -553,6 +576,26 @@ namespace GlyphTV
 
         private Border PopupInterlaceItem => _playerOverlay!.PopupInterlaceItem;
         private TextBlock PopupInterlaceCheck => _playerOverlay!.PopupInterlaceCheck;
+
+        private StackPanel DeinterlaceModesContainer => _playerOverlay!.DeinterlaceModesContainer;
+        private Border PopupDeintYadif2xItem => _playerOverlay!.PopupDeintYadif2xItem;
+        private Border PopupDeintYadifItem => _playerOverlay!.PopupDeintYadifItem;
+        private Border PopupDeintBobItem => _playerOverlay!.PopupDeintBobItem;
+        private Border PopupDeintLinearItem => _playerOverlay!.PopupDeintLinearItem;
+
+        private StackPanel ShaderSectionContainer => _playerOverlay!.ShaderSectionContainer;
+        private Border ShaderOffItem => _playerOverlay!.ShaderOffItem;
+        private Border ShaderCasItem => _playerOverlay!.ShaderCasItem;
+        private Border ShaderFsrItem => _playerOverlay!.ShaderFsrItem;
+
+        private StackPanel ZappingSectionContainer => _playerOverlay!.ZappingSectionContainer;
+        private Border ZappingFastItem => _playerOverlay!.ZappingFastItem;
+        private Border ZappingStableItem => _playerOverlay!.ZappingStableItem;
+
+        private StackPanel AudioEnhanceSectionContainer => _playerOverlay!.AudioEnhanceSectionContainer;
+        private Border AudioEnhanceOffItem => _playerOverlay!.AudioEnhanceOffItem;
+        private Border AudioEnhanceLoudnormItem => _playerOverlay!.AudioEnhanceLoudnormItem;
+        private Border AudioEnhanceNightItem => _playerOverlay!.AudioEnhanceNightItem;
 
         // YENİ: mpv Ayarları popup'ı başlığındaki "Aktif: ..." durum satırı.
         private TextBlock MpvPopupStatusText => _playerOverlay!.MpvPopupStatusText;

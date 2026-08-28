@@ -61,6 +61,100 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
+        // Açılışta Çevrimiçi Güncellemeleri Denetle — Açık / Kapalı
+        // ─────────────────────────────────────────────────────────────
+        private void CheckUpdatesOn_Click(object? sender, RoutedEventArgs e) => SetCheckUpdates(true);
+        private void CheckUpdatesOff_Click(object? sender, RoutedEventArgs e) => SetCheckUpdates(false);
+
+        private void SetCheckUpdates(bool enabled)
+        {
+            if (_appSettings.CheckUpdatesOnStartup == enabled)
+            {
+                UpdateCheckUpdatesButtonsActiveState();
+                return;
+            }
+
+            _appSettings.CheckUpdatesOnStartup = enabled;
+            SaveAppSettings();
+            UpdateCheckUpdatesButtonsActiveState();
+            ShowToast(enabled
+                ? "Açılışta otomatik güncelleme denetimi aktif edildi."
+                : "Açılışta otomatik güncelleme denetimi kapatıldı.");
+        }
+
+        private void UpdateCheckUpdatesButtonsActiveState()
+        {
+            SetActiveClass(CheckUpdatesOnBtn, _appSettings.CheckUpdatesOnStartup);
+            SetActiveClass(CheckUpdatesOffBtn, !_appSettings.CheckUpdatesOnStartup);
+            UpdateAboutTabUpdateStatusText();
+        }
+
+        private void UpdateAboutTabUpdateStatusText()
+        {
+            var lastCheckText = this.FindControl<TextBlock>("SettingsAboutLastCheckText");
+            if (lastCheckText == null) return;
+
+            var statusBadge = this.FindControl<Border>("SettingsAboutStatusBadge");
+            var statusBadgeText = this.FindControl<TextBlock>("SettingsAboutStatusBadgeText");
+            var updateBadge = this.FindControl<Border>("SettingsAboutUpdateBadge");
+            var updateBadgeText = this.FindControl<TextBlock>("SettingsAboutUpdateBadgeText");
+
+            bool hasNewerUpdate = _latestUpdateInfo != null &&
+                                  UpdateManager.IsNewerVersion(UpdateManager.CURRENT_VERSION, _latestUpdateInfo.Version);
+
+            if (hasNewerUpdate)
+            {
+                if (statusBadge != null)
+                {
+                    statusBadge.IsVisible = false;
+                }
+
+                if (updateBadge != null && updateBadgeText != null)
+                {
+                    updateBadge.IsVisible = true;
+                    updateBadgeText.Text = $"Yeni Sürüm Mevcut: v{_latestUpdateInfo!.Version}";
+                    updateBadge.Background = new SolidColorBrush(Color.Parse("#2222c55e"));
+                    updateBadgeText.Foreground = new SolidColorBrush(Color.Parse("#16a34a"));
+                }
+                lastCheckText.IsVisible = false;
+                return;
+            }
+
+            if (statusBadge != null && statusBadgeText != null)
+            {
+                statusBadge.IsVisible = true;
+                statusBadgeText.Text = "Sürüm Güncel";
+                statusBadge.Background = new SolidColorBrush(Color.Parse("#223b82f6"));
+                statusBadgeText.Foreground = (IBrush)this.FindResource("Accent")!;
+            }
+
+            if (updateBadge != null)
+            {
+                updateBadge.IsVisible = false;
+            }
+            lastCheckText.IsVisible = true;
+
+            if (string.IsNullOrEmpty(_appSettings.LastUpdateCheckTime))
+            {
+                lastCheckText.Text = _appSettings.CheckUpdatesOnStartup
+                    ? "Otomatik denetim aktif"
+                    : "Otomatik denetim kapalı";
+            }
+            else
+            {
+                lastCheckText.Text = $"Son denetim: {_appSettings.LastUpdateCheckTime}";
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Hakkında sekmesi: Güncellemeleri Denetle butonu
+        // ─────────────────────────────────────────────────────────────
+        private async void CheckForUpdatesManual_Click(object? sender, RoutedEventArgs e)
+        {
+            await CheckForUpdatesAsync(manualTrigger: true);
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // YENİ: Oynatıcı Motoru — VLC / mpv (iki ayrı buton)
         //
         // Tema/Otomatik Yenileme ile birebir aynı desen: iki buton, biri
@@ -206,18 +300,58 @@ namespace GlyphTV
             _appSettings.RemoveInterlacing = !_appSettings.RemoveInterlacing;
             SaveAppSettings();
             UpdateInterlaceToggleState();
-            _engine?.SetDeinterlace(_appSettings.RemoveInterlacing);
+            _engine?.SetDeinterlace(_appSettings.RemoveInterlacing, _appSettings.DeinterlaceMode);
             ShowToast(_appSettings.RemoveInterlacing
-                ? "İnterlacing kaldırma aktif."
+                ? $"İnterlacing kaldırma aktif ({DeinterlaceModeLabel(_appSettings.DeinterlaceMode)})."
                 : "İnterlacing kaldırma kapatıldı.");
         }
 
+        internal void DeinterlaceModeItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not Border b || b.Tag is not string mode) return;
+            SetDeinterlaceMode(mode);
+        }
+
+        private void SetDeinterlaceMode(string mode)
+        {
+            _appSettings.DeinterlaceMode = mode;
+            SaveAppSettings();
+            UpdateDeinterlaceModesActiveState();
+            if (_appSettings.RemoveInterlacing)
+            {
+                _engine?.SetDeinterlace(true, mode);
+            }
+            ShowToast($"Deinterlace Modu: {DeinterlaceModeLabel(mode)}");
+        }
+
+        private static string DeinterlaceModeLabel(string mode) => mode switch
+        {
+            "yadif2x" => "Yadif 2X (Çift Kare)",
+            "yadif"   => "Yadif (Tek Kare)",
+            "bob"     => "Bob (Donanım)",
+            "linear"  => "Linear",
+            _         => "Yadif 2X"
+        };
+
         private void UpdateInterlaceToggleState()
         {
-            // DÜZELTME: bkz. UpdateHwDecodeItemsActiveState'teki aynı notun
-            // açıklaması — Settings-sekmesi kontrolü kaldırıldı, sadece
-            // popup'taki kopya güncelleniyor.
             SetSelectListItemActive(PopupInterlaceItem, PopupInterlaceCheck, _appSettings.RemoveInterlacing);
+            if (DeinterlaceModesContainer != null)
+            {
+                DeinterlaceModesContainer.Opacity = _appSettings.RemoveInterlacing ? 1.0 : 0.38;
+                DeinterlaceModesContainer.IsHitTestVisible = _appSettings.RemoveInterlacing;
+            }
+            UpdateDeinterlaceModesActiveState();
+        }
+
+        private void UpdateDeinterlaceModesActiveState()
+        {
+            string mode = _appSettings.DeinterlaceMode;
+            SetSelectListItemActive(PopupDeintYadif2xItem, null, mode == "yadif2x");
+            SetSelectListItemActive(PopupDeintYadifItem, null, mode == "yadif");
+            SetSelectListItemActive(PopupDeintBobItem, null, mode == "bob");
+            SetSelectListItemActive(PopupDeintLinearItem, null, mode == "linear");
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -333,6 +467,115 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
+        // YENİ: Resim Modları (Doğal, Canlı, Spor, Sinema) & F1 - F4
+        // ─────────────────────────────────────────────────────────────
+        internal void PresetNatural_Click(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            ApplyPicturePreset("natural");
+        }
+
+        internal void PresetVivid_Click(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            ApplyPicturePreset("vivid");
+        }
+
+        internal void PresetSports_Click(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            ApplyPicturePreset("sports");
+        }
+
+        internal void PresetCinema_Click(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            ApplyPicturePreset("cinema");
+        }
+
+        public void ApplyPicturePreset(string preset, bool showToast = true)
+        {
+            switch (preset.ToLowerInvariant())
+            {
+                case "vivid":
+                    _appSettings.Brightness = 4;
+                    _appSettings.Contrast = 16;
+                    _appSettings.Saturation = 28;
+                    _appSettings.Gamma = 6;
+                    _appSettings.PicturePreset = "vivid";
+                    break;
+                case "sports":
+                    _appSettings.Brightness = 8;
+                    _appSettings.Contrast = 22;
+                    _appSettings.Saturation = 32;
+                    _appSettings.Gamma = -4;
+                    _appSettings.PicturePreset = "sports";
+                    break;
+                case "cinema":
+                    _appSettings.Brightness = -4;
+                    _appSettings.Contrast = 12;
+                    _appSettings.Saturation = -4;
+                    _appSettings.Gamma = 14;
+                    _appSettings.PicturePreset = "cinema";
+                    break;
+                case "natural":
+                default:
+                    _appSettings.Brightness = 0;
+                    _appSettings.Contrast = 0;
+                    _appSettings.Saturation = 0;
+                    _appSettings.Gamma = 0;
+                    _appSettings.PicturePreset = "natural";
+                    break;
+            }
+
+            SaveAppSettings();
+            InitializeMpvEqSliderValues();
+            UpdatePicturePresetActiveState();
+
+            _engine?.SetBrightness(_appSettings.Brightness);
+            _engine?.SetContrast(_appSettings.Contrast);
+            _engine?.SetSaturation(_appSettings.Saturation);
+            _engine?.SetGamma(_appSettings.Gamma);
+
+            if (showToast)
+            {
+                string name = _appSettings.PicturePreset switch
+                {
+                    "vivid" => "Canlı [F2]",
+                    "sports" => "Spor [F3]",
+                    "cinema" => "Sinema [F4]",
+                    _ => "Doğal [F1]"
+                };
+                ShowToast($"Resim Modu: {name}");
+            }
+        }
+
+        private void UpdatePicturePresetActiveState()
+        {
+            string preset = _appSettings.PicturePreset;
+            SetSelectListItemActive(PresetNaturalItem, null, preset == "natural");
+            SetSelectListItemActive(PresetVividItem, null, preset == "vivid");
+            SetSelectListItemActive(PresetSportsItem, null, preset == "sports");
+            SetSelectListItemActive(PresetCinemaItem, null, preset == "cinema");
+        }
+
+        private void CheckCustomPreset()
+        {
+            int b = _appSettings.Brightness;
+            int c = _appSettings.Contrast;
+            int s = _appSettings.Saturation;
+            int g = _appSettings.Gamma;
+
+            if (b == 0 && c == 0 && s == 0 && g == 0) _appSettings.PicturePreset = "natural";
+            else if (b == 4 && c == 16 && s == 28 && g == 6) _appSettings.PicturePreset = "vivid";
+            else if (b == 8 && c == 22 && s == 32 && g == -4) _appSettings.PicturePreset = "sports";
+            else if (b == -4 && c == 12 && s == -4 && g == 14) _appSettings.PicturePreset = "cinema";
+            else _appSettings.PicturePreset = "custom";
+
+            UpdatePicturePresetActiveState();
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // YENİ: İnce görüntü ayarları (Parlaklık/Kontrast/Doygunluk/Gama)
         // — mpv Ayarları popup'ındaki 4 slider.
         // Aralık -100..100, varsayılan 0. Değer değiştikçe ANINDA uygulanır.
@@ -342,7 +585,9 @@ namespace GlyphTV
             int value = (int)e.NewValue;
             _appSettings.Brightness = value;
             if (MpvEqBrightnessText != null) MpvEqBrightnessText.Text = value.ToString();
-            if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine) mpvEngine.SetBrightness(value);
+            CheckCustomPreset();
+            SaveAppSettings();
+            _engine?.SetBrightness(value);
         }
 
         internal void MpvEqContrast_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -350,7 +595,9 @@ namespace GlyphTV
             int value = (int)e.NewValue;
             _appSettings.Contrast = value;
             if (MpvEqContrastText != null) MpvEqContrastText.Text = value.ToString();
-            if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine) mpvEngine.SetContrast(value);
+            CheckCustomPreset();
+            SaveAppSettings();
+            _engine?.SetContrast(value);
         }
 
         internal void MpvEqSaturation_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -358,7 +605,9 @@ namespace GlyphTV
             int value = (int)e.NewValue;
             _appSettings.Saturation = value;
             if (MpvEqSaturationText != null) MpvEqSaturationText.Text = value.ToString();
-            if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine) mpvEngine.SetSaturation(value);
+            CheckCustomPreset();
+            SaveAppSettings();
+            _engine?.SetSaturation(value);
         }
 
         internal void MpvEqGamma_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -366,7 +615,9 @@ namespace GlyphTV
             int value = (int)e.NewValue;
             _appSettings.Gamma = value;
             if (MpvEqGammaText != null) MpvEqGammaText.Text = value.ToString();
-            if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine) mpvEngine.SetGamma(value);
+            CheckCustomPreset();
+            SaveAppSettings();
+            _engine?.SetGamma(value);
         }
 
         // Slider'ların ilk değerlerini (kayıtlı AppSettings'ten) uygular —
@@ -382,8 +633,10 @@ namespace GlyphTV
             if (MpvEqContrastText != null) MpvEqContrastText.Text = _appSettings.Contrast.ToString();
             if (MpvEqSaturationText != null) MpvEqSaturationText.Text = _appSettings.Saturation.ToString();
             if (MpvEqGammaText != null) MpvEqGammaText.Text = _appSettings.Gamma.ToString();
+            UpdatePicturePresetActiveState();
         }
 
+        // ─────────────────────────────────────────────────────────────
         // ─────────────────────────────────────────────────────────────
         // YENİ: Oynatıcı üzerindeki ⚙️ (mpv Ayarları) butonu — popup'ı
         // aç/kapat. Diğer player popup'larıyla (Ses Dili/Altyazı/EnBoy)
@@ -400,12 +653,21 @@ namespace GlyphTV
             if (MpvSettingsPopup.IsVisible) { MpvSettingsPopup.IsVisible = false; return; }
 
             InitializeMpvEqSliderValues();
-            // YENİ: popup'a eklenen Donanım Çözümlemesi / İnterlacing
-            // kopya kontrollerinin ✓ işaretleri ve "Aktif: ..." durum
-            // metni her açılışta güncel olsun.
             UpdateHwDecodeItemsActiveState();
             UpdateInterlaceToggleState();
+            UpdateShaderItemsActiveState();
+            UpdateZappingItemsActiveState();
+            UpdateAudioEnhanceItemsActiveState();
+            UpdatePicturePresetActiveState();
+            UpdateHdrToneMappingItemsActiveState();
+            UpdateHdrTargetPeakItemsActiveState();
+            UpdateScalingQualityButtonsActiveState();
             UpdateMpvPopupStatusText();
+
+            // Sadece MPV motorunda geçerli olan shader bölümü VLC'de gizlenir
+            if (ShaderSectionContainer != null)
+                ShaderSectionContainer.IsVisible = (_appSettings.PlayerEngine == "Mpv");
+
             MpvSettingsPopup.IsVisible = true;
         }
 
@@ -413,27 +675,106 @@ namespace GlyphTV
             MpvSettingsPopup.IsVisible = false;
 
         // ─────────────────────────────────────────────────────────────
-        // YENİ: Popup başlığının altındaki "Aktif: ..." durum satırı —
-        // o an geçerli donanım çözümleme modunu gösterir (bkz. görsel
-        // referans). HDR/ölçekleme/interlacing değişikliklerinde de
-        // görünürlük açısından bir farkı olmasa da, ileride buraya başka
-        // bilgi eklenmek istenirse tek bir yerden güncellenebilsin diye
-        // ayrı bir metoda alındı.
+        // YENİ: AMD FidelityFX CAS & FSR GLSL Shader Seçimi
+        // ─────────────────────────────────────────────────────────────
+        internal void ShaderItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not Border b || b.Tag is not string mode) return;
+            _appSettings.ShaderMode = mode;
+            SaveAppSettings();
+            UpdateShaderItemsActiveState();
+            _engine?.SetShaderMode(mode);
+            ShowToast(mode switch
+            {
+                "cas" => "AMD FidelityFX CAS keskinleştirme aktif",
+                "fsr" => "AMD FSR süper çözünürlük aktif",
+                _     => "Görüntü shader'ı kapatıldı"
+            });
+        }
+
+        internal void UpdateShaderItemsActiveState()
+        {
+            try
+            {
+                string mode = _appSettings.ShaderMode;
+                SetSelectListItemActive(ShaderOffItem, null, mode == "off");
+                SetSelectListItemActive(ShaderCasItem, null, mode == "cas");
+                SetSelectListItemActive(ShaderFsrItem, null, mode == "fsr");
+            }
+            catch { }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: Canlı TV Ultra-Fast Zapping Modu
+        // ─────────────────────────────────────────────────────────────
+        internal void ZappingItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not Border b || b.Tag is not string tag) return;
+            bool fast = tag == "fast";
+            _appSettings.FastZapping = fast;
+            SaveAppSettings();
+            UpdateZappingItemsActiveState();
+            _engine?.SetFastZapping(fast);
+            ShowToast(fast
+                ? "⚡ Ultra Hızlı Kanal Geçişi (200ms) aktif"
+                : "Standart Tamponlu Geçiş Modu aktif");
+        }
+
+        internal void UpdateZappingItemsActiveState()
+        {
+            try
+            {
+                bool fast = _appSettings.FastZapping;
+                SetSelectListItemActive(ZappingFastItem, null, fast);
+                SetSelectListItemActive(ZappingStableItem, null, !fast);
+            }
+            catch { }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: Akıllı Ses İşleme (EBU R128 Loudnorm & Gece Modu)
+        // ─────────────────────────────────────────────────────────────
+        internal void AudioEnhanceItem_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not Border b || b.Tag is not string mode) return;
+            _appSettings.AudioEnhancement = mode;
+            SaveAppSettings();
+            UpdateAudioEnhanceItemsActiveState();
+            _engine?.SetAudioEnhancement(mode);
+            ShowToast(mode switch
+            {
+                "loudnorm" => "EBU R128 Akıllı Ses Dengeleme (Loudnorm) aktif",
+                "night"    => "Gece Modu (Dinamik Kompresör) aktif",
+                _          => "Ses işleme kapatıldı (Standart ses)"
+            });
+        }
+
+        internal void UpdateAudioEnhanceItemsActiveState()
+        {
+            try
+            {
+                string mode = _appSettings.AudioEnhancement;
+                SetSelectListItemActive(AudioEnhanceOffItem, null, mode == "off");
+                SetSelectListItemActive(AudioEnhanceLoudnormItem, null, mode == "loudnorm");
+                SetSelectListItemActive(AudioEnhanceNightItem, null, mode == "night");
+            }
+            catch { }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // YENİ: Popup başlığının altındaki "Aktif: ..." durum satırı
         // ─────────────────────────────────────────────────────────────
         private void UpdateMpvPopupStatusText()
         {
             if (MpvPopupStatusText != null)
-                MpvPopupStatusText.Text = $"Aktif: {_appSettings.HwDecodeMode}";
+                MpvPopupStatusText.Text = $"Motor: {(_appSettings.PlayerEngine == "Mpv" ? "MPV" : "VLC")} | HW: {_appSettings.HwDecodeMode}";
         }
 
         // ─────────────────────────────────────────────────────────────
-        // YENİ: mpv Ayarları popup'ındaki "Sıfırla" butonu — SADECE bu
-        // popup'taki görüntü/performans ayarlarını (Parlaklık/Kontrast/
-        // Doygunluk/Gama, HDR ton eşleme/hedef tepe parlaklığı, işleme
-        // kalitesi, donanım çözümlemesi, interlacing) varsayılana
-        // döndürür. Ayarlar sekmesindeki "Sıfırla" (ResetApp_Click) ile
-        // KARIŞTIRILMAMALI — o TÜM uygulamayı (kaynaklar, geçmiş, tema
-        // vb.) sıfırlar; bu sadece oynatıcının görüntü ayarlarını.
+        // YENİ: mpv Ayarları popup'ındaki "Sıfırla" butonu
         // ─────────────────────────────────────────────────────────────
         internal void MpvResetSettings_Click(object? sender, RoutedEventArgs e) => ResetMpvSettingsCore();
 
@@ -449,50 +790,59 @@ namespace GlyphTV
             _appSettings.Contrast = 0;
             _appSettings.Saturation = 0;
             _appSettings.Gamma = 0;
+            _appSettings.PicturePreset = "natural";
             _appSettings.HdrToneMapping = "auto";
             _appSettings.HdrTargetPeak = "auto";
             _appSettings.ScalingQuality = "default";
             _appSettings.HwDecodeMode = "auto";
             _appSettings.RemoveInterlacing = false;
+            _appSettings.DeinterlaceMode = "yadif2x";
+            _appSettings.ShaderMode = "off";
+            _appSettings.FastZapping = true;
+            _appSettings.AudioEnhancement = "off";
             SaveAppSettings();
 
             InitializeMpvEqSliderValues();
+            UpdatePicturePresetActiveState();
             UpdateHdrToneMappingItemsActiveState();
             UpdateHdrTargetPeakItemsActiveState();
             UpdateScalingQualityButtonsActiveState();
             UpdateHwDecodeItemsActiveState();
             UpdateInterlaceToggleState();
+            UpdateShaderItemsActiveState();
+            UpdateZappingItemsActiveState();
+            UpdateAudioEnhanceItemsActiveState();
             UpdateMpvPopupStatusText();
 
+            _engine?.SetBrightness(0);
+            _engine?.SetContrast(0);
+            _engine?.SetSaturation(0);
+            _engine?.SetGamma(0);
             if (_engine is GlyphTV.PlayerEngines.MpvPlayerEngine mpvEngine)
             {
-                mpvEngine.SetBrightness(0);
-                mpvEngine.SetContrast(0);
-                mpvEngine.SetSaturation(0);
-                mpvEngine.SetGamma(0);
                 mpvEngine.SetHdrToneMapping("auto");
                 mpvEngine.SetHdrTargetPeak("auto");
                 mpvEngine.SetScalingQuality("default");
             }
             _engine?.SetHardwareDecoding("auto");
-            _engine?.SetDeinterlace(false);
+            _engine?.SetDeinterlace(false, "yadif2x");
+            _engine?.SetShaderMode("off");
+            _engine?.SetFastZapping(true);
+            _engine?.SetAudioEnhancement("off");
 
-            ShowToast("mpv görüntü ayarları varsayılana döndürüldü.");
+            ShowToast("Gelişmiş ayarlar varsayılana döndürüldü.");
         }
 
         // ─────────────────────────────────────────────────────────────
-        // YENİ: ⚙️ butonu SADECE mpv motoru aktifken görünür olmalı (VLC'de
-        // bu düzeyde ayrıntılı görüntü/HDR kontrolü yok). MainWindow.
-        // Player.cs → ConfigurePlayerUIForContentType (her PlayChannel'da)
-        // ve SetPlayerEngine (motor değiştiğinde) tarafından çağrılır.
+        // ⚙️ Gelişmiş video/performans ayarları butonu — VLC ve mpv
+        // her iki motor için de gelişmiş görüntü, donanım hızlandırma ve
+        // interlacing ayarlarını sunar.
         // ─────────────────────────────────────────────────────────────
         internal void UpdateMpvSettingsButtonVisibility()
         {
             try
             {
-                bool isMpv = _appSettings.PlayerEngine == "Mpv";
-                if (MpvSettingsBtn != null) MpvSettingsBtn.IsVisible = isMpv;
-                if (!isMpv && MpvSettingsPopup != null) MpvSettingsPopup.IsVisible = false;
+                if (MpvSettingsBtn != null) MpvSettingsBtn.IsVisible = true;
             }
             catch { }
         }
@@ -623,7 +973,11 @@ namespace GlyphTV
             if (SettingsTabAppearance != null) SettingsTabAppearance.IsVisible = tabKey == "Appearance";
             if (SettingsTabData != null) SettingsTabData.IsVisible = tabKey == "Data";
             if (SettingsTabShortcuts != null) SettingsTabShortcuts.IsVisible = tabKey == "Shortcuts";
-            if (SettingsTabAbout != null) SettingsTabAbout.IsVisible = tabKey == "About";
+            if (SettingsTabAbout != null)
+            {
+                SettingsTabAbout.IsVisible = tabKey == "About";
+                if (tabKey == "About") UpdateAboutTabUpdateStatusText();
+            }
 
             SetActiveClass(SettingsNavSources, tabKey == "Sources");
             SetActiveClass(SettingsNavAppearance, tabKey == "Appearance");
@@ -669,6 +1023,9 @@ namespace GlyphTV
             UpdateHdrTargetPeakItemsActiveState();
             UpdateHwDecodeItemsActiveState();
             UpdateInterlaceToggleState();
+            UpdateShaderItemsActiveState();
+            UpdateZappingItemsActiveState();
+            UpdateAudioEnhanceItemsActiveState();
             InitializeMpvEqSliderValues();
 
             _sources.Clear();
@@ -729,14 +1086,11 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Proje ve topluluk bağlantıları (GitHub / Telegram)
+        // Proje bağlantısı (GitHub)
         // ─────────────────────────────────────────────────────────────
         private const string GITHUB_REPO_URL = "https://github.com/brsbllky/GlyphTV";
-        private const string TELEGRAM_GROUP_URL = "https://t.me/glyphtv";
 
         private void OpenGithub_Click(object? sender, RoutedEventArgs e) => OpenExternalLink(GITHUB_REPO_URL);
-
-        private void OpenTelegram_Click(object? sender, RoutedEventArgs e) => OpenExternalLink(TELEGRAM_GROUP_URL);
 
         private void OpenExternalLink(string url)
         {

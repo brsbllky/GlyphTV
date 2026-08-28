@@ -19,6 +19,7 @@
 // değildir.
 // ============================================================
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -50,6 +51,47 @@ namespace GlyphTV
             // → constructor'ın da InitializeComponent()'i hiç tanımlamadan
             // aynen çağırdığı aynı desen).
             InitializeComponent();
+
+            this.PositionChanged += (s, e) =>
+            {
+                if (_owner != null && _owner._isPipMode && !_owner._isSyncingPipPosition)
+                {
+                    if (this.Position.X < -10000 || this.Position.Y < -10000) return;
+                    _owner._isSyncingPipPosition = true;
+                    try
+                    {
+                        if (_owner.Position != this.Position)
+                            _owner.Position = this.Position;
+                    }
+                    finally
+                    {
+                        _owner._isSyncingPipPosition = false;
+                    }
+                }
+            };
+
+            this.PropertyChanged += (s, e) =>
+            {
+                if (e.Property == Window.BoundsProperty && _owner != null && _owner._isPipMode && !_owner._isSyncingPipPosition)
+                {
+                    var b = this.Bounds;
+                    if (b.Width >= 320 && b.Height >= 180)
+                    {
+                        _owner._isSyncingPipPosition = true;
+                        try
+                        {
+                            if (Math.Abs(_owner.Width - b.Width) > 1.0) _owner.Width = b.Width;
+                            if (Math.Abs(_owner.Height - b.Height) > 1.0) _owner.Height = b.Height;
+                            if (this.Position.X > -10000 && this.Position.Y > -10000 && _owner.Position != this.Position)
+                                _owner.Position = this.Position;
+                        }
+                        finally
+                        {
+                            _owner._isSyncingPipPosition = false;
+                        }
+                    }
+                }
+            };
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -68,12 +110,28 @@ namespace GlyphTV
         private void PlayerOverlay_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.PlayerOverlay_PointerPressed(sender, e);
 
         // ─────────────────────────────────────────────────────────────
-        // Üst bar pill butonları
+        // Üst bar pill butonları & Altyazı Senkronizasyonu
         // ─────────────────────────────────────────────────────────────
         private void BtnAudioTrack_Click(object? sender, PointerPressedEventArgs e) => _owner.BtnAudioTrack_Click(sender, e);
         private void BtnChannelList_Click(object? sender, PointerPressedEventArgs e) => _owner.BtnChannelList_Click(sender, e);
         private void BtnAspectRatio_Click(object? sender, PointerPressedEventArgs e) => _owner.BtnAspectRatio_Click(sender, e);
         private void BtnSubtitle_Click(object? sender, PointerPressedEventArgs e) => _owner.BtnSubtitle_Click(sender, e);
+
+        private void SubDelayMinus500_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayMinus500_Click(sender, e);
+        private void SubDelayMinus100_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayMinus100_Click(sender, e);
+        private void SubDelayMinus50_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayMinus50_Click(sender, e);
+        private void SubDelayPlus50_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayPlus50_Click(sender, e);
+        private void SubDelayPlus100_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayPlus100_Click(sender, e);
+        private void SubDelayPlus500_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayPlus500_Click(sender, e);
+        private void SubDelayReset_Click(object? sender, PointerPressedEventArgs e) => _owner.SubDelayReset_Click(sender, e);
+
+        private void AudioDelayMinus500_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayMinus500_Click(sender, e);
+        private void AudioDelayMinus100_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayMinus100_Click(sender, e);
+        private void AudioDelayMinus50_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayMinus50_Click(sender, e);
+        private void AudioDelayPlus50_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayPlus50_Click(sender, e);
+        private void AudioDelayPlus100_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayPlus100_Click(sender, e);
+        private void AudioDelayPlus500_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayPlus500_Click(sender, e);
+        private void AudioDelayReset_Click(object? sender, PointerPressedEventArgs e) => _owner.AudioDelayReset_Click(sender, e);
 
         // ─────────────────────────────────────────────────────────────
         // Alt bar kontroller
@@ -86,6 +144,7 @@ namespace GlyphTV
         private void NextChannel_Click(object? sender, PointerPressedEventArgs e) => _owner.NextChannel_Click(sender, e);
         private void NextEpisode_Click(object? sender, PointerPressedEventArgs e) => _owner.NextEpisode_Click(sender, e);
         private void Speed_Click(object? sender, PointerPressedEventArgs e) => _owner.Speed_Click(sender, e);
+        private void Pip_Click(object? sender, PointerPressedEventArgs e) => _owner.Pip_Click(sender, e);
         private void Fullscreen_Click(object? sender, PointerPressedEventArgs e) => _owner.Fullscreen_Click(sender, e);
 
         private void TimeSlider_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e) => _owner.TimeSlider_ValueChanged(sender, e);
@@ -114,6 +173,10 @@ namespace GlyphTV
         private void ScalingQualityDefault_Click(object? sender, RoutedEventArgs e) => _owner.ScalingQualityDefault_Click(sender, e);
         private void ScalingQualityHigh_Click(object? sender, RoutedEventArgs e) => _owner.ScalingQualityHigh_Click(sender, e);
 
+        private void ShaderItem_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.ShaderItem_PointerPressed(sender, e);
+        private void ZappingItem_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.ZappingItem_PointerPressed(sender, e);
+        private void AudioEnhanceItem_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.AudioEnhanceItem_PointerPressed(sender, e);
+
         private void MpvEqBrightness_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e) => _owner.MpvEqBrightness_ValueChanged(sender, e);
         private void MpvEqContrast_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e) => _owner.MpvEqContrast_ValueChanged(sender, e);
         private void MpvEqSaturation_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e) => _owner.MpvEqSaturation_ValueChanged(sender, e);
@@ -130,10 +193,45 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         private void HwDecodeItem_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.HwDecodeItem_PointerPressed(sender, e);
         private void InterlaceToggle_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.InterlaceToggle_PointerPressed(sender, e);
+        private void DeinterlaceModeItem_PointerPressed(object? sender, PointerPressedEventArgs e) => _owner.DeinterlaceModeItem_PointerPressed(sender, e);
+
+        private void PresetNatural_Click(object? sender, PointerPressedEventArgs e) => _owner.PresetNatural_Click(sender, e);
+        private void PresetVivid_Click(object? sender, PointerPressedEventArgs e) => _owner.PresetVivid_Click(sender, e);
+        private void PresetSports_Click(object? sender, PointerPressedEventArgs e) => _owner.PresetSports_Click(sender, e);
+        private void PresetCinema_Click(object? sender, PointerPressedEventArgs e) => _owner.PresetCinema_Click(sender, e);
 
         // ─────────────────────────────────────────────────────────────
         // YENİ: mpv Ayarları popup'ı başlığındaki "Sıfırla" butonu.
         // ─────────────────────────────────────────────────────────
         private void MpvResetSettings_Click(object? sender, PointerPressedEventArgs e) => _owner.MpvResetSettings_Click(sender, e);
+
+        // ─────────────────────────────────────────────────────────────
+        // PiP Modu Kenar / Köşe Yeniden Boyutlandırma & Popup Tıklama Koruması
+        // ─────────────────────────────────────────────────────────────
+        private void ResizeEdge_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_owner != null && _owner._isPipMode && sender is Border b && b.Tag is string tag)
+            {
+                WindowEdge edge = tag switch
+                {
+                    "NW" => WindowEdge.NorthWest,
+                    "N" => WindowEdge.North,
+                    "NE" => WindowEdge.NorthEast,
+                    "W" => WindowEdge.West,
+                    "E" => WindowEdge.East,
+                    "SW" => WindowEdge.SouthWest,
+                    "S" => WindowEdge.South,
+                    "SE" => WindowEdge.SouthEast,
+                    _ => WindowEdge.SouthEast
+                };
+                this.BeginResizeDrag(edge, e);
+                e.Handled = true;
+            }
+        }
+
+        private void Popup_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
+        }
     }
 }

@@ -5,7 +5,9 @@
         SystemDecorations="None"
         ShowInTaskbar="False"
         ShowActivated="False"
-        CanResize="False"
+        CanResize="True"
+        MinWidth="320"
+        MinHeight="180"
         WindowStartupLocation="Manual"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
@@ -468,7 +470,15 @@
 
 											<Border Width="1" Height="18" Background="#22ffffff" Margin="4,0"/>
 
-											<Border Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Fullscreen_Click" ToolTip.Tip="Tam Ekran">
+											<Border x:Name="PipBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Pip_Click" ToolTip.Tip="Picture-in-Picture (PiP) [Shift+T]">
+												<Viewbox Width="17" Height="17" IsHitTestVisible="False">
+													<Canvas Width="24" Height="24">
+														<Path Data="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z" Fill="#CCffffff"/>
+													</Canvas>
+												</Viewbox>
+											</Border>
+
+											<Border Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Fullscreen_Click" ToolTip.Tip="Tam Ekran [F]">
 												<Viewbox Width="17" Height="17" IsHitTestVisible="False">
 													<Canvas Width="24" Height="24">
 														<Path Data="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" Fill="#CCffffff"/>
@@ -490,7 +500,7 @@
 							</Border>
 
 							<!-- KANAL LİSTESİ POPUP -->
-							<Border x:Name="ChannelListPanel" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" Width="280" MaxHeight="460" ZIndex="25">
+							<Border x:Name="ChannelListPanel" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" Width="280" MaxHeight="460" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<Grid RowDefinitions="Auto, *">
 									<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="4,0,0,8">
 										<TextBlock Text="Kanallar" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
@@ -515,11 +525,11 @@
 								</Grid>
 							</Border>
 
-							<!-- SES DİLİ POPUP -->
-							<Border x:Name="AudioTrackPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" MaxWidth="280" MaxHeight="320" ZIndex="25">
-								<Grid RowDefinitions="Auto, *">
+							<!-- SES DİLİ POPUP (CANLI İÇERİKLER İÇİN) -->
+							<Border x:Name="AudioTrackPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="240" MaxWidth="320" MaxHeight="480" ZIndex="50" PointerPressed="Popup_PointerPressed">
+								<Grid RowDefinitions="Auto, *, Auto, Auto, Auto">
 									<TextBlock Grid.Row="0" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,8"/>
-									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="260">
+									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="180">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
 												<Setter Property="Background" Value="Transparent"/>
@@ -527,14 +537,48 @@
 										</ScrollViewer.Styles>
 										<StackPanel x:Name="AudioTrackContainer" x:FieldModifier="Public" Spacing="2"/>
 									</ScrollViewer>
+
+									<!-- SES SENKRONİZASYONU BÖLÜMÜ -->
+									<Border Grid.Row="2" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
+									<Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="4,0,4,6">
+										<TextBlock Text="Ses Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+										<TextBlock x:Name="AudioDelayText" x:FieldModifier="Public" Grid.Column="1" Text="0 ms" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" FontFamily="Consolas,monospace" VerticalAlignment="Center"/>
+									</Grid>
+									<StackPanel Grid.Row="4" Spacing="6" Margin="0,0,0,4">
+										<Grid ColumnDefinitions="*,*,*">
+											<Border Grid.Column="0" Classes="SelectListItemCompact" Margin="0,0,2,0" PointerPressed="AudioDelayMinus500_Click" ToolTip.Tip="-500 ms (Sesi İlerlet/Erken) [Shift+J]">
+												<TextBlock Text="-500ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="1" Classes="SelectListItemCompact" Margin="2,0,2,0" PointerPressed="AudioDelayMinus100_Click" ToolTip.Tip="-100 ms (Sesi İlerlet/Erken)">
+												<TextBlock Text="-100ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="2" Classes="SelectListItemCompact" Margin="2,0,0,0" PointerPressed="AudioDelayMinus50_Click" ToolTip.Tip="-50 ms (Sesi İlerlet/Erken) [J]">
+												<TextBlock Text="-50ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+										</Grid>
+										<Grid ColumnDefinitions="*,*,*">
+											<Border Grid.Column="0" Classes="SelectListItemCompact" Margin="0,0,2,0" PointerPressed="AudioDelayPlus50_Click" ToolTip.Tip="+50 ms (Sesi Geciktir) [K]">
+												<TextBlock Text="+50ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="1" Classes="SelectListItemCompact" Margin="2,0,2,0" PointerPressed="AudioDelayPlus100_Click" ToolTip.Tip="+100 ms (Sesi Geciktir)">
+												<TextBlock Text="+100ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="2" Classes="SelectListItemCompact" Margin="2,0,0,0" PointerPressed="AudioDelayPlus500_Click" ToolTip.Tip="+500 ms (Sesi Geciktir) [Shift+K]">
+												<TextBlock Text="+500ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+										</Grid>
+										<Border Classes="SelectListItemCompact" PointerPressed="AudioDelayReset_Click" Background="#1Affffff" ToolTip.Tip="Ses Senkronunu Sıfırla (0 ms) [L]">
+											<TextBlock Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
+										</Border>
+									</StackPanel>
 								</Grid>
 							</Border>
 
 							<!-- ALTYAZI + SES DİLİ POPUP -->
-							<Border x:Name="SubtitlePopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="220" MaxWidth="300" MaxHeight="420" ZIndex="25">
-								<Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+							<Border x:Name="SubtitlePopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="240" MaxWidth="320" MaxHeight="540" ZIndex="50" PointerPressed="Popup_PointerPressed">
+								<Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto">
 									<TextBlock Grid.Row="0" Text="Altyazı" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
-									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="140">
+									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="120">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
 												<Setter Property="Background" Value="Transparent"/>
@@ -542,9 +586,44 @@
 										</ScrollViewer.Styles>
 										<StackPanel x:Name="SubtitleContainer" x:FieldModifier="Public" Spacing="2" Margin="0,0,0,4"/>
 									</ScrollViewer>
+
+									<!-- ALTYAZI SENKRONİZASYONU BÖLÜMÜ -->
 									<Border Grid.Row="2" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
-									<TextBlock Grid.Row="3" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
-									<ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="140">
+									<Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="4,0,4,6">
+										<TextBlock Text="Altyazı Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+										<TextBlock x:Name="SubtitleDelayText" x:FieldModifier="Public" Grid.Column="1" Text="0 ms" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" FontFamily="Consolas,monospace" VerticalAlignment="Center"/>
+									</Grid>
+									<StackPanel Grid.Row="4" Spacing="6" Margin="0,0,0,4">
+										<Grid ColumnDefinitions="*,*,*">
+											<Border Grid.Column="0" Classes="SelectListItemCompact" Margin="0,0,2,0" PointerPressed="SubDelayMinus500_Click" ToolTip.Tip="-500 ms (Daha Erken) [Shift+G]">
+												<TextBlock Text="-500ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="1" Classes="SelectListItemCompact" Margin="2,0,2,0" PointerPressed="SubDelayMinus100_Click" ToolTip.Tip="-100 ms (Daha Erken)">
+												<TextBlock Text="-100ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="2" Classes="SelectListItemCompact" Margin="2,0,0,0" PointerPressed="SubDelayMinus50_Click" ToolTip.Tip="-50 ms (Daha Erken) [G]">
+												<TextBlock Text="-50ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+										</Grid>
+										<Grid ColumnDefinitions="*,*,*">
+											<Border Grid.Column="0" Classes="SelectListItemCompact" Margin="0,0,2,0" PointerPressed="SubDelayPlus50_Click" ToolTip.Tip="+50 ms (Daha Geç) [H]">
+												<TextBlock Text="+50ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="1" Classes="SelectListItemCompact" Margin="2,0,2,0" PointerPressed="SubDelayPlus100_Click" ToolTip.Tip="+100 ms (Daha Geç)">
+												<TextBlock Text="+100ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+											<Border Grid.Column="2" Classes="SelectListItemCompact" Margin="2,0,0,0" PointerPressed="SubDelayPlus500_Click" ToolTip.Tip="+500 ms (Daha Geç) [Shift+H]">
+												<TextBlock Text="+500ms" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+											</Border>
+										</Grid>
+										<Border Classes="SelectListItemCompact" PointerPressed="SubDelayReset_Click" Background="#1Affffff" ToolTip.Tip="Senkronu Sıfırla (0 ms) [Z]">
+											<TextBlock Text="Senkronu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
+										</Border>
+									</StackPanel>
+
+									<Border Grid.Row="5" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
+									<TextBlock Grid.Row="6" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
+									<ScrollViewer Grid.Row="7" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="120">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
 												<Setter Property="Background" Value="Transparent"/>
@@ -556,7 +635,7 @@
 							</Border>
 
 							<!-- ASPECT RATIO POPUP -->
-							<Border x:Name="AspectRatioPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" ZIndex="25">
+							<Border x:Name="AspectRatioPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<StackPanel>
 									<TextBlock Text="En:Boy Oranı" Foreground="#3b82f6" FontSize="13" FontWeight="Bold" Margin="0,0,0,8"/>
 									<StackPanel x:Name="AspectRatioContainer" x:FieldModifier="Public" Spacing="2"/>
@@ -576,7 +655,7 @@
 							     (kullanıcının paylaştığı referans görsele göre) — önceki
 							     dağınık 2'li satır grupları kaldırıldı.
 							     ============================================================ -->
-							<Border x:Name="MpvSettingsPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,20,0" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="14" IsVisible="False" Width="336" MaxHeight="540" ZIndex="25">
+							<Border x:Name="MpvSettingsPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="14" IsVisible="False" Width="336" MaxHeight="540" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<Grid RowDefinitions="Auto, *">
 									<StackPanel Grid.Row="0" Margin="0,0,0,10">
 										<Grid ColumnDefinitions="*, Auto, Auto">
@@ -603,7 +682,78 @@
 											</Style>
 										</ScrollViewer.Styles>
 										<StackPanel Spacing="4">
+											<!-- GÖRÜNTÜ İYİLEŞTİRME & SHADER (Sadece MPV) -->
+											<StackPanel x:Name="ShaderSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
+												<TextBlock Text="GÖRÜNTÜ İYİLEŞTİRME &amp; SHADER" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<Grid ColumnDefinitions="*,*,*">
+													<Border Grid.Column="0" x:Name="ShaderOffItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="off" PointerPressed="ShaderItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Shader kapalı (Orijinal görüntü)">
+														<TextBlock Text="Kapalı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="1" x:Name="ShaderCasItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="cas" PointerPressed="ShaderItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="AMD FidelityFX CAS (Canlı ve Keskin Yayın)">
+														<TextBlock Text="AMD CAS" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="2" x:Name="ShaderFsrItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="fsr" PointerPressed="ShaderItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="AMD FSR (FidelityFX Super Resolution / 4K Ölçekleme)">
+														<TextBlock Text="AMD FSR" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+												</Grid>
+												<TextBlock Text="AMD FidelityFX algoritmaları ile yayını netleştirir veya 4K ölçekler." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
+											</StackPanel>
+
+											<!-- CANLI TV KANAL GEÇİŞİ (ZAPPING) -->
+											<StackPanel x:Name="ZappingSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
+												<TextBlock Text="CANLI TV KANAL GEÇİŞİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<Grid ColumnDefinitions="*,*">
+													<Border Grid.Column="0" x:Name="ZappingFastItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="fast" PointerPressed="ZappingItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Düşük gecikmeli anlık kanal açılışı (200-300ms)">
+														<TextBlock Text="⚡ Ultra Hızlı (200ms)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="1" x:Name="ZappingStableItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="stable" PointerPressed="ZappingItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="Standart tamponlu kararlı mod">
+														<TextBlock Text="Standart (Kararlı)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+												</Grid>
+												<TextBlock Text="Canlı TV geçişlerinde tamponu sıfırlayarak kanal açılışını anında görüntüye indirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
+											</StackPanel>
+
+											<!-- AKILLI SES İŞLEME -->
+											<StackPanel x:Name="AudioEnhanceSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
+												<TextBlock Text="AKILLI SES İŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<Grid ColumnDefinitions="*,*,*">
+													<Border Grid.Column="0" x:Name="AudioEnhanceOffItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="off" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Orijinal ses">
+														<TextBlock Text="Standart" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="1" x:Name="AudioEnhanceLoudnormItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="loudnorm" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="EBU R128 Ses Dengeleme (Reklam/kanal ses patlamalarını önler)">
+														<TextBlock Text="Loudnorm" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="2" x:Name="AudioEnhanceNightItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="night" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="Gece Modu (Patlama ve efektleri kısıp diyalogları öne çıkarır)">
+														<TextBlock Text="Gece Modu" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+												</Grid>
+												<TextBlock Text="Kanal/reklam arası ani ses patlamalarını dengeler veya gece izlemede diyalogları netleştirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
+											</StackPanel>
+
 											<TextBlock Text="VİDEO" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+
+											<!-- RESİM MODLARI (F1 - F4) -->
+											<Grid ColumnDefinitions="*, Auto" Margin="0,0,0,3">
+												<TextBlock Text="RESİM MODU" Foreground="#CCffffff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+												<TextBlock Text="F1 - F4" Foreground="#66ffffff" FontSize="10" Grid.Column="1" VerticalAlignment="Center" FontFamily="Consolas,monospace"/>
+											</Grid>
+											<Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,8">
+												<Border Grid.Column="0" x:Name="PresetNaturalItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="natural" PointerPressed="PresetNatural_Click" Margin="0,0,2,0" ToolTip.Tip="Doğal / Nötr renk dengesi [F1]">
+													<TextBlock Text="Doğal" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="1" x:Name="PresetVividItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="vivid" PointerPressed="PresetVivid_Click" Margin="2,0,2,0" ToolTip.Tip="Canlı renkler ve kontrast [F2]">
+													<TextBlock Text="Canlı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="2" x:Name="PresetSportsItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="sports" PointerPressed="PresetSports_Click" Margin="2,0,2,0" ToolTip.Tip="Yüksek dinamik ve parlak renkler [F3]">
+													<TextBlock Text="Spor" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+												<Border Grid.Column="3" x:Name="PresetCinemaItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="cinema" PointerPressed="PresetCinema_Click" Margin="2,0,0,0" ToolTip.Tip="Sıcak tonlar ve sinematik gama [F4]">
+													<TextBlock Text="Sinema" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+												</Border>
+											</Grid>
 
 											<!-- DÜZELTME: Parlaklık/Kontrast artık yan yana (2 sütun) —
 											     önceden alt alta 4 ayrı slider tüm popup'u gereksiz
@@ -821,10 +971,39 @@
 													<TextBlock x:Name="PopupInterlaceCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False" VerticalAlignment="Center" Margin="6,0,0,0"/>
 												</Grid>
 											</Border>
+
+											<!-- Bağımlı Deinterlace Modları Seçimi -->
+											<StackPanel x:Name="DeinterlaceModesContainer" x:FieldModifier="Public" Margin="0,2,0,10" Spacing="4">
+												<TextBlock Text="DEINTERLACE ALGORİTMASI" Foreground="#88ffffff" FontSize="10" FontWeight="SemiBold" Margin="2,2,0,2"/>
+												<Grid ColumnDefinitions="*,*,*,*">
+													<Border Grid.Column="0" x:Name="PopupDeintYadif2xItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="yadif2x" PointerPressed="DeinterlaceModeItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Yadif 2X (50/60 FPS Akıcı Çift Kare - Önerilen)">
+														<TextBlock Text="Yadif 2X" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="1" x:Name="PopupDeintYadifItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="yadif" PointerPressed="DeinterlaceModeItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="Yadif (Standart Tek Kare)">
+														<TextBlock Text="Yadif" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="2" x:Name="PopupDeintBobItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="bob" PointerPressed="DeinterlaceModeItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="Bob (Hızlı Donanım Modu)">
+														<TextBlock Text="Bob" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+													<Border Grid.Column="3" x:Name="PopupDeintLinearItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="linear" PointerPressed="DeinterlaceModeItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="Linear (Doğrusal Enterpolasyon)">
+														<TextBlock Text="Linear" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													</Border>
+												</Grid>
+											</StackPanel>
 										</StackPanel>
 									</ScrollViewer>
 								</Grid>
 							</Border>
+
+							<!-- PiP YENİDEN BOYUTLANDIRMA KENARLARI (Resize Edges) -->
+							<Border x:Name="ResizeTop" Tag="N" Height="6" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent" Cursor="SizeNorthSouth" PointerPressed="ResizeEdge_PointerPressed" ZIndex="100"/>
+							<Border x:Name="ResizeBottom" Tag="S" Height="6" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Background="Transparent" Cursor="SizeNorthSouth" PointerPressed="ResizeEdge_PointerPressed" ZIndex="100"/>
+							<Border x:Name="ResizeLeft" Tag="W" Width="6" HorizontalAlignment="Left" VerticalAlignment="Stretch" Background="Transparent" Cursor="SizeWestEast" PointerPressed="ResizeEdge_PointerPressed" ZIndex="100"/>
+							<Border x:Name="ResizeRight" Tag="E" Width="6" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="Transparent" Cursor="SizeWestEast" PointerPressed="ResizeEdge_PointerPressed" ZIndex="100"/>
+							<Border x:Name="ResizeTopLeft" Tag="NW" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeEdge_PointerPressed" ZIndex="101"/>
+							<Border x:Name="ResizeTopRight" Tag="NE" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeEdge_PointerPressed" ZIndex="101"/>
+							<Border x:Name="ResizeBottomLeft" Tag="SW" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeEdge_PointerPressed" ZIndex="101"/>
+							<Border x:Name="ResizeBottomRight" Tag="SE" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeEdge_PointerPressed" ZIndex="101"/>
 
 						</Grid>
 

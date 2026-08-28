@@ -49,6 +49,78 @@ namespace GlyphTV
             catch (Exception ex) { LogError("SaveSources", ex); }
         }
 
+        private async Task LoadSourcesAsync()
+        {
+            try
+            {
+                string path = GetSourcesPath();
+                if (File.Exists(path))
+                {
+                    var loaded = await Task.Run(() =>
+                    {
+                        var json = File.ReadAllText(path);
+                        return JsonSerializer.Deserialize<List<TvSource>>(json, JsonOptions);
+                    });
+
+                    if (loaded != null)
+                    {
+                        bool needsMigration = false;
+                        foreach (var s in loaded)
+                        {
+                            if (!string.IsNullOrEmpty(s.PathOrUrlEncrypted))
+                            {
+                                s.PathOrUrl = UnprotectString(s.PathOrUrlEncrypted);
+                                s.Username = UnprotectString(s.UsernameEncrypted);
+                                s.Password = UnprotectString(s.PasswordEncrypted);
+                            }
+                            else if (!string.IsNullOrEmpty(s.LegacyPathOrUrl) ||
+                                     !string.IsNullOrEmpty(s.LegacyPassword))
+                            {
+                                s.PathOrUrl = s.LegacyPathOrUrl ?? "";
+                                s.Username = s.LegacyUsername ?? "";
+                                s.Password = s.LegacyPassword ?? "";
+                                needsMigration = true;
+                            }
+
+                            s.LegacyPathOrUrl = null;
+                            s.LegacyUsername = null;
+                            s.LegacyPassword = null;
+                        }
+
+                        if (needsMigration) SaveSources();
+
+                        var active = loaded.FirstOrDefault(s => s.IsActive);
+                        if (active != null)
+                        {
+                            LoadCategoriesCacheFromDisk(active.Id);
+                        }
+
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            _sources.Clear();
+                            foreach (var s in loaded)
+                            {
+                                _sources.Add(s);
+                                if (s.Type == "Xtream" && !s.ExpiryDate.HasValue)
+                                {
+                                    _ = FetchXtreamAccountExpiryDateAsync(s);
+                                }
+                            }
+                        });
+
+                        if (active != null)
+                        {
+                            await LoadChannelsForSourceAsync(active.Id);
+                            return;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { LogError("LoadSourcesAsync", ex); }
+
+            Dispatcher.UIThread.Post(() => { if (_sources.Count == 0) UpdateView(); });
+        }
+
         private void LoadSources()
         {
             try
@@ -96,7 +168,7 @@ namespace GlyphTV
                         if (needsMigration) SaveSources();
 
                         var active = _sources.FirstOrDefault(s => s.IsActive);
-                        if (active != null) { _ = LoadChannelsForSourceAsync(active.Id); return; }
+                        if (active != null) { LoadChannelsForSourceSync(active.Id); return; }
                     }
                 }
             }
@@ -117,7 +189,7 @@ namespace GlyphTV
             catch (Exception ex) { LogError("ProtectString", ex); return ""; }
         }
 
-        private static string UnprotectString(string encryptedBase64)
+        internal static string UnprotectString(string encryptedBase64)
         {
             if (string.IsNullOrEmpty(encryptedBase64)) return "";
             try
@@ -216,69 +288,73 @@ namespace GlyphTV
             }
         }
 
-        private async Task LoadChannelsForSourceAsync(string sourceId)
+        private List<Channel>? ReadAndParseChannelsFromDisk(string sourceId, out string? migrationPath)
         {
+            migrationPath = null;
+            string path = GetChannelsPath(sourceId);
+            if (!File.Exists(path)) return null;
+
+            try
+            {
+                using var fs = File.OpenRead(path);
+                var loadedList = JsonSerializer.Deserialize<List<Channel>>(fs, JsonOptions);
+                if (loadedList == null) return null;
+
+                bool needsMigration = false;
+                var migrationLock = new object();
+
+                System.Threading.Tasks.Parallel.ForEach(loadedList, ch =>
+                {
+                    if (!string.IsNullOrEmpty(ch.LegacyUrl))
+                    {
+                        ch.Url = ch.LegacyUrl;
+                        lock (migrationLock) { needsMigration = true; }
+                    }
+                    ch.LegacyUrl = null;
+
+                    // RAM Tasarrufu: Onbinlerce kanal arasındaki tekrarlayan string'leri havuzlayarak
+                    // LOH ve Gen2 bellek ayak izini %40-60 oranında hafifletiyoruz
+                    if (!string.IsNullOrEmpty(ch.Group)) ch.Group = string.Intern(ch.Group);
+                    if (!string.IsNullOrEmpty(ch.Type)) ch.Type = string.Intern(ch.Type);
+                });
+
+                System.Threading.Tasks.Parallel.ForEach(
+                    loadedList.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)),
+                    ch =>
+                    {
+                        var (showName, season, episode) = ParseShowInfo(ch.Name);
+                        ch.ShowName = showName;
+                        ch.Season = !string.IsNullOrEmpty(season) ? string.Intern(season) : season;
+                        ch.EpisodeNumber = episode;
+                    });
+
+                if (needsMigration) migrationPath = path;
+                return loadedList;
+            }
+            catch (Exception ex)
+            {
+                LogError($"ReadAndParseChannelsFromDisk({sourceId})", ex);
+                return null;
+            }
+        }
+
+        private void LoadChannelsForSourceSync(string sourceId)
+        {
+            LoadCategoriesCacheFromDisk(sourceId);
+
             if (_decryptedChannelsCache.TryGetValue(sourceId, out var cachedChannels))
             {
                 _allChannels = cachedChannels;
                 _contentCache.Clear();
                 _seriesCardCache.Clear();
                 _seriesSelections.Clear();
+                RebuildCategoriesCache(sourceId, saveDisk: false);
                 UpdateView();
                 TriggerBackgroundEpgLoad(sourceId);
                 return;
             }
 
-            string path = GetChannelsPath(sourceId);
-            List<Channel>? list = null;
-            string? migrationPath = null;
-
-            try
-            {
-                list = await Task.Run(() =>
-                {
-                    if (!File.Exists(path)) return null;
-                    using var fs = File.OpenRead(path);
-                    var loadedList = JsonSerializer.Deserialize<List<Channel>>(fs, JsonOptions);
-                    if (loadedList == null) return null;
-
-                    bool needsMigration = false;
-                    var migrationLock = new object();
-
-                    System.Threading.Tasks.Parallel.ForEach(loadedList, ch =>
-                    {
-                        if (!string.IsNullOrEmpty(ch.UrlEncrypted))
-                        {
-                            ch.Url = UnprotectString(ch.UrlEncrypted);
-                        }
-                        else if (!string.IsNullOrEmpty(ch.LegacyUrl))
-                        {
-                            ch.Url = ch.LegacyUrl;
-                            lock (migrationLock) { needsMigration = true; }
-                        }
-                        ch.LegacyUrl = null;
-
-                        // RAM Tasarrufu: Onbinlerce kanal arasındaki tekrarlayan string'leri havuzlayarak
-                        // LOH ve Gen2 bellek ayak izini %40-60 oranında hafifletiyoruz
-                        if (!string.IsNullOrEmpty(ch.Group)) ch.Group = string.Intern(ch.Group);
-                        if (!string.IsNullOrEmpty(ch.Type)) ch.Type = string.Intern(ch.Type);
-                    });
-
-                    System.Threading.Tasks.Parallel.ForEach(
-                        loadedList.Where(c => c.Type == "Dizi" && string.IsNullOrEmpty(c.ShowName)),
-                        ch =>
-                        {
-                            var (showName, season, episode) = ParseShowInfo(ch.Name);
-                            ch.ShowName = showName;
-                            ch.Season = !string.IsNullOrEmpty(season) ? string.Intern(season) : season;
-                            ch.EpisodeNumber = episode;
-                        });
-
-                    if (needsMigration) migrationPath = path;
-                    return loadedList;
-                });
-            }
-            catch (Exception ex) { LogError($"LoadChannelsForSource({sourceId}).Parse", ex); }
+            var list = ReadAndParseChannelsFromDisk(sourceId, out var migrationPath);
 
             if (list == null)
             {
@@ -296,9 +372,74 @@ namespace GlyphTV
             _seriesSelections.Clear();
             if (list.Count > 0) _decryptedChannelsCache[sourceId] = list;
 
+            RebuildCategoriesCache(sourceId, saveDisk: true);
             UpdateView();
             TriggerBackgroundEpgLoad(sourceId);
             _ = MatchPopularItemsWithChannelsAsync(_displayPopularItems.ToList());
+
+            if (migrationPath != null)
+            {
+                var snapshot = list;
+                var savePath = migrationPath;
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        foreach (var ch in snapshot)
+                            ch.UrlEncrypted = ProtectString(ch.Url);
+                        File.WriteAllText(savePath, JsonSerializer.Serialize(snapshot, JsonOptions));
+                    }
+                    catch (Exception ex) { LogError("ChannelMigration", ex); }
+                });
+            }
+        }
+
+        private async Task LoadChannelsForSourceAsync(string sourceId)
+        {
+            // 1. Kategorileri anında (1 ms) diskten RAM'e yükle — Kullanıcı sekmelere tıkladığında anında kategorileri görsün
+            LoadCategoriesCacheFromDisk(sourceId);
+
+            if (_decryptedChannelsCache.TryGetValue(sourceId, out var cachedChannels))
+            {
+                _allChannels = cachedChannels;
+                _contentCache.Clear();
+                _seriesCardCache.Clear();
+                _seriesSelections.Clear();
+                RebuildCategoriesCache(sourceId, saveDisk: false);
+                UpdateView();
+                TriggerBackgroundEpgLoad(sourceId);
+                return;
+            }
+
+            string? migrationPath = null;
+            var list = await Task.Run(() => ReadAndParseChannelsFromDisk(sourceId, out migrationPath));
+
+            if (list == null)
+            {
+                _allChannels = new List<Channel>();
+                _contentCache.Clear();
+                _seriesCardCache.Clear();
+                _seriesSelections.Clear();
+                UpdateView();
+                return;
+            }
+
+            _allChannels = list;
+            _contentCache.Clear();
+            _seriesCardCache.Clear();
+            _seriesSelections.Clear();
+            if (list.Count > 0) _decryptedChannelsCache[sourceId] = list;
+
+            RebuildCategoriesCache(sourceId, saveDisk: true);
+            UpdateView();
+
+            // Arka plan ağır işlerini açılış arayüzünü kilitlememesi için hafif ertelemeli başlat
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500);
+                TriggerBackgroundEpgLoad(sourceId);
+                await MatchPopularItemsWithChannelsAsync(_displayPopularItems.ToList());
+            });
 
             if (migrationPath != null)
             {
@@ -711,22 +852,59 @@ namespace GlyphTV
 
             if (seriesList.Count == 0) return result;
 
+            // Disk önbelleğinde kayıtlı bölümleri oku (Delta-sync)
+            string detailsCachePath = GetSeriesDetailsDiskPath(source.Id);
+            var cachedChannelsBySeriesId = new Dictionary<string, List<Channel>>();
+            if (File.Exists(detailsCachePath))
+            {
+                try
+                {
+                    var cachedJson = await File.ReadAllTextAsync(detailsCachePath);
+                    var cachedList = JsonSerializer.Deserialize<List<Channel>>(cachedJson, JsonOptions);
+                    if (cachedList != null)
+                    {
+                        foreach (var ch in cachedList)
+                        {
+                            string sKey = ch.XuiId ?? ch.ShowName ?? "";
+                            if (!cachedChannelsBySeriesId.TryGetValue(sKey, out var list))
+                            {
+                                list = new List<Channel>();
+                                cachedChannelsBySeriesId[sKey] = list;
+                            }
+                            list.Add(ch);
+                        }
+                    }
+                }
+                catch { }
+            }
+
             var semaphore = new SemaphoreSlim(10);
             using var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             epClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
 
             var tasks = seriesList.Select(async series =>
             {
+                string seriesId = XtreamStr(series, "series_id");
+                if (string.IsNullOrEmpty(seriesId)) return;
+
+                string showName = XtreamStr(series, "name");
+                string catId = XtreamStr(series, "category_id");
+                string catName = seriesCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
+                string logoUrl = XtreamStr(series, "cover");
+
+                // Disk önbelleğinde bu dizi varsa doğrudan kullan
+                if (cachedChannelsBySeriesId.TryGetValue(seriesId, out var cachedEpisodes) && cachedEpisodes.Count > 0)
+                {
+                    lock (result)
+                    {
+                        result.AddRange(cachedEpisodes);
+                    }
+                    return;
+                }
+
                 await semaphore.WaitAsync();
                 try
                 {
-                    string seriesId = XtreamStr(series, "series_id");
-                    if (string.IsNullOrEmpty(seriesId)) return;
-
-                    string showName = XtreamStr(series, "name");
-                    string catId = XtreamStr(series, "category_id");
-                    string catName = seriesCats.TryGetValue(catId, out var cn) ? cn : "Diğer";
-                    string logoUrl = XtreamStr(series, "cover");
 
                     try
                     {
@@ -824,6 +1002,16 @@ namespace GlyphTV
             }).ToList();
 
             await Task.WhenAll(tasks);
+
+            if (result.Count > 0)
+            {
+                try
+                {
+                    await File.WriteAllTextAsync(detailsCachePath, JsonSerializer.Serialize(result, JsonOptions));
+                }
+                catch { }
+            }
+
             return result;
         }
 
@@ -1324,6 +1512,16 @@ namespace GlyphTV
             return ParseM3uFromReader(reader);
         }
 
+        private static string ExtractAttributeValue(string line, string attrKey)
+        {
+            int keyIdx = line.IndexOf(attrKey, StringComparison.OrdinalIgnoreCase);
+            if (keyIdx == -1) return "";
+            int valStart = keyIdx + attrKey.Length;
+            int valEnd = line.IndexOf('"', valStart);
+            if (valEnd == -1) return "";
+            return line[valStart..valEnd];
+        }
+
         private List<Channel> ParseM3uFromReader(TextReader reader)
         {
             var result = new List<Channel>();
@@ -1336,6 +1534,7 @@ namespace GlyphTV
 
             string InternGroup(string g)
             {
+                if (string.IsNullOrEmpty(g)) return "Diğer";
                 if (groupPool.TryGetValue(g, out var cached)) return cached;
                 groupPool[g] = g;
                 return g;
@@ -1346,19 +1545,14 @@ namespace GlyphTV
                 line = line.Trim();
                 if (line.Length == 0) continue;
 
-                if (line.StartsWith("#EXTINF:"))
+                if (line.StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase))
                 {
-                    var groupMatch = _rxGroupTitle.Match(line);
-                    currentGroup = groupMatch.Success ? InternGroup(groupMatch.Groups[1].Value) : "Diğer";
+                    string grp = ExtractAttributeValue(line, "group-title=\"");
+                    currentGroup = !string.IsNullOrEmpty(grp) ? InternGroup(grp) : "Diğer";
 
-                    var logoMatch = _rxTvgLogo.Match(line);
-                    currentLogo = logoMatch.Success ? logoMatch.Groups[1].Value : "";
-
-                    var xuiMatch = _rxXuiId.Match(line);
-                    currentXuiId = xuiMatch.Success ? xuiMatch.Groups[1].Value : "";
-
-                    var tvgIdMatch = _rxTvgId.Match(line);
-                    currentTvgId = tvgIdMatch.Success ? tvgIdMatch.Groups[1].Value : "";
+                    currentLogo = ExtractAttributeValue(line, "tvg-logo=\"");
+                    currentXuiId = ExtractAttributeValue(line, "xui-id=\"");
+                    currentTvgId = ExtractAttributeValue(line, "tvg-id=\"");
 
                     int ci = line.LastIndexOf(',');
                     if (ci != -1 && ci < line.Length - 1)
@@ -1467,6 +1661,7 @@ namespace GlyphTV
 
             SaveChannelsForSource(newSource.Id);
             SaveSources();
+            RebuildCategoriesCache(newSource.Id, saveDisk: true);
             UpdateView();
             ShowToast("Kaynak başarıyla eklendi.");
             _ = MatchPopularItemsWithChannelsAsync(_displayPopularItems.ToList());

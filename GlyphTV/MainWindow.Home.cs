@@ -154,16 +154,20 @@ namespace GlyphTV
                         PreloadCachedImagesForPopularItem(it);
                     }
 
-                    _displayPopularItems.Clear();
-                    foreach (var it in items)
-                    {
-                        _displayPopularItems.Add(it);
-                    }
                     _isPopularLoaded = true;
 
-                    SetupHeroDots(items.Count);
-                    UpdateHeroBannerDisplay();
-                    _ = MatchPopularItemsWithChannelsAsync(items);
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _displayPopularItems.Clear();
+                        foreach (var it in items)
+                        {
+                            _displayPopularItems.Add(it);
+                        }
+                        SetupHeroDots(items.Count);
+                        UpdateHeroBannerDisplay();
+                    }, DispatcherPriority.Normal);
+
+                    _ = Task.Run(() => MatchPopularItemsWithChannelsAsync(items));
                     _ = LoadTmdbPostersAndBackdropsForPopularItemsAsync(items);
                 }
             }
@@ -402,14 +406,52 @@ namespace GlyphTV
 
         private void MatchPopularItemsWithChannels(List<PopularMediaItem> items)
         {
-            if (_allChannels.Count == 0) return;
+            if (_allChannels.Count == 0 || items.Count == 0) return;
 
             var historyByUrl = GetWatchHistoryByUrlCache();
 
-            var seriesChannels = _allChannels.Where(c => !c.IsHidden && c.Type == "Dizi" && !string.IsNullOrEmpty(c.ShowName)).ToList();
-            var distinctShows = seriesChannels.GroupBy(c => c.ShowName!).ToList();
-            var vodChannels = _allChannels.Where(c => !c.IsHidden && c.Type == "VOD").ToList();
+            // 1. Dizi kanallarını ve VOD kanallarını tek geçişte ön-indeksle (O(N))
+            var seriesByTmdbId = new Dictionary<int, Channel>();
+            var seriesEpisodesByShow = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+            var seriesByNormTitle = new Dictionary<string, (string ShowName, List<Channel> Eps, int? Year)>(StringComparer.OrdinalIgnoreCase);
 
+            var vodByTmdbId = new Dictionary<int, Channel>();
+            var vodByNormTitle = new Dictionary<string, (Channel Channel, int? Year)>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var ch in _allChannels)
+            {
+                if (ch.IsHidden) continue;
+
+                if (ch.Type == "Dizi" && !string.IsNullOrEmpty(ch.ShowName))
+                {
+                    if (ch.TmdbId > 0 && !seriesByTmdbId.ContainsKey(ch.TmdbId))
+                        seriesByTmdbId[ch.TmdbId] = ch;
+
+                    if (!seriesEpisodesByShow.TryGetValue(ch.ShowName, out var epList))
+                    {
+                        epList = new List<Channel>();
+                        seriesEpisodesByShow[ch.ShowName] = epList;
+
+                        var (cleanShow, showYear) = CleanNameForSearch(ch.ShowName);
+                        string normShow = NormalizeTmdbTitle(cleanShow);
+                        if (!string.IsNullOrEmpty(normShow) && !seriesByNormTitle.ContainsKey(normShow))
+                            seriesByNormTitle[normShow] = (ch.ShowName, epList, showYear);
+                    }
+                    epList.Add(ch);
+                }
+                else if (ch.Type == "VOD")
+                {
+                    if (ch.TmdbId > 0 && !vodByTmdbId.ContainsKey(ch.TmdbId))
+                        vodByTmdbId[ch.TmdbId] = ch;
+
+                    var (cleanName, chYear) = CleanNameForSearch(ch.Name);
+                    string normCh = NormalizeTmdbTitle(cleanName);
+                    if (!string.IsNullOrEmpty(normCh) && !vodByNormTitle.ContainsKey(normCh))
+                        vodByNormTitle[normCh] = (ch, chYear);
+                }
+            }
+
+            // 2. Her popüler öğeyi O(1) indeksler üzerinden anında eşleştir
             foreach (var item in items)
             {
                 item.MatchedChannel = null;
@@ -421,119 +463,58 @@ namespace GlyphTV
 
                 if (item.MediaType == "tv")
                 {
-                    // 1. Direct TmdbId match on Series channels (with title sanity check)
-                    if (item.TmdbId > 0)
+                    // 1. TmdbId ile doğrudan O(1) eşleşme
+                    if (item.TmdbId > 0 && seriesByTmdbId.TryGetValue(item.TmdbId, out var tmdbMatchedCh))
                     {
-                        var tmdbMatchedCh = seriesChannels.FirstOrDefault(c => c.TmdbId == item.TmdbId);
-                        if (tmdbMatchedCh != null && !string.IsNullOrEmpty(tmdbMatchedCh.ShowName))
+                        if (seriesEpisodesByShow.TryGetValue(tmdbMatchedCh.ShowName!, out var eps))
                         {
-                            var (cleanShow, _) = CleanNameForSearch(tmdbMatchedCh.ShowName);
-                            string normShow = NormalizeTmdbTitle(cleanShow);
-                            if (normShow == normTitle || (!string.IsNullOrEmpty(normOrig) && normShow == normOrig) || CalculateTitleSimilarity(normShow, normTitle) >= 0.50)
-                            {
-                                var eps = seriesChannels.Where(c => c.ShowName == tmdbMatchedCh.ShowName).ToList();
-                                item.MatchedSeries = BuildSeriesCard(tmdbMatchedCh.ShowName, eps, historyByUrl);
-                                continue;
-                            }
+                            item.MatchedSeries = BuildSeriesCard(tmdbMatchedCh.ShowName!, eps, historyByUrl);
+                            continue;
                         }
                     }
 
-                    // 2. Strict title match on ShowName
-                    foreach (var group in distinctShows)
+                    // 2. Normalize başlık ile O(1) eşleşme
+                    if (!string.IsNullOrEmpty(normTitle) && seriesByNormTitle.TryGetValue(normTitle, out var matchInfo))
                     {
-                        string showName = group.Key;
-                        var (cleanShow, showYear) = CleanNameForSearch(showName);
-                        string normShow = NormalizeTmdbTitle(cleanShow);
-
-                        bool match = false;
-                        if (!string.IsNullOrEmpty(normShow))
+                        if (!itemYear.HasValue || !matchInfo.Year.HasValue || Math.Abs(itemYear.Value - matchInfo.Year.Value) <= 1)
                         {
-                            if (normShow == normTitle || (!string.IsNullOrEmpty(normOrig) && normShow == normOrig))
-                            {
-                                match = true;
-                            }
-                            else
-                            {
-                                foreach (var candidate in GetTmdbNameCandidates(cleanShow))
-                                {
-                                    string normCand = NormalizeTmdbTitle(candidate);
-                                    if (normCand == normTitle || (!string.IsNullOrEmpty(normOrig) && normCand == normOrig))
-                                    {
-                                        match = true;
-                                        break;
-                                    }
-                                }
-                            }
+                            item.MatchedSeries = BuildSeriesCard(matchInfo.ShowName, matchInfo.Eps, historyByUrl);
+                            continue;
                         }
-
-                        if (match && itemYear.HasValue && showYear.HasValue && Math.Abs(itemYear.Value - showYear.Value) > 1)
+                    }
+                    if (!string.IsNullOrEmpty(normOrig) && seriesByNormTitle.TryGetValue(normOrig, out matchInfo))
+                    {
+                        if (!itemYear.HasValue || !matchInfo.Year.HasValue || Math.Abs(itemYear.Value - matchInfo.Year.Value) <= 1)
                         {
-                            match = false;
-                        }
-
-                        if (match)
-                        {
-                            var eps = group.ToList();
-                            item.MatchedSeries = BuildSeriesCard(showName, eps, historyByUrl);
-                            break;
+                            item.MatchedSeries = BuildSeriesCard(matchInfo.ShowName, matchInfo.Eps, historyByUrl);
+                            continue;
                         }
                     }
                 }
                 else
                 {
-                    // VOD Matching
-                    // 1. Direct TmdbId match (with title sanity check)
-                    if (item.TmdbId > 0)
+                    // 1. TmdbId ile doğrudan O(1) eşleşme
+                    if (item.TmdbId > 0 && vodByTmdbId.TryGetValue(item.TmdbId, out var tmdbVodCh))
                     {
-                        var tmdbMatchedCh = vodChannels.FirstOrDefault(c => c.TmdbId == item.TmdbId);
-                        if (tmdbMatchedCh != null)
-                        {
-                            var (cleanCh, _) = CleanNameForSearch(tmdbMatchedCh.Name);
-                            string normCh = NormalizeTmdbTitle(cleanCh);
-                            if (normCh == normTitle || (!string.IsNullOrEmpty(normOrig) && normCh == normOrig) || CalculateTitleSimilarity(normCh, normTitle) >= 0.50)
-                            {
-                                item.MatchedChannel = tmdbMatchedCh;
-                                continue;
-                            }
-                        }
+                        item.MatchedChannel = tmdbVodCh;
+                        continue;
                     }
 
-                    // 2. Strict candidate name match
-                    foreach (var ch in vodChannels)
+                    // 2. Normalize başlık ile O(1) eşleşme
+                    if (!string.IsNullOrEmpty(normTitle) && vodByNormTitle.TryGetValue(normTitle, out var vodMatch))
                     {
-                        var (cleanName, chYear) = CleanNameForSearch(ch.Name);
-                        string normCh = NormalizeTmdbTitle(cleanName);
-
-                        bool match = false;
-                        if (!string.IsNullOrEmpty(normCh))
+                        if (!itemYear.HasValue || !vodMatch.Year.HasValue || Math.Abs(itemYear.Value - vodMatch.Year.Value) <= 1)
                         {
-                            if (normCh == normTitle || (!string.IsNullOrEmpty(normOrig) && normCh == normOrig))
-                            {
-                                match = true;
-                            }
-                            else
-                            {
-                                foreach (var candidate in GetTmdbNameCandidates(cleanName))
-                                {
-                                    string normCand = NormalizeTmdbTitle(candidate);
-                                    if (normCand == normTitle || (!string.IsNullOrEmpty(normOrig) && normCand == normOrig))
-                                    {
-                                        match = true;
-                                        break;
-                                    }
-                                }
-                            }
+                            item.MatchedChannel = vodMatch.Channel;
+                            continue;
                         }
-
-                        if (match && itemYear.HasValue && chYear.HasValue && Math.Abs(itemYear.Value - chYear.Value) > 1)
+                    }
+                    if (!string.IsNullOrEmpty(normOrig) && vodByNormTitle.TryGetValue(normOrig, out vodMatch))
+                    {
+                        if (!itemYear.HasValue || !vodMatch.Year.HasValue || Math.Abs(itemYear.Value - vodMatch.Year.Value) <= 1)
                         {
-                            match = false;
-                        }
-
-                        if (match)
-                        {
-                            item.MatchedChannel = ch;
-                            break;
+                            item.MatchedChannel = vodMatch.Channel;
+                            continue;
                         }
                     }
                 }
@@ -1024,10 +1005,48 @@ namespace GlyphTV
                 .OrderByDescending(h => h.LastWatched)
                 .ToList();
 
+            if (validHistories.Count == 0)
+            {
+                _allResumeItems.Clear();
+                _displayResumeItems.Clear();
+                HomeResumeEmptyNotice.IsVisible = true;
+                return;
+            }
+
+            // 1. Performans & 0 ms Donma: Dizi bölümlerini ve kanalları O(N) tek geçişte adlarına göre indeksle
+            var seriesEpisodesByShow = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+            var channelsByName = new Dictionary<string, Channel>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var c in _allChannels)
+            {
+                if (c.IsHidden) continue;
+                if (!string.IsNullOrEmpty(c.ShowName))
+                {
+                    if (!seriesEpisodesByShow.TryGetValue(c.ShowName, out var epList))
+                    {
+                        epList = new List<Channel>();
+                        seriesEpisodesByShow[c.ShowName] = epList;
+                    }
+                    epList.Add(c);
+                }
+                if (!string.IsNullOrEmpty(c.Name) && !channelsByName.ContainsKey(c.Name))
+                {
+                    channelsByName[c.Name] = c;
+                }
+            }
+
+            // 2. Geçmiş kayıtlarını O(1) doğrudan indeksler üzerinden bağla (Lazy DPAPI taraması tetiklenmez)
             foreach (var h in validHistories)
             {
-                var ch = _allChannels.FirstOrDefault(c => c.Url == h.Url) 
-                         ?? _allChannels.FirstOrDefault(c => !string.IsNullOrEmpty(h.ShowName) && c.ShowName == h.ShowName);
+                Channel? ch = null;
+                if (!string.IsNullOrEmpty(h.Name) && channelsByName.TryGetValue(h.Name, out var foundByName))
+                {
+                    ch = foundByName;
+                }
+                else if (!string.IsNullOrEmpty(h.ShowName) && seriesEpisodesByShow.TryGetValue(h.ShowName, out var epList) && epList.Count > 0)
+                {
+                    ch = epList[0];
+                }
 
                 string type = string.IsNullOrEmpty(h.Type) ? (ch?.Type ?? "VOD") : h.Type;
                 if (type == "Canlı") continue; // Canlı TV için devam et mantığı olmaz
@@ -1048,8 +1067,7 @@ namespace GlyphTV
 
                     title = showName;
 
-                    var eps = _allChannels.Where(c => c.Type == "Dizi" && c.ShowName == showName).ToList();
-                    if (eps.Count > 0)
+                    if (seriesEpisodesByShow.TryGetValue(showName, out var eps) && eps.Count > 0)
                     {
                         sCard = BuildSeriesCard(showName, eps, historyByUrl);
                         subtitle = sCard.Group;
@@ -1100,10 +1118,49 @@ namespace GlyphTV
                 filtered = _allResumeItems.Where(i => i.Type == "Dizi").ToList();
             }
 
-            _displayResumeItems.Clear();
-            foreach (var it in filtered)
+            // Akıllı ve pürüzsüz (flicker-free) koleksiyon senkronizasyonu
+            // Önceden yüklenmiş LogoBitmap'leri ve mevcut öğeleri korur, ekran kırpışmasını (blink) önler
+            for (int i = 0; i < filtered.Count; i++)
             {
-                _displayResumeItems.Add(it);
+                var newItem = filtered[i];
+                if (i < _displayResumeItems.Count)
+                {
+                    var existing = _displayResumeItems[i];
+                    bool sameItem = (existing.Type == newItem.Type && 
+                                    ((existing.Type == "Dizi" && !string.IsNullOrEmpty(existing.SeriesCard?.ShowName) && existing.SeriesCard?.ShowName == newItem.SeriesCard?.ShowName) ||
+                                     (!string.IsNullOrEmpty(existing.History?.Url) && existing.History?.Url == newItem.History?.Url)));
+
+                    if (sameItem)
+                    {
+                        // Mevcut öğenin alanlarını güncelle, varsa mevcut posteri koru
+                        existing.Channel = newItem.Channel;
+                        existing.SeriesCard = newItem.SeriesCard;
+                        existing.Title = newItem.Title;
+                        existing.Subtitle = newItem.Subtitle;
+                        existing.Position = newItem.Position;
+                        existing.Duration = newItem.Duration;
+                        existing.History = newItem.History;
+                        if (existing.LogoBitmap == null && newItem.LogoBitmap != null)
+                        {
+                            existing.LogoBitmap = newItem.LogoBitmap;
+                        }
+                        filtered[i] = existing;
+                        continue;
+                    }
+                    else
+                    {
+                        _displayResumeItems[i] = newItem;
+                    }
+                }
+                else
+                {
+                    _displayResumeItems.Add(newItem);
+                }
+            }
+
+            while (_displayResumeItems.Count > filtered.Count)
+            {
+                _displayResumeItems.RemoveAt(_displayResumeItems.Count - 1);
             }
 
             HomeResumeEmptyNotice.IsVisible = _displayResumeItems.Count == 0;
@@ -1231,8 +1288,8 @@ namespace GlyphTV
             Channel? targetChannel = item.Channel;
             if (targetChannel == null)
             {
-                targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History.Url)
-                             ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History.ShowName) && ch.ShowName == item.History.ShowName);
+                targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History?.Url)
+                             ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History?.ShowName) && ch.ShowName == item.History?.ShowName);
             }
 
             if (targetChannel != null)
@@ -1264,8 +1321,8 @@ namespace GlyphTV
             Channel? targetChannel = item.Channel;
             if (targetChannel == null)
             {
-                targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History.Url)
-                             ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History.ShowName) && ch.ShowName == item.History.ShowName);
+                targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History?.Url)
+                             ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History?.ShowName) && ch.ShowName == item.History?.ShowName);
             }
 
             if (targetChannel != null)
@@ -1294,7 +1351,7 @@ namespace GlyphTV
             if (item.Type == "Dizi")
             {
                 string showName = item.SeriesCard?.ShowName 
-                               ?? item.History.ShowName 
+                               ?? item.History?.ShowName 
                                ?? (item.Channel?.ShowName ?? item.Title);
                 bool newState = ToggleSeriesFavorite(showName);
                 if (item.SeriesCard != null)
@@ -1311,8 +1368,8 @@ namespace GlyphTV
                 Channel? targetChannel = item.Channel;
                 if (targetChannel == null)
                 {
-                    targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History.Url)
-                                 ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History.ShowName) && ch.ShowName == item.History.ShowName);
+                    targetChannel = _allChannels.FirstOrDefault(ch => ch.Url == item.History?.Url)
+                                 ?? _allChannels.FirstOrDefault(ch => !string.IsNullOrEmpty(item.History?.ShowName) && ch.ShowName == item.History?.ShowName);
                     if (targetChannel != null)
                     {
                         item.Channel = targetChannel;
@@ -1351,9 +1408,9 @@ namespace GlyphTV
                     return;
                 }
 
-                string showName = !string.IsNullOrEmpty(item.History.ShowName) 
-                    ? item.History.ShowName 
-                    : (item.Channel?.ShowName ?? item.Title);
+                string showName = (!string.IsNullOrEmpty(item.History?.ShowName) ? item.History!.ShowName : null)
+                    ?? item.Channel?.ShowName 
+                    ?? item.Title;
 
                 var eps = _allChannels.Where(ch => ch.Type == "Dizi" && ch.ShowName == showName).ToList();
                 if (eps.Count > 0)
@@ -1370,7 +1427,7 @@ namespace GlyphTV
                 return;
             }
 
-            var ch = _allChannels.FirstOrDefault(c => c.Url == item.History.Url);
+            var ch = _allChannels.FirstOrDefault(c => c.Url == item.History?.Url);
             if (ch != null)
             {
                 VodInfo_Click(ch, new RoutedEventArgs());
