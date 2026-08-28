@@ -68,11 +68,12 @@
   </ItemGroup>
 
   <!-- ─────────────────────────────────────────────────────────────
-       mpv motoru — libmpv native DLL'i ve Otomatik İndirme Sistemi:
+       mpv motoru — libmpv native DLL'i ve Otomatik İndirme / Paketleme Sistemi:
        Eğer 'runtimes/mpv/mpv-2.dll' yerel olarak mevcut değilse (örn. projeyi
-       GitHub'dan yeni klonlayanlar için), 'dotnet build' aşamasında otomatik indirilir.
+       GitHub'dan yeni klonlayanlar için), 'dotnet build' ve 'dotnet publish'
+       aşamasında otomatik indirilir ve tek dosya .exe içine dâhil edilir.
        ───────────────────────────────────────────────────────────── -->
-  <Target Name="AutoDownloadMpvBinary" BeforeTargets="BeforeBuild;BeforePublish;PrepareForBuild">
+  <Target Name="AutoDownloadMpvBinary" BeforeTargets="BeforeBuild;BeforePublish;PrepareForBuild;AssignTargetPaths;ComputeFilesToPublish">
     <PropertyGroup>
       <MpvDllPath>$(MSBuildProjectDirectory)\runtimes\mpv\mpv-2.dll</MpvDllPath>
       <MpvDownloadUrl>https://github.com/brsbllky/GlyphTV/releases/download/v2.1.0/mpv-2.dll</MpvDownloadUrl>
@@ -86,15 +87,30 @@
         DestinationFolder="$(MSBuildProjectDirectory)\runtimes\mpv"
         DestinationFileName="mpv-2.dll"
         Condition="!Exists('$(MpvDllPath)')"
-        ContinueOnError="true" />
+        ContinueOnError="false" />
+
+    <ItemGroup>
+      <None Include="$(MpvDllPath)">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <Link>mpv-2.dll</Link>
+      </None>
+      <Content Include="$(MpvDllPath)">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <Link>mpv-2.dll</Link>
+        <TargetPath>mpv-2.dll</TargetPath>
+      </Content>
+    </ItemGroup>
   </Target>
 
   <ItemGroup>
-    <None Include="runtimes\mpv\mpv-2.dll" Condition="Exists('runtimes\mpv\mpv-2.dll')">
+    <Content Include="runtimes\mpv\mpv-2.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>mpv-2.dll</Link>
-    </None>
+      <TargetPath>mpv-2.dll</TargetPath>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
