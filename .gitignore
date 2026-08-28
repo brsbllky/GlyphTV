@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ─────────────────────────────────────────────────────────────
+# GlyphTV: Native Binaries (Otomatik indirilir, GitHub 100MB sınırına takılmaz)
+# ─────────────────────────────────────────────────────────────
+runtimes/mpv/mpv-2.dll
+**/runtimes/mpv/mpv-2.dll
