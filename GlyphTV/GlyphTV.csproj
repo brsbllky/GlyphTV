@@ -68,22 +68,27 @@
   </ItemGroup>
 
   <!-- ─────────────────────────────────────────────────────────────
-       YENİ: mpv motoru — libmpv native DLL'i.
-       KURULUM:
-         1) shinchiro'nun Windows "LGPL" build'inden (https://github.com/
-            shinchiro/mpv-winbuild-cmake/releases veya sourceforge.net/
-            projects/mpv-player-windows/) mpv-dev-x86_64-*.7z arşivini indirin.
-         2) İçinden mpv-2.dll dosyasını proje köküne "runtimes\mpv\" gibi
-            bir klasöre koyun (örnek yol aşağıda; isterseniz değiştirin —
-            önemli olan MpvInterop.cs'teki "mpv-2.dll" adıyla birebir aynı
-            dosya adının .exe ile aynı dizine kopyalanmasıdır).
-         3) BUILD MODUNUN "LGPL (v2)" OLDUĞUNU DOĞRULAYIN — bkz. arşivin
-            içindeki LICENSE dosyası. GPL build'i GlyphTV'nin lisansıyla
-            uyumsuz olabilir.
-       Bu ItemGroup, projeye eklediğiniz dosyayı hem normal derleme/debug
-       çıktısına hem de 'dotnet publish' (PublishSingleFile) çıktısına
-       kopyalar.
+       mpv motoru — libmpv native DLL'i ve Otomatik İndirme Sistemi:
+       Eğer 'runtimes/mpv/mpv-2.dll' yerel olarak mevcut değilse (örn. projeyi
+       GitHub'dan yeni klonlayanlar için), 'dotnet build' aşamasında otomatik indirilir.
        ───────────────────────────────────────────────────────────── -->
+  <Target Name="AutoDownloadMpvBinary" BeforeTargets="BeforeBuild;BeforePublish;PrepareForBuild">
+    <PropertyGroup>
+      <MpvDllPath>$(MSBuildProjectDirectory)\runtimes\mpv\mpv-2.dll</MpvDllPath>
+      <MpvDownloadUrl>https://github.com/barisballikaya/GlyphTV/releases/download/v2.1.0/mpv-2.dll</MpvDownloadUrl>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(MSBuildProjectDirectory)\runtimes\mpv" Condition="!Exists('$(MpvDllPath)')" />
+    <Message Text="[GlyphTV Build] 'mpv-2.dll' yerel olarak bulunamadı. GitHub üzerinden otomatik indiriliyor..." Importance="high" Condition="!Exists('$(MpvDllPath)')" />
+
+    <DownloadFile
+        SourceUrl="$(MpvDownloadUrl)"
+        DestinationFolder="$(MSBuildProjectDirectory)\runtimes\mpv"
+        DestinationFileName="mpv-2.dll"
+        Condition="!Exists('$(MpvDllPath)')"
+        ContinueOnError="true" />
+  </Target>
+
   <ItemGroup>
     <None Include="runtimes\mpv\mpv-2.dll" Condition="Exists('runtimes\mpv\mpv-2.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
