@@ -75,7 +75,7 @@
   <Target Name="AutoDownloadMpvBinary" BeforeTargets="BeforeBuild;BeforePublish;PrepareForBuild">
     <PropertyGroup>
       <MpvDllPath>$(MSBuildProjectDirectory)\runtimes\mpv\mpv-2.dll</MpvDllPath>
-      <MpvDownloadUrl>https://github.com/barisballikaya/GlyphTV/releases/download/v2.1.0/mpv-2.dll</MpvDownloadUrl>
+      <MpvDownloadUrl>https://github.com/brsbllky/GlyphTV/releases/download/v2.1.0/mpv-2.dll</MpvDownloadUrl>
     </PropertyGroup>
 
     <MakeDir Directories="$(MSBuildProjectDirectory)\runtimes\mpv" Condition="!Exists('$(MpvDllPath)')" />
