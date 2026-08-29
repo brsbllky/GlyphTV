@@ -320,12 +320,33 @@ namespace GlyphTV
                     PreloadCachedImagesForPopularItem(it);
                 }
 
+                // Mevcut yüklü görselleri ve eşleşmeleri koru
+                var existingMap = _displayPopularItems.Where(x => x.TmdbId > 0).ToDictionary(x => x.TmdbId, x => x);
+                foreach (var it in items)
+                {
+                    if (it.TmdbId > 0 && existingMap.TryGetValue(it.TmdbId, out var existing))
+                    {
+                        if (it.BackdropBitmap == null && existing.BackdropBitmap != null)
+                            it.BackdropBitmap = existing.BackdropBitmap;
+                        if (it.PosterBitmap == null && existing.PosterBitmap != null)
+                            it.PosterBitmap = existing.PosterBitmap;
+                        if (it.MatchedChannel == null && existing.MatchedChannel != null)
+                            it.MatchedChannel = existing.MatchedChannel;
+                    }
+                }
+
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _displayPopularItems.Clear();
-                    foreach (var it in items)
+                    for (int i = 0; i < items.Count; i++)
                     {
-                        _displayPopularItems.Add(it);
+                        if (i < _displayPopularItems.Count)
+                            _displayPopularItems[i] = items[i];
+                        else
+                            _displayPopularItems.Add(items[i]);
+                    }
+                    while (_displayPopularItems.Count > items.Count)
+                    {
+                        _displayPopularItems.RemoveAt(_displayPopularItems.Count - 1);
                     }
                     _isPopularLoaded = true;
 
@@ -690,7 +711,11 @@ namespace GlyphTV
                     }
                     if (HeroBackdropImg != null)
                     {
-                        HeroBackdropImg.Source = item.BackdropBitmap ?? item.PosterBitmap;
+                        var targetBmp = item.BackdropBitmap ?? item.PosterBitmap;
+                        if (targetBmp != null && HeroBackdropImg.Source != targetBmp)
+                        {
+                            HeroBackdropImg.Source = targetBmp;
+                        }
                     }
                 }
                 catch { }

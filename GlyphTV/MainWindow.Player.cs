@@ -19,26 +19,34 @@ namespace GlyphTV
     public partial class MainWindow
     {
         private DispatcherTimer? _liveBadgeTimer;
-        private bool _liveBadgeDim = false;
         private int _isEndReachedHandlingInt = 0;
+
+        private bool _isLiveBadgePulse = false;
+        private int _badgeUpdateTickCounter = 0;
 
         private void StartLiveBadgePulse()
         {
             if (_liveBadgeTimer == null)
             {
-                _liveBadgeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+                _liveBadgeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(750) };
                 _liveBadgeTimer.Tick += (s, e) =>
                 {
-                    _liveBadgeDim = !_liveBadgeDim;
-                    LiveBadge.Opacity = _liveBadgeDim ? 0.35 : 1.0;
-
-                    // Canlı yayında periyodik olarak bitrate rozetini tazele
                     if (PlayerContainer.Height > 0 && _isLiveContent)
-                        UpdateMediaInfoBadges();
+                    {
+                        _isLiveBadgePulse = !_isLiveBadgePulse;
+                        LiveBadge.Opacity = _isLiveBadgePulse ? 0.35 : 1.0;
+
+                        if (++_badgeUpdateTickCounter >= 2)
+                        {
+                            _badgeUpdateTickCounter = 0;
+                            UpdateMediaInfoBadges();
+                        }
+                    }
                 };
             }
 
-            _liveBadgeDim = false;
+            _isLiveBadgePulse = false;
+            _badgeUpdateTickCounter = 0;
             LiveBadge.Opacity = 1.0;
             _liveBadgeTimer.Stop();
             _liveBadgeTimer.Start();
@@ -47,6 +55,7 @@ namespace GlyphTV
         private void StopLiveBadgePulse()
         {
             _liveBadgeTimer?.Stop();
+            LiveBadge.Opacity = 1.0;
         }
 
         private double _scrollOffsetBeforePlayer = 0;
@@ -224,6 +233,10 @@ namespace GlyphTV
                 _engine?.Play(url, _resumePosition);
                 _resumePosition = 0;
 
+                ShowPlayerControls();
+                ResetInactivityTimer();
+                ShowPlayerOverlay();
+
                 IconPlay.IsVisible = false;
                 IconPause.IsVisible = true;
                 AudioTrackPopup.IsVisible = false;
@@ -390,22 +403,6 @@ namespace GlyphTV
             }
         }
 
-        private void PrewarmChannelConnection(string? url)
-        {
-            if (string.IsNullOrEmpty(url) || !url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
-            Task.Run(async () =>
-            {
-                try
-                {
-                    EnsureDownloadHttpClient();
-                    using var request = new HttpRequestMessage(HttpMethod.Head, url);
-                    using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
-                    await _downloadHttpClient!.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
-                }
-                catch { }
-            });
-        }
-
         internal void PrevChannel_Click(object? sender, PointerPressedEventArgs e)
         {
             e.Handled = true;
@@ -424,12 +421,6 @@ namespace GlyphTV
             {
                 _currentChannel = list[next];
                 PlayerTitleText.Text = _currentChannel.Name;
-
-                // Bir sonraki muhtemel kanalın soketini önceden ısıt
-                int prewarmIdx = next <= 0 ? list.Count - 1 : next - 1;
-                if (prewarmIdx >= 0 && prewarmIdx < list.Count)
-                    PrewarmChannelConnection(list[prewarmIdx].Url);
-
                 await PlayChannel(_currentChannel.Url);
             }
         }
@@ -452,12 +443,6 @@ namespace GlyphTV
             {
                 _currentChannel = list[next];
                 PlayerTitleText.Text = _currentChannel.Name;
-
-                // Bir sonraki muhtemel kanalın soketini önceden ısıt
-                int prewarmIdx = (next >= list.Count - 1) ? 0 : next + 1;
-                if (prewarmIdx >= 0 && prewarmIdx < list.Count)
-                    PrewarmChannelConnection(list[prewarmIdx].Url);
-
                 await PlayChannel(_currentChannel.Url);
             }
         }
@@ -1854,19 +1839,21 @@ namespace GlyphTV
 
                 if (info.Width > 0 && info.Height > 0)
                 {
-                    ResolutionBadgeText.Text = $"{info.Width}x{info.Height}";
-                    ResolutionBadge.IsVisible = true;
+                    string resText = $"{info.Width}x{info.Height}";
+                    if (ResolutionBadgeText.Text != resText) ResolutionBadgeText.Text = resText;
+                    if (!ResolutionBadge.IsVisible) ResolutionBadge.IsVisible = true;
                     anyVisible = true;
                 }
-                else ResolutionBadge.IsVisible = false;
+                else if (ResolutionBadge.IsVisible) ResolutionBadge.IsVisible = false;
 
                 if (info.Fps > 0)
                 {
-                    FpsBadgeText.Text = $"{info.Fps:0.##} FPS";
-                    FpsBadge.IsVisible = true;
+                    string fpsText = $"{info.Fps:0.##} FPS";
+                    if (FpsBadgeText.Text != fpsText) FpsBadgeText.Text = fpsText;
+                    if (!FpsBadge.IsVisible) FpsBadge.IsVisible = true;
                     anyVisible = true;
                 }
-                else FpsBadge.IsVisible = false;
+                else if (FpsBadge.IsVisible) FpsBadge.IsVisible = false;
 
                 // ── Bitrate Rozeti Gösterimi (SADECE Canlı İçeriklerde Gösterilir) ──
                 if (_isLiveContent)
@@ -1874,23 +1861,17 @@ namespace GlyphTV
                     double bitrate = info.BitrateKbps > 0 ? info.BitrateKbps : _engine.GetBitrateKbps();
                     if (bitrate > 0)
                     {
-                        if (bitrate >= 1000)
-                        {
-                            BitrateBadgeText.Text = $"{(bitrate / 1000.0):0.#} Mb/s";
-                        }
-                        else
-                        {
-                            BitrateBadgeText.Text = $"{(int)bitrate} kb/s";
-                        }
-                        BitrateBadge.IsVisible = true;
+                        string bitText = bitrate >= 1000 ? $"{(bitrate / 1000.0):0.#} Mb/s" : $"{(int)bitrate} kb/s";
+                        if (BitrateBadgeText.Text != bitText) BitrateBadgeText.Text = bitText;
+                        if (!BitrateBadge.IsVisible) BitrateBadge.IsVisible = true;
                         anyVisible = true;
                     }
-                    else
+                    else if (BitrateBadge.IsVisible)
                     {
                         BitrateBadge.IsVisible = false;
                     }
                 }
-                else
+                else if (BitrateBadge.IsVisible)
                 {
                     // Film / Dizi (VOD) içeriklerinde bitrate kesinlikle gizlenir
                     BitrateBadge.IsVisible = false;
@@ -1898,23 +1879,23 @@ namespace GlyphTV
 
                 if (!string.IsNullOrEmpty(info.VideoCodec))
                 {
-                    VideoCodecBadgeText.Text = info.VideoCodec;
-                    VideoCodecBadge.IsVisible = true;
+                    if (VideoCodecBadgeText.Text != info.VideoCodec) VideoCodecBadgeText.Text = info.VideoCodec;
+                    if (!VideoCodecBadge.IsVisible) VideoCodecBadge.IsVisible = true;
                     anyVisible = true;
                 }
-                else VideoCodecBadge.IsVisible = false;
+                else if (VideoCodecBadge.IsVisible) VideoCodecBadge.IsVisible = false;
 
                 if (!string.IsNullOrEmpty(info.AudioCodec))
                 {
-                    AudioCodecBadgeText.Text = info.AudioCodec;
-                    AudioCodecBadge.IsVisible = true;
+                    if (AudioCodecBadgeText.Text != info.AudioCodec) AudioCodecBadgeText.Text = info.AudioCodec;
+                    if (!AudioCodecBadge.IsVisible) AudioCodecBadge.IsVisible = true;
                     anyVisible = true;
                 }
-                else AudioCodecBadge.IsVisible = false;
+                else if (AudioCodecBadge.IsVisible) AudioCodecBadge.IsVisible = false;
 
                 if (info.AudioChannels > 0)
                 {
-                    AudioChannelsBadgeText.Text = info.AudioChannels switch
+                    string chText = info.AudioChannels switch
                     {
                         1 => "Mono",
                         2 => "2.0",
@@ -1922,12 +1903,14 @@ namespace GlyphTV
                         8 => "7.1",
                         _ => $"{info.AudioChannels}ch"
                     };
-                    AudioChannelsBadge.IsVisible = true;
+                    if (AudioChannelsBadgeText.Text != chText) AudioChannelsBadgeText.Text = chText;
+                    if (!AudioChannelsBadge.IsVisible) AudioChannelsBadge.IsVisible = true;
                     anyVisible = true;
                 }
-                else AudioChannelsBadge.IsVisible = false;
+                else if (AudioChannelsBadge.IsVisible) AudioChannelsBadge.IsVisible = false;
 
-                MediaInfoBadgesPanel.IsVisible = anyVisible;
+                if (MediaInfoBadgesPanel.IsVisible != anyVisible)
+                    MediaInfoBadgesPanel.IsVisible = anyVisible;
             }
             catch { }
         }

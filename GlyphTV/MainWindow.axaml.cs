@@ -97,34 +97,40 @@ namespace GlyphTV
         // ─────────────────────────────────────────────────────────────
         // Bellek temizliği — Modern & Non-blocking .NET GC yönetimi
         // ─────────────────────────────────────────────────────────────
-        private static int _playerCloseCountSinceFullTrim = 0;
-        private const int FULL_TRIM_EVERY_N_CLOSES = 8;
-
-        internal static void TrimProcessMemoryLight()
-        {
-            GC.Collect(1, GCCollectionMode.Optimized, blocking: false, compacting: false);
-        }
-
-        internal static void TrimProcessMemoryOnPlayerClose()
-        {
-            TrimProcessMemoryLight();
-
-            int count = Interlocked.Increment(ref _playerCloseCountSinceFullTrim);
-            if (count >= FULL_TRIM_EVERY_N_CLOSES)
-            {
-                Interlocked.Exchange(ref _playerCloseCountSinceFullTrim, 0);
-                Task.Run(() => TrimProcessMemory());
-            }
-        }
-
         internal static void TrimProcessMemory()
         {
             try
             {
-                DwmFlush();
-                GC.Collect(2, GCCollectionMode.Optimized, blocking: false, compacting: false);
+                GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+
+                IntPtr hProc = Process.GetCurrentProcess().Handle;
+                if (hProc != IntPtr.Zero)
+                {
+                    EmptyWorkingSet(hProc);
+                    SetProcessWorkingSetSize(hProc, (IntPtr)(-1), (IntPtr)(-1));
+                }
             }
             catch { }
+        }
+
+        internal static void TrimProcessMemoryLight()
+        {
+            try
+            {
+                GC.Collect(1, GCCollectionMode.Optimized, blocking: false, compacting: false);
+            }
+            catch { }
+        }
+
+        internal static void TrimProcessMemoryOnPlayerClose()
+        {
+            Task.Run(async () =>
+            {
+                await Task.Delay(200);
+                TrimProcessMemory();
+            });
         }
 
         // ─── Oynatıcı motoru (VLC / mpv) ────────────────────────────
@@ -205,7 +211,7 @@ namespace GlyphTV
         private AppSettings _appSettings = new();
         private static Dictionary<string, Bitmap?> _logoCache = new();
 
-        private const string TMDB_API_KEY = "buraya_api_keyinizi_girin"; // TMDb API Key Anahtarınızı buraya gireceksiniz
+        private const string TMDB_API_KEY = "afa475b104a894b298b0e746492e4157"; // TMDb API Key Anahtarınızı buraya gireceksiniz
         private const string TMDB_BASE = "https://api.themoviedb.org/3";
         private const string TMDB_IMG = "https://image.tmdb.org/t/p/w500";
         private const string TMDB_BACKDROP_IMG = "https://image.tmdb.org/t/p/w1280";

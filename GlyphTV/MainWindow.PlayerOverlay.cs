@@ -36,7 +36,6 @@ namespace GlyphTV
     public partial class MainWindow : Window
     {
         private PlayerOverlayWindow? _playerOverlay;
-        private bool _playerOverlayShownOnce = false;
 
         // YENİ (bkz. EvaluateOverlayActivation): MainWindow ve overlay
         // penceresinin aktiflik durumları ARTIK AYRI AYRI izleniyor —
@@ -85,17 +84,18 @@ namespace GlyphTV
                 else HidePlayerOverlay();
             };
 
-            // Pencere sürüklenerek taşındığında PlayerContainer'ın EKRAN
-            // koordinatları değişir ama kendi Bounds'u (pencereye göre
-            // konumu) değişmez — bu yüzden LayoutUpdated tetiklenmez, ayrı
-            // bir PositionChanged aboneliği gerekir.
+            // Pencere sürüklenerek taşındığında veya yeniden boyutlandırıldığında senkronize et
             this.PositionChanged += (s, e) => SyncPlayerOverlayBounds();
-
-            // Boyut/görünürlük/tam ekran geçişleri gibi HER layout
-            // değişikliğinde (LayoutUpdated) senkronu tazele — Fullscreen_
-            // Core, MaximizeWindow_Click, pencere yeniden boyutlandırma vb.
-            // için ayrı ayrı kod eklemeye gerek bırakmaz.
-            PlayerContainer.LayoutUpdated += (s, e) => SyncPlayerOverlayBounds();
+            this.PropertyChanged += (s, e) =>
+            {
+                if (e.Property == Window.BoundsProperty || e.Property == Window.ClientSizeProperty)
+                    SyncPlayerOverlayBounds();
+            };
+            PlayerContainer.PropertyChanged += (s, e) =>
+            {
+                if (e.Property == Layoutable.BoundsProperty || e.Property == Layoutable.WidthProperty || e.Property == Layoutable.HeightProperty)
+                    SyncPlayerOverlayBounds();
+            };
 
             // ─────────────────────────────────────────────────────────
             // DÜZELTME ("hayalet pencere" — GlyphTV'nin önüne başka bir
@@ -216,20 +216,7 @@ namespace GlyphTV
 
             if (_mainWindowActive || _overlayActive)
             {
-                // DÜZELTME (üst çubukta kalıcı/ara sıra beliren "çizgi" —
-                // hem VLC hem mpv'de, açık temada da görülebiliyordu):
-                // Bu dal önceden _playerOverlay.Show() + Topmost + Sync'i
-                // KENDİ BAŞINA, ShowPlayerOverlay()'deki ekran-dışı-park
-                // KORUMASI OLMADAN tekrarlıyordu. MainWindow her
-                // "Activated" olduğunda (alt-tab, overlay'e tıklama vb. —
-                // bunlar sıkça olur) bu YOL çalışıyordu ve PlayerContainer.
-                // Bounds henüz güncellenmemişse (Avalonia'nın layout'u
-                // asenkron tamamladığı aynı klasik yarış durumu) overlay
-                // yanlış/eski bir konumda bir anlığına görünür oluyordu.
-                // Artık TÜM gösterme yolları (ilk gösterim, yeniden
-                // aktifleşme) TEK bir korumalı metottan geçiyor.
-                if (!_playerOverlay.IsVisible)
-                    ShowPlayerOverlay();
+                ShowPlayerOverlay();
                 return;
             }
 
@@ -250,92 +237,31 @@ namespace GlyphTV
         {
             try
             {
-                // NOT: _playerOverlay artık InitPlayerOverlay() içinde her
-                // zaman eager oluşturuluyor; bu null kontrolü sadece ekstra
-                // bir güvenlik ağı (örn. InitPlayerOverlay hiç çağrılmadan
-                // bu metodun çağrılması gibi normalde olmaması gereken bir
-                // durum için).
                 if (_playerOverlay == null)
                     _playerOverlay = new PlayerOverlayWindow(this);
 
-                // DÜZELTME ("hata.png" — özellikle oynatıcı motoru
-                // değiştirilip hemen ardından yeni bir içerik oynatıldığında
-                // kontrol paneli video alanının ÇOK ALTINDA/YANLIŞ bir
-                // konumda "yüzüyor" gibi görünüyordu): PlayerContainer.
-                // Height değiştiği AN, PropertyChanged olayı SENKRON
-                // tetiklenir — ama Avalonia'nın asıl layout hesaplaması
-                // (Bounds'un GERÇEKTEN yeni Height'a göre güncellenmesi)
-                // AsENKRON bir sonraki layout turunda gerçekleşir. Bu
-                // yüzden bu noktada okunan PlayerContainer.Bounds hâlâ
-                // ESKİ (örn. bir önceki motor/oturumdan kalma) bir değer
-                // taşıyabilir ve overlay yanlış boyut/konumla senkronize
-                // edilebilir. InvalidateMeasure() Avalonia'yı bounds'u
-                // HEMEN yeniden hesaplamaya zorlar; ayrıca (bu kod
-                // tabanında ApplyGridColumnsRecalcWithRetries'te zaten
-                // kullanılan AYNI desenle) birkaç farklı dispatcher
-                // önceliğinde TEKRAR senkronize edilerek, layout'un henüz
-                // tamamlanmadığı bir ana denk gelme riski ortadan
-                // kaldırılır.
                 PlayerContainer.InvalidateMeasure();
 
-                bool isFirstShow = !_playerOverlayShownOnce;
-
-                // DÜZELTME (üst başlık çubuğunun hemen altında kısa süreli
-                // görünen "çizgi"/hayalet artefakt — koyu temada belirgin,
-                // açık temada anlık görünüp kayboluyordu): InvalidateMeasure()
-                // yalnızca layout'u "kirli" işaretler; GERÇEK ölçüm/yerleşim
-                // hâlâ bir sonraki (asenkron) layout turunda gerçekleşir. Bu
-                // yüzden Show() ÇAĞRILDIĞI ANDA PlayerContainer.Bounds çoğu
-                // zaman HÂLÂ ESKİ değeri (player kapalıyken Height=0 olduğu
-                // için başlık çubuğunun hemen altında, sıfır yükseklikli bir
-                // dikdörtgen) taşıyordu — overlay penceresi bu YANLIŞ konum/
-                // boyutla bir anlığına ekrana çiziliyor, SyncPlayerOverlayBounds
-                // aşağıdaki dispatcher çağrılarıyla düzeltene kadar da
-                // (bir-iki kare boyunca) o yanlış konumdaki "çizgi" gözle
-                // görülüyordu.
-                //
-                // Artık bounds henüz geçerli/güncel değilken (ilk gösterim
-                // ya da PlayerContainer henüz gerçek yüksekliğine ulaşmamışken)
-                // pencere ÖNCE ekranın tamamen dışına konumlandırılıp SONRA
-                // Show() çağrılıyor — kullanıcı yanlış konumdaki pencereyi
-                // hiçbir zaman görmez. Bounds zaten geçerliyse (örn. tam
-                // ekran açıp kapatma gibi ara geçişlerde) normal senkron
-                // akışı hiç değişmeden çalışmaya devam eder.
-                if (isFirstShow || PlayerContainer.Bounds.Height <= 0 || PlayerContainer.Bounds.Width <= 0)
-                    _playerOverlay.Position = new PixelPoint(-32000, -32000);
-                else
-                    SyncPlayerOverlayBounds();
-
-                if (isFirstShow)
-                {
-                    _playerOverlayShownOnce = true;
-                    _playerOverlay.Show(this);
-                }
-                else if (!_playerOverlay.IsVisible)
+                if (!_playerOverlay.IsVisible)
                 {
                     _playerOverlay.Show(this);
                 }
 
-                // Overlay ilk gösterildiğinde (kullanıcı az önce oynat'a
-                // bastı) MainWindow zaten etkin/öndeki penceredir — bu
-                // yüzden burada açıkça Topmost=true veriliyor; sonrasında
-                // bu durum yukarıdaki Activated/Deactivated abonelikleri
-                // tarafından otomatik güncellenir (bkz. "hayalet pencere"
-                // düzeltmesi notu, InitPlayerOverlay).
                 _playerOverlay.Topmost = false;
                 _playerOverlay.Topmost = true;
                 SetPipButtonActive(_isPipMode);
 
+                // Ekran koordinatlarını ve boyutları kesinlikle yeniden senkronize et
+                _lastSyncedOverlayPos = new PixelPoint(-32000, -32000);
+                _lastSyncedOverlaySize = new Size(0, 0);
+
+                ShowPlayerControls();
+                ResetInactivityTimer();
                 SyncPlayerOverlayBounds();
+
                 Dispatcher.UIThread.Post(SyncPlayerOverlayBounds, DispatcherPriority.Loaded);
                 Dispatcher.UIThread.Post(SyncPlayerOverlayBounds, DispatcherPriority.Render);
 
-                // YENİ: Ekstra bir geç/güvenceli senkron. Loaded/Render
-                // öncelikleri bazı makinelerde layout tamamlanmadan
-                // tetiklenebiliyor (özellikle overlay ekran dışından ilk
-                // kez içeri taşınırken) — kısa bir gerçek zaman gecikmesiyle
-                // (dispatcher önceliğinden bağımsız) son bir doğrulama
-                // yapılır ki pencere kesin olarak doğru konumda kalsın.
                 Dispatcher.UIThread.Post(async () =>
                 {
                     try
@@ -353,22 +279,11 @@ namespace GlyphTV
         {
             try
             {
-                // DÜZELTME (üst çubukta kalıcı/ara sıra beliren "çizgi" —
-                // hem VLC hem mpv'de görülebiliyordu, açık temada da):
-                // Hide() ile pencerenin fiilen haritadan kaldırılması
-                // arasında (bazı Windows/DWM sürümlerinde/anlarda) ufak
-                // bir gecikme olabiliyor; bu kısa süre boyunca pencere
-                // hâlâ SON senkronize edilen konum/boyutuyla — ki bu,
-                // kapanış anındaki geçiş durumlarında (örn. tam ekrandan
-                // çıkış + kapatmanın art arda geldiği ClosePlayer_Click
-                // akışı) doğru olmayan bir dikdörtgen olabilir — görünür
-                // kalabiliyordu. Hide()'dan ÖNCE pencereyi açıkça ekranın
-                // tamamen dışına taşımak bu ihtimali kökten ortadan
-                // kaldırır: pencere ne olursa olsun (haritadan kaldırılması
-                // gecikse bile) kullanıcının görebileceği hiçbir yerde
-                // değildir.
                 if (_playerOverlay != null)
-                    _playerOverlay.Position = new PixelPoint(-32000, -32000);
+                {
+                    _lastSyncedOverlayPos = new PixelPoint(-32000, -32000);
+                    _playerOverlay.Position = _lastSyncedOverlayPos;
+                }
                 _playerOverlay?.Hide();
             }
             catch (Exception ex) { LogError("HidePlayerOverlay", ex); }
@@ -381,6 +296,9 @@ namespace GlyphTV
         // PlayerContainer tüm pencereyi kapladığından overlay de otomatik
         // olarak tam ekran boyutuna gelir.
         // ─────────────────────────────────────────────────────────────
+        private PixelPoint _lastSyncedOverlayPos = new PixelPoint(-32000, -32000);
+        private Size _lastSyncedOverlaySize = new Size(0, 0);
+
         private void SyncPlayerOverlayBounds()
         {
             if (_playerOverlay == null) return;
@@ -388,37 +306,42 @@ namespace GlyphTV
             try
             {
                 var size = PlayerContainer.Bounds.Size;
-                if (size.Width <= 0 || size.Height <= 0)
+                if (size.Width <= 0 || size.Height <= 0 || !PlayerContainer.IsVisible)
                 {
-                    // DÜZELTME: Boyut geçersizken (player kapalı ya da
-                    // layout henüz tamamlanmamışken) burada eskiden
-                    // SESSİZCE hiçbir şey yapılmıyordu — bu, pencerenin
-                    // (özellikle IsVisible hâlâ true olduğu kısa geçiş
-                    // anlarında) ÖNCEKİ geçerli senkron konumunda/
-                    // boyutunda TAKILI KALMASINA izin verebiliyordu. Bu
-                    // metod PlayerContainer.LayoutUpdated gibi SIK
-                    // tetiklenen, öngörülemeyen sayıda kaynaktan çağrıldığı
-                    // için, boyut geçersiz olduğunda pencere artık açıkça
-                    // ekran dışına park ediliyor — hiçbir ihtimalde yanlış
-                    // bir konumda görünür kalmıyor.
-                    _playerOverlay.Position = new PixelPoint(-32000, -32000);
+                    if (_lastSyncedOverlayPos.X != -32000 || _lastSyncedOverlayPos.Y != -32000)
+                    {
+                        _lastSyncedOverlayPos = new PixelPoint(-32000, -32000);
+                        _playerOverlay.Position = _lastSyncedOverlayPos;
+                    }
                     return;
                 }
 
                 var topLeft = PlayerContainer.PointToScreen(new Point(0, 0));
 
-                _playerOverlay.Position = topLeft;
-                _playerOverlay.Width = size.Width;
-                _playerOverlay.Height = size.Height;
+                if (_lastSyncedOverlayPos != topLeft)
+                {
+                    _lastSyncedOverlayPos = topLeft;
+                    _playerOverlay.Position = topLeft;
+                }
+
+                if (Math.Abs(_lastSyncedOverlaySize.Width - size.Width) > 0.5 || Math.Abs(_playerOverlay.Width - size.Width) > 0.5)
+                {
+                    _lastSyncedOverlaySize = new Size(size.Width, _lastSyncedOverlaySize.Height);
+                    _playerOverlay.Width = size.Width;
+                }
+                if (Math.Abs(_lastSyncedOverlaySize.Height - size.Height) > 0.5 || Math.Abs(_playerOverlay.Height - size.Height) > 0.5)
+                {
+                    _lastSyncedOverlaySize = new Size(_lastSyncedOverlaySize.Width, size.Height);
+                    _playerOverlay.Height = size.Height;
+                }
             }
-            catch { /* pencere henüz ekrana bağlı değil vb. — bir sonraki tetiklenmede tekrar denenir */ }
+            catch { /* pencere henüz ekrana bağlı değil vb. */ }
         }
 
         private void ClosePlayerOverlayWindow()
         {
             try { _playerOverlay?.Close(); } catch { }
             _playerOverlay = null;
-            _playerOverlayShownOnce = false;
         }
 
         // ═════════════════════════════════════════════════════════════

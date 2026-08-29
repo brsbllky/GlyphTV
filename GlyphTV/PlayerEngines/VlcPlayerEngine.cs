@@ -26,11 +26,13 @@ namespace GlyphTV.PlayerEngines
                     try { Core.Initialize(); _coreInitialized = true; } catch { }
                 }
                 _sharedLibVLC = new LibVLC(
-                    "--network-caching=300",
-                    "--live-caching=800",
-                    "--file-caching=300",
-                    "--avcodec-hw=none",
+                    "--avcodec-hw=any",
+                    "--network-caching=1500",
+                    "--live-caching=1500",
+                    "--file-caching=1000",
                     "--avcodec-fast",
+                    "--gain=1.5",
+                    "--audio-resampler=soxr",
                     "--stats",
                     "--no-video-title-show",
                     "--no-snapshot-preview",
@@ -102,16 +104,33 @@ namespace GlyphTV.PlayerEngines
 
         public long Length => _mediaPlayer?.Length ?? 0;
 
+        private int _volume = 100;
+        private bool _isMuted = false;
+
         public int Volume
         {
-            get => _mediaPlayer?.Volume ?? 100;
-            set { if (_mediaPlayer != null) _mediaPlayer.Volume = value; }
+            get => _volume;
+            set
+            {
+                _volume = Math.Clamp(value, 0, 200);
+                if (_mediaPlayer != null)
+                {
+                    try { _mediaPlayer.Volume = _volume; } catch { }
+                }
+            }
         }
 
         public bool Mute
         {
-            get => _mediaPlayer?.Mute ?? false;
-            set { if (_mediaPlayer != null) _mediaPlayer.Mute = value; }
+            get => _isMuted;
+            set
+            {
+                _isMuted = value;
+                if (_mediaPlayer != null)
+                {
+                    try { _mediaPlayer.Mute = _isMuted; } catch { }
+                }
+            }
         }
 
         public float PlaybackRate
@@ -292,7 +311,13 @@ namespace GlyphTV.PlayerEngines
             _ => "yadif2x"
         };
 
-        private static string MapHwDecodeToVlc(string mode) => mode == "no" ? "none" : "any";
+        private static string MapHwDecodeToVlc(string mode) => mode switch
+        {
+            "no" => "none",
+            "d3d11va" => "d3d11va",
+            "dxva2" => "dxva2",
+            _ => "any"
+        };
 
         private volatile bool _timeUpdatePending = false;
 
@@ -305,8 +330,11 @@ namespace GlyphTV.PlayerEngines
 
                 _mediaPlayer = new MediaPlayer(_libVLC) { Volume = 100 };
                 _mediaPlayer.TimeChanged += OnVlcTimeChanged;
-                _mediaPlayer.Playing += (s, e) => Dispatcher.UIThread.Post(() => ApplyAspectRatio(_currentAspectRatio));
-                _mediaPlayer.ESAdded += (s, e) => TracksChanged?.Invoke(this, EventArgs.Empty);
+                _mediaPlayer.Playing += (s, e) => Dispatcher.UIThread.Post(() =>
+                {
+                    ApplyAspectRatio(_currentAspectRatio);
+                });
+                _mediaPlayer.ESAdded += (s, e) => Dispatcher.UIThread.Post(() => TracksChanged?.Invoke(this, EventArgs.Empty));
                 _mediaPlayer.EndReached += (s, e) => Dispatcher.UIThread.Post(() => EndReached?.Invoke(this, EventArgs.Empty));
 
                 ApplyVideoAdjustments();
@@ -348,17 +376,6 @@ namespace GlyphTV.PlayerEngines
             _videoView.IsVisible = true;
             if (_videoView.MediaPlayer == null) _videoView.MediaPlayer = _mediaPlayer;
 
-            try
-            {
-                if (_mediaPlayer.IsPlaying)
-                {
-                    _mediaPlayer.Stop();
-                }
-            }
-            catch { }
-
-            _mediaPlayer.Media?.Dispose();
-
             var media = new Media(_libVLC, new Uri(url));
             if (startPositionMs > 0)
             {
@@ -374,20 +391,16 @@ namespace GlyphTV.PlayerEngines
             media.AddOption(_deinterlace ? ":deinterlace=1" : ":deinterlace=0");
             if (_deinterlace) media.AddOption($":deinterlace-mode={MapDeinterlaceToVlc(_deinterlaceMode)}");
 
-            if (_isLiveStream && _fastZapping)
+            if (_isLiveStream)
             {
-                // Canlı TV için ses çıtırtısını ve jitter patlamalarını önleyen dengeli tampon
-                media.AddOption(":network-caching=500");
-                media.AddOption(":live-caching=800");
-                media.AddOption(":clock-jitter=500");
-                media.AddOption(":clock-synchro=1");
+                media.AddOption(":network-caching=1000");
+                media.AddOption(":live-caching=1000");
                 media.AddOption(":audio-time-stretch=1");
-                media.AddOption(":drop-late-frames");
             }
             else
             {
-                media.AddOption(":network-caching=800");
-                media.AddOption(":live-caching=1200");
+                media.AddOption(":network-caching=1000");
+                media.AddOption(":file-caching=1000");
                 media.AddOption(":audio-time-stretch=1");
             }
 
@@ -401,6 +414,8 @@ namespace GlyphTV.PlayerEngines
             }
 
             ApplyAspectRatio(_currentAspectRatio);
+            _mediaPlayer.Mute = _isMuted;
+            _mediaPlayer.Volume = _volume;
             _mediaPlayer.Play(media);
 
             ApplyVideoAdjustments();
@@ -417,11 +432,18 @@ namespace GlyphTV.PlayerEngines
 
         public void Stop()
         {
-            _mediaPlayer?.Stop();
-            _mediaPlayer?.Media?.Dispose();
             _lastReadBytes = 0;
             _lastBitrateCalcTime = DateTime.MinValue;
             _smoothedBitrateKbps = 0;
+            var mp = _mediaPlayer;
+            if (mp != null)
+            {
+                try
+                {
+                    mp.Stop();
+                }
+                catch { }
+            }
         }
 
         public void SetAudioTrack(int id) { if (_mediaPlayer != null) _mediaPlayer.SetAudioTrack(id); }
