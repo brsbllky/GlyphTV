@@ -211,7 +211,7 @@ namespace GlyphTV
         private AppSettings _appSettings = new();
         private static Dictionary<string, Bitmap?> _logoCache = new();
 
-        private const string TMDB_API_KEY = "afa475b104a894b298b0e746492e4157"; // TMDb API Key Anahtarınızı buraya gireceksiniz
+        private const string TMDB_API_KEY = "buraya_api_keyinizi_girin"; // TMDb API Key Anahtarınızı buraya gireceksiniz
         private const string TMDB_BASE = "https://api.themoviedb.org/3";
         private const string TMDB_IMG = "https://image.tmdb.org/t/p/w500";
         private const string TMDB_BACKDROP_IMG = "https://image.tmdb.org/t/p/w1280";
