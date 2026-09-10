@@ -3,8 +3,13 @@
 
 # GlyphTV 📺
 
-**Modern, yüksek performanslı ve çift oynatıcı motorlu (MPV & VLC) IPTV / Medya Oynatıcı**  
-Avalonia UI ve .NET 10 mimarisiyle geliştirilmiş, akıcı ve zengin özellikli masaüstü deneyimi.
+**Modern, high-performance, dual-engine (MPV & VLC) IPTV / Media Player**  
+Engineered with Avalonia UI and .NET 10 for a fluid, feature-rich desktop experience.
+
+[![English](https://img.shields.io/badge/Language-English-blue?style=for-the-badge)](#)
+[![Türkçe](https://img.shields.io/badge/Dil-T%C3%BCrk%C3%A7e-red?style=for-the-badge)](README.tr.md)
+
+<br/>
 
 [![C#](https://img.shields.io/badge/C%23-100%25-239120?style=flat&logo=csharp)](https://docs.microsoft.com/en-us/dotnet/csharp/)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat&logo=dotnet)](https://dotnet.microsoft.com/)
@@ -18,179 +23,178 @@ Avalonia UI ve .NET 10 mimarisiyle geliştirilmiş, akıcı ve zengin özellikli
 
 ---
 
-## ✨ Özellikler
+## ✨ Features
 
-- 📺 **Canlı TV** — M3U dosyası, M3U playlist URL'si ve Xtream Code API desteği
-- 🎬 **VOD (Filmler)** — TMDb afişleri, fragmanlar, oyuncu kadrosu, devam etme ve favori yönetimi
-- 🎞️ **Diziler** — Otomatik sezon/bölüm ayrıştırma, bölüm küçük resimleri ve açıklamaları ile gelişmiş navigasyon
-- 📅 **EPG Program Rehberi** — XMLTV desteği, canlı yayın ilerleme yüzdesi ve detaylı program akışı
-- 🔍 **Anlık Arama & Akıllı Navigasyon** — Sonuçlara odaklanan dinamik arama görünümü (Hero gizleme), menü sekme geçişlerinde otomatik temizleme ve A-Z / Z-A / Son Eklenenler filtreleri
-- ❤️ **Favoriler** — Canlı TV, film ve diziler için anında güncellenen favori listesi
-- 🎨 **Dinamik Tema** — Koyu (Midnight Navy) ve Açık tema desteği
-- 🎥 **TMDb Entegrasyonu** — Otomatik isim temizleme, Levenshtein benzerlik doğrulaması, afiş/backdrop önbellekleme ve manuel geçersiz kılma (`tmdb-overrides.json`)
-- ⏱️ **İzleme Geçmişi** — Kaldığın yerden devam etme, yüzde barı ve tek tıkla geçmişi temizleme
-- ⌨️ **Klavye Kısayolları** — Boşluk, F, M, yön tuşları ile tam kontrollü oynatıcı
-- 🔊 **Çoklu Ses & Altyazı** — Dil seçimi, altyazı senkronizasyonu ve 5.1 ses desteği
-- 📐 **Dinamik En-Boy Oranı** — 16:9, 4:3, 21:9 ve Auto (Dinamik En:Boy) seçenekleri
-
----
-
-## 💻 Gereksinimler
-
-- [Windows 10](https://www.microsoft.com/tr-tr/windows) / Windows 11 (64-bit)
-- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) *(yalnızca kaynak koddan derlemek için)*
-- [MPV](https://mpv.io/) veya [LibVLCSharp](https://github.com/videolan/libvlcsharp) kütüphaneleri *(Uygulama ile birlikte otomatik gelir)*
+- 📺 **Live TV** — Support for M3U files, remote M3U/M3U8 playlist URLs, and Xtream Codes API
+- 🎬 **VOD (Movies)** — TMDb posters, trailers, cast lists, playback progress tracking, and favorites
+- 🎞️ **Series** — Automatic season/episode parsing, episode thumbnails, and descriptions with intuitive navigation
+- 📅 **EPG Program Guide** — XMLTV support, real-time broadcast progress indicators, and comprehensive program timelines
+- 🔍 **Instant Search & Smart Navigation** — Results-focused dynamic search mode (auto-hides hero banner), automatic input reset on tab transitions, and A-Z / Z-A / Recently Added sorting
+- ❤️ **Favorites** — Real-time synchronized favorites catalog for Live TV, Movies, and TV Series
+- 🎨 **Dynamic Themes** — Midnight Navy (Dark) and Clean Light theme support
+- 🎥 **TMDb Integration** — Automatic title sanitization, Levenshtein distance verification, poster/backdrop disk caching, and manual override support (`tmdb-overrides.json`)
+- ⏱️ **Watch History** — Resume where you left off, progress percentage indicators, and one-click history clearing
+- ⌨️ **Keyboard Shortcuts** — Full-featured playback controls via Space, F, M, and arrow keys
+- 🔊 **Multi-Audio & Subtitles** — Audio channel/language selection, millisecond-precision subtitle delay sync, and 5.1 surround sound support
+- 📐 **Dynamic Aspect Ratio** — 16:9, 4:3, 21:9, and Auto (Dynamic Aspect Ratio) modes
 
 ---
 
-## 🔒 Güvenlik
+## 💻 System Requirements
 
-### Windows SmartScreen Uyarısı
-
-GlyphTV'yi indirdiğinizde Windows SmartScreen aşağıdaki gibi bir uyarı gösterebilir:
-
-> **"Windows bilgisayarınızı korudu — Bilinmeyen yayıncı"**
-
-**Bu uyarı neden çıkıyor?**
-
-SmartScreen, Microsoft'ta kayıtlı ticari bir kod imzalama sertifikası bulunmayan açık kaynaklı uygulamalara bu uyarıyı gösterir. Kod imzalama sertifikaları yüksek maliyetlidir ve bu proje topluluk için ücretsiz ve açık kaynaklı olarak sunulmaktadır. Uygulama zararlı değildir.
-
-**Nasıl çalıştırılır?**
-
-1. Uyarı ekranında **"Daha fazla bilgi"** bağlantısına tıklayın.
-2. Altta beliren **"Yine de çalıştır"** düğmesine tıklayın.
-3. Uygulama normal şekilde başlayacaktır.
-
-> ⚠️ Uygulamayı çalıştırmadan önce aşağıdaki VirusTotal raporunu inceleyebilir veya kaynak kodunu doğrudan bu depodan derleyebilirsiniz.
+- [Windows 10](https://www.microsoft.com/windows) / Windows 11 (64-bit)
+- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) *(Required only when building from source code)*
+- [MPV](https://mpv.io/) or [LibVLCSharp](https://github.com/videolan/libvlcsharp) libraries *(Bundled automatically with release binaries)*
 
 ---
 
-### ✅ VirusTotal Taraması
+## 🔒 Security & Trust
 
-Her sürüm yayınlanmadan önce VirusTotal üzerinden taranmaktadır. Sonuçları kendiniz doğrulayabilirsiniz.
+### Windows SmartScreen Warning
 
-**Neden false positive alınabilir?**
+When launching GlyphTV for the first time, Windows SmartScreen may display the following notification:
 
-Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebilir:
+> **"Windows protected your PC — Unknown publisher"**
 
-- Uygulama **self-contained** olarak paketlenmiştir — .NET runtime ve tüm bağımlılıklar tek `.exe` içinde sıkıştırılmıştır.
-- **LibVLC** ve **MPV** (`mpv-2.dll`, `libvlc.dll`, `libvlccore.dll`) medya oynatma için yerel (native) C/C++ kütüphaneleri içerir.
-- İmzasız bir çalıştırılabilir dosya olması bazı sezgisel (heuristic) tarayıcıları tetikleyebilir.
+**Why does this happen?**
 
-| Alan | Detay |
-|------|-------|
-| Sürüm | v2.1.0 |
-| Dosya | GlyphTV.exe |
-| SHA256 | b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21 |
-| Sonuç | 0/70 tespit | 
-| Rapor | https://www.virustotal.com/gui/file/b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21?nocache=1 |
+SmartScreen displays this prompt for open-source applications that do not carry an expensive commercial EV Code Signing certificate registered with Microsoft. Such certificates cost hundreds of dollars annually, whereas this software is distributed completely free and open-source for the community. The application contains zero malicious code.
+
+**How to bypass and run:**
+
+1. Click **"More info"** on the SmartScreen dialog.
+2. Click the **"Run anyway"** button that appears at the bottom.
+3. The application will start immediately.
+
+> ⚠️ You can review the VirusTotal report below or compile the application directly from source code yourself before launching.
 
 ---
 
-## 📥 Kurulum
+### ✅ VirusTotal Scan Report
 
-### Hazır Binary (Önerilen)
+Every release binary is submitted and scanned on VirusTotal prior to release. You can verify the integrity yourself:
 
-1. [Releases](https://github.com/brsbllky/GlyphTV/releases) sayfasından en güncel sürümü indirin.
-2. `GlyphTV.exe` dosyasını çalıştırın — ek kurulum gerekmez.
+**Why might some scanners flag false positives?**
 
-### Kaynak Koddan Derleme
+Certain heuristic antivirus algorithms may trigger false positives due to:
+- **Self-contained packaging:** The .NET runtime and all assemblies are bundled into a single standalone executable.
+- **Native multimedia engines:** **LibVLC** and **MPV** (`mpv-2.dll`, `libvlc.dll`, `libvlccore.dll`) contain native C/C++ compiled binaries.
+- Unsigned executable heuristics.
 
-> **TMDB API Key Gereklidir** — Poster ve film/dizi bilgileri için [themoviedb.org](https://www.themoviedb.org) adresinden ücretsiz bir API key alın. Aldığınız key'i `MainWindow.axaml.cs` dosyasındaki şu satıra girin:
+| Field | Details |
+|---|---|
+| Release | v2.1.0 |
+| Binary | `GlyphTV.exe` |
+| SHA256 | `b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21` |
+| Detection Rate | **0 / 70 Clean** |
+| VirusTotal Report | [View Analysis](https://www.virustotal.com/gui/file/b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21?nocache=1) |
+
+---
+
+## 📥 Installation
+
+### Pre-built Binary (Recommended)
+
+1. Download the latest release package from the [Releases](https://github.com/brsbllky/GlyphTV/releases) page.
+2. Run `GlyphTV.exe` directly — no installation wizard or external dependencies required.
+
+### Building from Source
+
+> **TMDb API Key Required** — For movie/series posters and metadata, obtain a free API key from [themoviedb.org](https://www.themoviedb.org). Insert your key into `MainWindow.axaml.cs`:
 
 ```csharp
-private const string TMDB_API_KEY = "buraya_api_keyinizi_girin";
+private const string TMDB_API_KEY = "your_tmdb_api_key_here";
 ```
 
-> Key girilmezse uygulama çalışmaya devam eder; yalnızca poster ve detay bilgileri görüntülenmez.
+> If no key is provided, the player functions normally; metadata posters and backdrops simply won't be fetched.
 
 ```bash
-# Depoyu klonlayın
+# Clone the repository
 git clone https://github.com/brsbllky/GlyphTV.git
 cd GlyphTV/GlyphTV
 
-# Projeyi derleyin ve yayınlayın
+# Build and publish release binaries
 dotnet publish -c Release
 ```
 
-Derlenen çıktı `bin/Release/net10.0-windows/publish/` klasöründe oluşacaktır.
+Compiled binaries will be generated in `bin/Release/net10.0-windows/publish/`.
 
 ---
 
-## 🎮 Kullanım
+## 🎮 Usage Guide
 
-### Kaynak Ekleme
+### Adding IPTV Playlists & Sources
 
-1. Üst menüden **Ayarlar (⚙️) → IPTV Kaynakları → Yeni Kaynak Ekle** adımlarını izleyin.
-2. Kaynak türünü belirleyin:
-   - **Xtream Code** — Sunucu adresi, kullanıcı adı ve şifre (Şifre gizle/göster desteği mevcuttur)
-   - **M3U Link** — Uzak M3U/M3U8 playlist URL'si
-   - **M3U Dosyası** — Yerel `.m3u` / `.m3u8` dosyası
+1. Navigate to **Settings (⚙️) → IPTV Sources → Add New Source** from the top navigation bar.
+2. Select your provider type:
+   - **Xtream Codes** — Server URL, Username, and Password (includes password toggle visibility)
+   - **M3U Link** — Remote M3U / M3U8 playlist URL
+   - **M3U File** — Local `.m3u` / `.m3u8` file stored on your computer
 
-### ⌨️ Klavye Kısayolları
+### ⌨️ Keyboard Shortcuts
 
-| Tuş | İşlev |
-|-----|-------|
-| `Space` | Oynat / Duraklat |
-| `F` | Tam Ekran Aç / Kapat |
-| `Esc` | Tam Ekrandan Çık / Modalı Kapat |
-| `M` | Sesi Kapat / Aç (Mute) |
-| `← / →` | 10 saniye geri / ileri sarma (VOD & Dizi) |
-| `↑ / ↓` | Önceki / sonraki kanala geçiş (Canlı TV) |
-| `Çift Tık` | Video yüzeyinde Tam Ekran geçişi |
-
----
-
-## 🛠️ Teknolojiler
-
-| Teknoloji | Versiyon | Kullanım Amacı |
-|-----------|----------|----------------|
-| [Avalonia UI](https://avaloniaui.net/) | 11.3.13 | Modern XAML tabanlı masaüstü arayüz çerçevesi |
-| [MPV Engine](https://mpv.io/) | Native | Ultra düşük gecikmeli, donanım hızlandırmalı video oynatıcı motoru |
-| [LibVLCSharp](https://github.com/videolan/libvlcsharp) | 3.9.6 | Geniş codec uyumluluğuna sahip alternatif video motoru |
-| [TMDb API](https://www.themoviedb.org/documentation/api) | v3 | Film/dizi afişleri, özetler ve oyuncu kadrosu |
-| [.NET](https://dotnet.microsoft.com/) | 10 | Yüksek performanslı uygulama çatısı (C# 13) |
+| Shortcut | Function |
+|---|---|
+| `Space` | Play / Pause |
+| `F` | Toggle Fullscreen |
+| `Esc` | Exit Fullscreen / Close Active Dialog |
+| `M` | Mute / Unmute Audio |
+| `← / →` | Seek backward / forward 10 seconds (VOD & Series) |
+| `↑ / ↓` | Switch to previous / next channel (Live TV) |
+| `Double Click` | Toggle Fullscreen on video viewport |
 
 ---
 
-## 📸 Ekran Görüntüleri
+## 🛠️ Built With
 
-> 📌 **Not**: GlyphTV herhangi bir çalma listesi veya dijital yayın içeriği barındırmaz ve sağlamaz. Ekran görüntülerindeki kanallar ve görseller sadece arayüz gösterimi amaçlıdır.
+| Framework / Tool | Version | Purpose |
+|---|---|---|
+| [Avalonia UI](https://avaloniaui.net/) | 11.3.13 | Modern cross-platform XAML desktop UI framework |
+| [MPV Engine](https://mpv.io/) | Native | Ultra-low latency, hardware-accelerated media player core |
+| [LibVLCSharp](https://github.com/videolan/libvlcsharp) | 3.9.6 | High-compatibility alternative media playback engine |
+| [TMDb API](https://www.themoviedb.org/documentation/api) | v3 | Movie & Series metadata, posters, backdrops, and cast info |
+| [.NET](https://dotnet.microsoft.com/) | 10 | High-performance application runtime (C# 13) |
 
-**Anasayfa & TMDb Hero Banner**  
-![Anasayfa](screenshots/home.PNG)
+---
 
-**Bağımsız Ayarlar Modalı**  
-![Ayarlar](screenshots/ayarlar.PNG)
+## 📸 Screenshots
 
-**Canlı TV — Kategori & Kanal Listesi**  
-![Canlı TV](screenshots/canli.PNG)
-![Canlı TV](screenshots/canli2.PNG)
+> 📌 **Disclaimer**: GlyphTV does not host, provide, or distribute any media streams or playlist content. Channels and media artwork visible in screenshots are solely for user interface demonstration purposes.
 
-**Filmler & Diziler Kataloğu**  
-![Filmler](screenshots/vod.PNG)
-![Diziler](screenshots/dizi.PNG)
+**Home & TMDb Hero Banner**  
+![Home](screenshots/home.PNG)
 
-**Minimalist Film & Dizi Detay Modalı**  
-![Film Detayı](screenshots/vod2.PNG)
+**Independent Settings Modal**  
+![Settings](screenshots/ayarlar.PNG)
 
-**Canlı TV — EPG Yayın Akışı Modalı**  
-![EPG Modalı](screenshots/epg.PNG)
+**Live TV — Category & Channel Catalog**  
+![Live TV](screenshots/canli.PNG)  
+![Live TV 2](screenshots/canli2.PNG)
 
-**Video Oynatıcı (Player Overlay)**  
+**Movies & TV Series Browser**  
+![Movies](screenshots/vod.PNG)  
+![Series](screenshots/dizi.PNG)
+
+**Minimalist Movie & Series Detail Modal**  
+![Media Details](screenshots/vod2.PNG)
+
+**Live TV — EPG Broadcast Timeline Modal**  
+![EPG Modal](screenshots/epg.PNG)
+
+**Video Player (OSD & Controls Overlay)**  
 ![Player](screenshots/player.PNG)
 
-**Favoriler Sekmesi**  
-![Favoriler](screenshots/favoriler.PNG)
+**Favorites Dashboard**  
+![Favorites](screenshots/favoriler.PNG)
 
-**Arama Deneyimi**  
-![Arama](screenshots/arama.PNG)
+**Instant Dynamic Search**  
+![Search](screenshots/arama.PNG)
 
 ---
 
 <div align="center">
 
-GlyphTV — Avalonia UI, MPV & LibVLCSharp ile geliştirilmiştir.
+GlyphTV — Built with Avalonia UI, MPV & LibVLCSharp.
 
 **Designed by AkuLaTa**
 
