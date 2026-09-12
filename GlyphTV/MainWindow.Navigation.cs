@@ -114,6 +114,7 @@ namespace GlyphTV
         {
             try
             {
+                _cachedCategoriesByTab.Clear();
                 string catPath = GetCategoriesPath(sourceId);
                 if (File.Exists(catPath))
                 {
@@ -253,6 +254,7 @@ namespace GlyphTV
             UpdatePlayerEngineButtonsActiveState();
             UpdateScalingQualityButtonsActiveState();
             UpdateThemeButtonsActiveState(_appSettings.ThemeMode);
+            UpdateLanguageButtonsActiveState();
             SwitchSettingsTab("Sources");
             SettingsModalOverlay.IsVisible = true;
         }

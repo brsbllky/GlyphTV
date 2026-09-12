@@ -24,14 +24,14 @@
     <TieredPGO>true</TieredPGO>
 
     <!-- Sürüm ve uygulama metadata bilgileri (.exe özelliklerinde görünür) -->
-    <AssemblyVersion>2.1.0.0</AssemblyVersion>
-    <FileVersion>2.1.0.0</FileVersion>
+    <AssemblyVersion>2.1.1.0</AssemblyVersion>
+    <FileVersion>2.1.1.0</FileVersion>
     <Product>GlyphTV</Product>
     <Company>GlyphTV</Company>
     <Description>GlyphTV - Modern IPTV Player</Description>
     <Copyright>© 2026 Barış Ballıkaya</Copyright>
     <Authors>Barış Ballıkaya</Authors>
-    <Version>2.1.0</Version>
+    <Version>2.1.1</Version>
 
     <!-- Tek dosya self-contained yayınlama ayarları
          (sadece 'dotnet publish' sırasında etki eder, Visual Studio debug'ı etkilemez) -->

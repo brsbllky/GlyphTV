@@ -396,8 +396,27 @@ namespace GlyphTV
 
         private async Task LoadChannelsForSourceAsync(string sourceId)
         {
-            // 1. Kategorileri anında (1 ms) diskten RAM'e yükle — Kullanıcı sekmelere tıkladığında anında kategorileri görsün
+            // 1. Kategorileri anında (1 ms) diskten RAM'e yükle ve UI'yı anında güncelle
             LoadCategoriesCacheFromDisk(sourceId);
+
+            _currentCategory = "";
+            if (_viewState == "Content")
+            {
+                _viewState = "Categories";
+            }
+            if (_cachedCategoriesByTab.TryGetValue(_currentTab, out var cachedGroups))
+            {
+                ReplaceCollection(_displayCategories, cachedGroups);
+            }
+            else
+            {
+                _displayCategories.Clear();
+            }
+            _displayContents.Clear();
+            _displayVodContents.Clear();
+            _displaySeriesCards.Clear();
+            UpdateCategorySelectionVisual();
+            UpdateView();
 
             if (_decryptedChannelsCache.TryGetValue(sourceId, out var cachedChannels))
             {
@@ -483,6 +502,7 @@ namespace GlyphTV
             if (sender is not Button btn || btn.Tag is not TvSource source) return;
             _sources.Remove(source);
             try { File.Delete(GetChannelsPath(source.Id)); } catch { }
+            try { File.Delete(GetCategoriesPath(source.Id)); } catch { }
 
             _decryptedChannelsCache.Remove(source.Id);
 
@@ -494,6 +514,9 @@ namespace GlyphTV
             else if (_sources.Count == 0)
             {
                 _allChannels.Clear();
+                _cachedCategoriesByTab.Clear();
+                _displayCategories.Clear();
+                _currentCategory = "";
                 UpdateView();
             }
             SaveSources();
@@ -1351,6 +1374,7 @@ namespace GlyphTV
             XtreamUrlInput.Text = "";
             XtreamUserInput.Text = "";
             XtreamPassInput.Text = "";
+            XtreamEpgUrlInput.Text = "";
             _isXtreamPasswordRevealed = false;
             XtreamPassInput.PasswordChar = '*';
             XtreamPassToggleIcon.Text = "👁️";
@@ -1486,6 +1510,15 @@ namespace GlyphTV
                     newSource.PathOrUrl = server;
                     newSource.Username = user;
                     newSource.Password = pass;
+
+                    string xtreamEpg = XtreamEpgUrlInput.Text?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(xtreamEpg))
+                    {
+                        if (!xtreamEpg.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                            !xtreamEpg.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                            xtreamEpg = "http://" + xtreamEpg;
+                        newSource.EpgUrl = xtreamEpg;
+                    }
 
                     var channels = await FetchChannelsForSource(newSource);
                     _allChannels = channels;

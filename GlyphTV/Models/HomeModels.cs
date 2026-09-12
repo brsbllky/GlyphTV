@@ -54,8 +54,15 @@ namespace GlyphTV
         public int TmdbId { get; set; }
         public string Title { get; set; } = "";
         public string OriginalTitle { get; set; } = "";
-        public string MediaType { get; set; } = "movie"; // "movie" veya "tv"
-        public string MediaTypeBadge => MediaType == "tv" ? "DİZİ" : "SİNEMA";
+        public string MediaType { get; set; } = "movie";
+        public string MediaTypeBadge => MediaType == "tv" 
+            ? (Localization.CurrentLanguage == "en" ? "SERIES" : "DİZİ") 
+            : (Localization.CurrentLanguage == "en" ? "MOVIE" : "SİNEMA");
+
+        public void RefreshLocalization()
+        {
+            OnPropertyChanged(nameof(MediaTypeBadge));
+        }
         public string PosterPath { get; set; } = "";
         public string PosterUrl => string.IsNullOrEmpty(PosterPath) 
             ? "" 
@@ -302,15 +309,16 @@ namespace GlyphTV
         {
             get
             {
+                bool isEn = Localization.CurrentLanguage == "en";
                 if (Duration <= 0)
                 {
                     if (Position > 5000)
                     {
                         var ts = TimeSpan.FromMilliseconds(Position);
                         int mins = (int)ts.TotalMinutes;
-                        if (mins < 1) return "< 1 dk";
-                        if (mins >= 60) return $"{mins / 60} sa {mins % 60} dk";
-                        return $"{mins} dk";
+                        if (mins < 1) return isEn ? "< 1 min" : "< 1 dk";
+                        if (mins >= 60) return isEn ? $"{mins / 60} hr {mins % 60} min" : $"{mins / 60} sa {mins % 60} dk";
+                        return isEn ? $"{mins} min" : $"{mins} dk";
                     }
                     return "";
                 }
@@ -319,17 +327,22 @@ namespace GlyphTV
                 int totalMinutes = (int)Math.Round(rem.TotalMinutes);
                 if (totalMinutes <= 1)
                 {
-                    return "1 dk kaldı";
+                    return isEn ? "1 min left" : "1 dk kaldı";
                 }
                 if (totalMinutes >= 60)
                 {
                     int hours = totalMinutes / 60;
                     int mins = totalMinutes % 60;
-                    if (mins == 0) return $"{hours} sa kaldı";
-                    return $"{hours} sa {mins} dk kaldı";
+                    if (mins == 0) return isEn ? (hours == 1 ? "1 hr left" : $"{hours} hrs left") : $"{hours} sa kaldı";
+                    return isEn ? $"{hours} hr {mins} min left" : $"{hours} sa {mins} dk kaldı";
                 }
-                return $"{totalMinutes} dk kaldı";
+                return isEn ? $"{totalMinutes} min left" : $"{totalMinutes} dk kaldı";
             }
+        }
+
+        public void RefreshLocalization()
+        {
+            OnPropertyChanged(nameof(RemainingTimeText));
         }
 
         public string PositionFormatted

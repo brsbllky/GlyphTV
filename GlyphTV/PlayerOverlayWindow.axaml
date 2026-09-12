@@ -265,7 +265,7 @@
 										<Border x:Name="LiveBadge" x:FieldModifier="Public" Background="#22ef4444" BorderBrush="#55ef4444" BorderThickness="1" CornerRadius="12" Padding="7,3" IsVisible="True">
 											<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
 												<Border Width="5" Height="5" CornerRadius="3" Background="#ff4d4d"/>
-												<TextBlock Text="CANLI" Foreground="#ff6b6b" FontSize="10" FontWeight="Bold"/>
+												<TextBlock x:Name="PlayerLiveBadgeText" x:FieldModifier="Public" Text="CANLI" Foreground="#ff6b6b" FontSize="10" FontWeight="Bold"/>
 											</StackPanel>
 										</Border>
 										<TextBlock x:Name="PlayerTitleText" x:FieldModifier="Public" Text="Kanal Adı" Foreground="White" FontWeight="Medium" FontSize="13" VerticalAlignment="Center" MaxWidth="400" TextTrimming="CharacterEllipsis"/>
@@ -297,13 +297,13 @@
 										<Border x:Name="BtnAudioTrack" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnAudioTrack_Click" IsVisible="True">
 											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
 												<Path Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
-												<TextBlock Text="Ses Dili" Foreground="#DDffffff" FontSize="12"/>
+												<TextBlock x:Name="PlayerAudioTrackBtnText" x:FieldModifier="Public" Text="Ses Dili" Foreground="#DDffffff" FontSize="12"/>
 											</StackPanel>
 										</Border>
 										<Border x:Name="BtnChannelList" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnChannelList_Click" IsVisible="True">
 											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
 												<Path Data="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
-												<TextBlock Text="Kanallar" Foreground="#DDffffff" FontSize="12"/>
+												<TextBlock x:Name="PlayerChannelsBtnText" x:FieldModifier="Public" Text="Kanallar" Foreground="#DDffffff" FontSize="12"/>
 											</StackPanel>
 										</Border>
 										<Border x:Name="BtnAspectRatio" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnAspectRatio_Click" IsVisible="True">
@@ -315,7 +315,7 @@
 										<Border x:Name="BtnSubtitle" x:FieldModifier="Public" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="20" Padding="10,5" Cursor="Hand" PointerPressed="BtnSubtitle_Click" IsVisible="False">
 											<StackPanel Orientation="Horizontal" Spacing="5" IsHitTestVisible="False">
 												<Path Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 10H7v-2h10v2zm0-4H7V6h10v2z" Fill="#DDffffff" Width="13" Height="13" Stretch="Uniform"/>
-												<TextBlock Text="Altyazı / Dil" Foreground="#DDffffff" FontSize="12"/>
+												<TextBlock x:Name="PlayerSubtitlesBtnText" x:FieldModifier="Public" Text="Altyazı / Dil" Foreground="#DDffffff" FontSize="12"/>
 											</StackPanel>
 										</Border>
 										<!-- YENİ: mpv Ayarları (⚙️) — SADECE mpv motoru aktifken
@@ -337,7 +337,7 @@
 														<Path Fill="#DDffffff" Data="M27,17c-5.514,0-10,4.486-10,10s4.486,10,10,10s10-4.486,10-10S32.514,17,27,17z M27,35c-4.411,0-8-3.589-8-8s3.589-8,8-8 s8,3.589,8,8S31.411,35,27,35z"/>
 													</Canvas>
 												</Viewbox>
-												<TextBlock Text="Enhanced" Foreground="#DDffffff" FontSize="12"/>
+												<TextBlock x:Name="PlayerEnhancedBtnText" x:FieldModifier="Public" Text="Enhanced" Foreground="#DDffffff" FontSize="12"/>
 											</StackPanel>
 										</Border>
 									</StackPanel>
@@ -383,7 +383,7 @@
 											</Border>
 
 											<StackPanel x:Name="SkipBackBtn" x:FieldModifier="Public" IsVisible="False" VerticalAlignment="Center" Spacing="1">
-												<Border Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipBack_Click" ToolTip.Tip="10 saniye geri">
+												<Border x:Name="SkipBackBtnBorder" x:FieldModifier="Public" Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipBack_Click" ToolTip.Tip="10 saniye geri">
 													<Viewbox Width="18" Height="18" IsHitTestVisible="False">
 														<Canvas Width="24" Height="24">
 															<Path Data="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" Fill="#CCffffff"/>
@@ -411,7 +411,7 @@
 											</Border>
 
 											<StackPanel x:Name="SkipForwardBtn" x:FieldModifier="Public" IsVisible="False" VerticalAlignment="Center" Spacing="1">
-												<Border Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipForward_Click" ToolTip.Tip="10 saniye ileri">
+												<Border x:Name="SkipForwardBtnBorder" x:FieldModifier="Public" Width="36" Height="30" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="SkipForward_Click" ToolTip.Tip="10 saniye ileri">
 													<Viewbox Width="18" Height="18" IsHitTestVisible="False">
 														<Canvas Width="24" Height="24">
 															<Path Data="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" Fill="#CCffffff"/>
@@ -478,7 +478,7 @@
 												</Viewbox>
 											</Border>
 
-											<Border Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Fullscreen_Click" ToolTip.Tip="Tam Ekran [F]">
+											<Border x:Name="FullscreenBtn" x:FieldModifier="Public" Width="36" Height="36" CornerRadius="8" Background="Transparent" Cursor="Hand" PointerPressed="Fullscreen_Click" ToolTip.Tip="Tam Ekran [F]">
 												<Viewbox Width="17" Height="17" IsHitTestVisible="False">
 													<Canvas Width="24" Height="24">
 														<Path Data="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" Fill="#CCffffff"/>
@@ -503,7 +503,7 @@
 							<Border x:Name="ChannelListPanel" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" Width="280" MaxHeight="460" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<Grid RowDefinitions="Auto, *">
 									<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="4,0,0,8">
-										<TextBlock Text="Kanallar" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+										<TextBlock x:Name="PlayerPopupChannelsTitle" x:FieldModifier="Public" Text="Kanallar" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
 										<Button Grid.Column="1" Classes="PlayerCloseBtn" Click="CloseChannelList_Click">
 											<Viewbox Width="13" Height="13">
 												<Canvas Width="24" Height="24">
@@ -528,7 +528,7 @@
 							<!-- SES DİLİ POPUP (CANLI İÇERİKLER İÇİN) -->
 							<Border x:Name="AudioTrackPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="240" MaxWidth="320" MaxHeight="480" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<Grid RowDefinitions="Auto, *, Auto, Auto, Auto">
-									<TextBlock Grid.Row="0" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,8"/>
+									<TextBlock x:Name="PlayerPopupAudioTrackTitle" x:FieldModifier="Public" Grid.Row="0" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,8"/>
 									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="180">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
@@ -541,7 +541,7 @@
 									<!-- SES SENKRONİZASYONU BÖLÜMÜ -->
 									<Border Grid.Row="2" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
 									<Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="4,0,4,6">
-										<TextBlock Text="Ses Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+										<TextBlock x:Name="PlayerPopupAudioSyncTitle" x:FieldModifier="Public" Text="Ses Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
 										<TextBlock x:Name="AudioDelayText" x:FieldModifier="Public" Grid.Column="1" Text="0 ms" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" FontFamily="Consolas,monospace" VerticalAlignment="Center"/>
 									</Grid>
 									<StackPanel Grid.Row="4" Spacing="6" Margin="0,0,0,4">
@@ -568,7 +568,7 @@
 											</Border>
 										</Grid>
 										<Border Classes="SelectListItemCompact" PointerPressed="AudioDelayReset_Click" Background="#1Affffff" ToolTip.Tip="Ses Senkronunu Sıfırla (0 ms) [L]">
-											<TextBlock Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
+											<TextBlock x:Name="PlayerPopupAudioSyncResetText" x:FieldModifier="Public" Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
 										</Border>
 									</StackPanel>
 								</Grid>
@@ -577,7 +577,7 @@
 							<!-- ALTYAZI + SES DİLİ POPUP -->
 							<Border x:Name="SubtitlePopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="240" MaxWidth="320" MaxHeight="540" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto">
-									<TextBlock Grid.Row="0" Text="Altyazı" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
+									<TextBlock x:Name="PlayerPopupSubtitlesTitle" x:FieldModifier="Public" Grid.Row="0" Text="Altyazı" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
 									<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="120">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
@@ -590,7 +590,7 @@
 									<!-- ALTYAZI SENKRONİZASYONU BÖLÜMÜ -->
 									<Border Grid.Row="2" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
 									<Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="4,0,4,6">
-										<TextBlock Text="Altyazı Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+										<TextBlock x:Name="PlayerPopupSubSyncTitle" x:FieldModifier="Public" Text="Altyazı Senkronizasyonu" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
 										<TextBlock x:Name="SubtitleDelayText" x:FieldModifier="Public" Grid.Column="1" Text="0 ms" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" FontFamily="Consolas,monospace" VerticalAlignment="Center"/>
 									</Grid>
 									<StackPanel Grid.Row="4" Spacing="6" Margin="0,0,0,4">
@@ -617,12 +617,12 @@
 											</Border>
 										</Grid>
 										<Border Classes="SelectListItemCompact" PointerPressed="SubDelayReset_Click" Background="#1Affffff" ToolTip.Tip="Senkronu Sıfırla (0 ms) [Z]">
-											<TextBlock Text="Senkronu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
+											<TextBlock x:Name="PlayerPopupSubSyncResetText" x:FieldModifier="Public" Text="Senkronu Sıfırla (0 ms)" Foreground="#3b82f6" FontWeight="SemiBold" HorizontalAlignment="Center" FontSize="10"/>
 										</Border>
 									</StackPanel>
 
 									<Border Grid.Row="5" Height="1" Background="#1e2b47" Margin="0,8,0,8"/>
-									<TextBlock Grid.Row="6" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
+									<TextBlock x:Name="PlayerPopupVodAudioTrackTitle" x:FieldModifier="Public" Grid.Row="6" Text="Ses Dili" Foreground="#3b82f6" FontWeight="Bold" FontSize="12" Margin="4,0,4,6"/>
 									<ScrollViewer Grid.Row="7" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" MaxHeight="120">
 										<ScrollViewer.Styles>
 											<Style Selector="ScrollViewer /template/ ContentPresenter#PART_ContentPresenter">
@@ -637,7 +637,7 @@
 							<!-- ASPECT RATIO POPUP -->
 							<Border x:Name="AspectRatioPopup" x:FieldModifier="Public" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,12,12" Background="#F2131a2e" BorderBrush="#1e2b47" BorderThickness="1" CornerRadius="10" Padding="12" IsVisible="False" MinWidth="200" ZIndex="50" PointerPressed="Popup_PointerPressed">
 								<StackPanel>
-									<TextBlock Text="En:Boy Oranı" Foreground="#3b82f6" FontSize="13" FontWeight="Bold" Margin="0,0,0,8"/>
+									<TextBlock x:Name="PlayerPopupAspectRatioTitle" x:FieldModifier="Public" Text="En:Boy Oranı" Foreground="#3b82f6" FontSize="13" FontWeight="Bold" Margin="0,0,0,8"/>
 									<StackPanel x:Name="AspectRatioContainer" x:FieldModifier="Public" Spacing="2"/>
 								</StackPanel>
 							</Border>
@@ -659,9 +659,9 @@
 								<Grid RowDefinitions="Auto, *">
 									<StackPanel Grid.Row="0" Margin="0,0,0,10">
 										<Grid ColumnDefinitions="*, Auto, Auto">
-											<TextBlock Text="ENHANCED" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+											<TextBlock x:Name="PlayerPopupEnhancedTitle" x:FieldModifier="Public" Text="ENHANCED" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
 											<Border Grid.Column="1" Background="#1Affffff" BorderBrush="#33ffffff" BorderThickness="1" CornerRadius="8" Padding="10,4" Cursor="Hand" Margin="0,0,8,0" PointerPressed="MpvResetSettings_Click">
-												<TextBlock Text="Sıfırla" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+												<TextBlock x:Name="PlayerPopupMpvResetText" x:FieldModifier="Public" Text="Sıfırla" Foreground="#DDffffff" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 											</Border>
 											<Button Grid.Column="2" Classes="PlayerCloseBtn" Click="CloseMpvSettingsPopup_Click">
 												<Viewbox Width="13" Height="13">
@@ -684,10 +684,10 @@
 										<StackPanel Spacing="4">
 											<!-- GÖRÜNTÜ İYİLEŞTİRME & SHADER (Sadece MPV) -->
 											<StackPanel x:Name="ShaderSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
-												<TextBlock Text="GÖRÜNTÜ İYİLEŞTİRME &amp; SHADER" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<TextBlock x:Name="PlayerPopupShaderTitle" x:FieldModifier="Public" Text="GÖRÜNTÜ İYİLEŞTİRME &amp; SHADER" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 												<Grid ColumnDefinitions="*,*,*">
 													<Border Grid.Column="0" x:Name="ShaderOffItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="off" PointerPressed="ShaderItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Shader kapalı (Orijinal görüntü)">
-														<TextBlock Text="Kapalı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+														<TextBlock x:Name="PlayerPopupShaderOffText" x:FieldModifier="Public" Text="Kapalı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 													<Border Grid.Column="1" x:Name="ShaderCasItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="cas" PointerPressed="ShaderItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="AMD FidelityFX CAS (Canlı ve Keskin Yayın)">
 														<TextBlock Text="AMD CAS" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
@@ -696,62 +696,62 @@
 														<TextBlock Text="AMD FSR" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 												</Grid>
-												<TextBlock Text="AMD FidelityFX algoritmaları ile yayını netleştirir veya 4K ölçekler." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<TextBlock x:Name="PlayerPopupShaderDesc" x:FieldModifier="Public" Text="AMD FidelityFX algoritmaları ile yayını netleştirir veya 4K ölçekler." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
 												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
 											</StackPanel>
 
 											<!-- CANLI TV KANAL GEÇİŞİ (ZAPPING) -->
 											<StackPanel x:Name="ZappingSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
-												<TextBlock Text="CANLI TV KANAL GEÇİŞİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<TextBlock x:Name="PlayerPopupZappingTitle" x:FieldModifier="Public" Text="CANLI TV KANAL GEÇİŞİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 												<Grid ColumnDefinitions="*,*">
 													<Border Grid.Column="0" x:Name="ZappingFastItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="fast" PointerPressed="ZappingItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Düşük gecikmeli anlık kanal açılışı (200-300ms)">
-														<TextBlock Text="⚡ Ultra Hızlı (200ms)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+														<TextBlock x:Name="PlayerPopupZappingFastText" x:FieldModifier="Public" Text="⚡ Ultra Hızlı (200ms)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 													<Border Grid.Column="1" x:Name="ZappingStableItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="stable" PointerPressed="ZappingItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="Standart tamponlu kararlı mod">
-														<TextBlock Text="Standart (Kararlı)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+														<TextBlock x:Name="PlayerPopupZappingStableText" x:FieldModifier="Public" Text="Standart (Kararlı)" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 												</Grid>
-												<TextBlock Text="Canlı TV geçişlerinde tamponu sıfırlayarak kanal açılışını anında görüntüye indirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<TextBlock x:Name="PlayerPopupZappingDesc" x:FieldModifier="Public" Text="Canlı TV geçişlerinde tamponu sıfırlayarak kanal açılışını anında görüntüye indirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
 												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
 											</StackPanel>
 
 											<!-- AKILLI SES İŞLEME -->
 											<StackPanel x:Name="AudioEnhanceSectionContainer" x:FieldModifier="Public" Margin="0,0,0,8">
-												<TextBlock Text="AKILLI SES İŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+												<TextBlock x:Name="PlayerPopupAudioEnhanceTitle" x:FieldModifier="Public" Text="AKILLI SES İŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 												<Grid ColumnDefinitions="*,*,*">
 													<Border Grid.Column="0" x:Name="AudioEnhanceOffItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="off" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Orijinal ses">
-														<TextBlock Text="Standart" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+														<TextBlock x:Name="PlayerPopupAudioEnhanceOffText" x:FieldModifier="Public" Text="Standart" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 													<Border Grid.Column="1" x:Name="AudioEnhanceLoudnormItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="loudnorm" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="2,0,2,0" ToolTip.Tip="EBU R128 Ses Dengeleme (Reklam/kanal ses patlamalarını önler)">
 														<TextBlock Text="Loudnorm" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 													<Border Grid.Column="2" x:Name="AudioEnhanceNightItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="night" PointerPressed="AudioEnhanceItem_PointerPressed" Margin="2,0,0,0" ToolTip.Tip="Gece Modu (Patlama ve efektleri kısıp diyalogları öne çıkarır)">
-														<TextBlock Text="Gece Modu" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+														<TextBlock x:Name="PlayerPopupAudioEnhanceNightText" x:FieldModifier="Public" Text="Gece Modu" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 													</Border>
 												</Grid>
-												<TextBlock Text="Kanal/reklam arası ani ses patlamalarını dengeler veya gece izlemede diyalogları netleştirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
+												<TextBlock x:Name="PlayerPopupAudioEnhanceDesc" x:FieldModifier="Public" Text="Kanal/reklam arası ani ses patlamalarını dengeler veya gece izlemede diyalogları netleştirir." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,4,0,0"/>
 												<Border Height="1" Background="#33ffffff" Margin="0,8,0,0"/>
 											</StackPanel>
 
-											<TextBlock Text="VİDEO" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<TextBlock x:Name="PlayerPopupVideoTitle" x:FieldModifier="Public" Text="VİDEO" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 
 											<!-- RESİM MODLARI (F1 - F4) -->
 											<Grid ColumnDefinitions="*, Auto" Margin="0,0,0,3">
-												<TextBlock Text="RESİM MODU" Foreground="#CCffffff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+												<TextBlock x:Name="PlayerPopupPictureModeTitle" x:FieldModifier="Public" Text="RESİM MODU" Foreground="#CCffffff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
 												<TextBlock Text="F1 - F4" Foreground="#66ffffff" FontSize="10" Grid.Column="1" VerticalAlignment="Center" FontFamily="Consolas,monospace"/>
 											</Grid>
 											<Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,8">
 												<Border Grid.Column="0" x:Name="PresetNaturalItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="natural" PointerPressed="PresetNatural_Click" Margin="0,0,2,0" ToolTip.Tip="Doğal / Nötr renk dengesi [F1]">
-													<TextBlock Text="Doğal" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													<TextBlock x:Name="PlayerPopupPresetNaturalText" x:FieldModifier="Public" Text="Doğal" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 												</Border>
 												<Border Grid.Column="1" x:Name="PresetVividItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="vivid" PointerPressed="PresetVivid_Click" Margin="2,0,2,0" ToolTip.Tip="Canlı renkler ve kontrast [F2]">
-													<TextBlock Text="Canlı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													<TextBlock x:Name="PlayerPopupPresetVividText" x:FieldModifier="Public" Text="Canlı" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 												</Border>
 												<Border Grid.Column="2" x:Name="PresetSportsItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="sports" PointerPressed="PresetSports_Click" Margin="2,0,2,0" ToolTip.Tip="Yüksek dinamik ve parlak renkler [F3]">
-													<TextBlock Text="Spor" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													<TextBlock x:Name="PlayerPopupPresetSportsText" x:FieldModifier="Public" Text="Spor" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 												</Border>
 												<Border Grid.Column="3" x:Name="PresetCinemaItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="cinema" PointerPressed="PresetCinema_Click" Margin="2,0,0,0" ToolTip.Tip="Sıcak tonlar ve sinematik gama [F4]">
-													<TextBlock Text="Sinema" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													<TextBlock x:Name="PlayerPopupPresetCinemaText" x:FieldModifier="Public" Text="Sinema" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 												</Border>
 											</Grid>
 
@@ -762,7 +762,7 @@
 											<Grid ColumnDefinitions="*,*" Margin="0,0,0,4">
 												<StackPanel Grid.Column="0" Margin="0,0,8,0" Spacing="2">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Parlaklık" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupBrightnessTitle" x:FieldModifier="Public" Text="Parlaklık" Foreground="#CCffffff" FontSize="12"/>
 														<TextBlock x:Name="MpvEqBrightnessText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
 													</Grid>
 													<Slider x:Name="MpvEqBrightnessSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqBrightness_ValueChanged">
@@ -781,7 +781,7 @@
 												</StackPanel>
 												<StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Kontrast" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupContrastTitle" x:FieldModifier="Public" Text="Kontrast" Foreground="#CCffffff" FontSize="12"/>
 														<TextBlock x:Name="MpvEqContrastText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
 													</Grid>
 													<Slider x:Name="MpvEqContrastSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqContrast_ValueChanged">
@@ -803,7 +803,7 @@
 											<Grid ColumnDefinitions="*,*" Margin="0,0,0,10">
 												<StackPanel Grid.Column="0" Margin="0,0,8,0" Spacing="2">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Doygunluk" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupSaturationTitle" x:FieldModifier="Public" Text="Doygunluk" Foreground="#CCffffff" FontSize="12"/>
 														<TextBlock x:Name="MpvEqSaturationText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
 													</Grid>
 													<Slider x:Name="MpvEqSaturationSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqSaturation_ValueChanged">
@@ -822,7 +822,7 @@
 												</StackPanel>
 												<StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Gama" Foreground="#CCffffff" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupGammaTitle" x:FieldModifier="Public" Text="Gama" Foreground="#CCffffff" FontSize="12"/>
 														<TextBlock x:Name="MpvEqGammaText" x:FieldModifier="Public" Grid.Column="1" Text="0" Foreground="#88ffffff" FontSize="11" FontFamily="Consolas,monospace"/>
 													</Grid>
 													<Slider x:Name="MpvEqGammaSlider" x:FieldModifier="Public" Minimum="-100" Maximum="100" Value="0" ValueChanged="MpvEqGamma_ValueChanged">
@@ -843,10 +843,10 @@
 
 											<Border Height="1" Background="#33ffffff" Margin="0,4,0,10"/>
 
-											<TextBlock Text="HDR TON EŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<TextBlock x:Name="PlayerPopupHdrToneMapTitle" x:FieldModifier="Public" Text="HDR TON EŞLEME" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 											<Grid ColumnDefinitions="*,*" Margin="0,0,0,3">
 												<Border Grid.Column="0" x:Name="HdrToneMapAutoItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="auto" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="0,0,3,0">
-													<TextBlock Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
+													<TextBlock x:Name="PlayerPopupHdrAutoText" x:FieldModifier="Public" Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
 												</Border>
 												<Border Grid.Column="1" x:Name="HdrToneMapHableItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="hable" PointerPressed="HdrToneMappingItem_PointerPressed" Margin="3,0,0,0">
 													<TextBlock Text="Hable" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="12"/>
@@ -872,13 +872,13 @@
 											<TextBlock x:Name="HdrToneMapMobiusCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
 											<TextBlock x:Name="HdrToneMapBt2446aCheck" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
 
-											<TextBlock Text="HEDEF EKRAN TEPE PARLAKLIĞI" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<TextBlock x:Name="PlayerPopupHdrTargetPeakTitle" x:FieldModifier="Public" Text="HEDEF EKRAN TEPE PARLAKLIĞI" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 											<!-- DÜZELTME (seçenekler üst üste biniyordu): 2'li satır
 											     grupları yerine TEK bir 4 sütunlu ızgara — referans
 											     görseldeki (mpv.png) düzenin birebir aynısı. -->
 											<Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,4">
 												<Border Grid.Column="0" x:Name="HdrPeakAutoItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="auto" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="0,0,3,0">
-													<TextBlock Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
+													<TextBlock x:Name="PlayerPopupHdrPeakAutoText" x:FieldModifier="Public" Text="Otomatik" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
 												</Border>
 												<Border Grid.Column="1" x:Name="HdrPeak100Item" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="100" PointerPressed="HdrTargetPeakItem_PointerPressed" Margin="3,0,3,0">
 													<TextBlock Text="100" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>
@@ -910,16 +910,16 @@
 											<TextBlock x:Name="HdrPeak800Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
 											<TextBlock x:Name="HdrPeak1000Check" x:FieldModifier="Public" Text="✓" IsVisible="False" Height="0" Opacity="0"/>
 
-											<TextBlock Text="İŞLEME KALİTESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<TextBlock x:Name="PlayerPopupQualityTitle" x:FieldModifier="Public" Text="İŞLEME KALİTESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 											<Grid ColumnDefinitions="*,*" Margin="0,0,0,10">
 												<Button Grid.Column="0" x:Name="ScalingQualityDefaultBtn" x:FieldModifier="Public" Classes="TrackBtn" Click="ScalingQualityDefault_Click" HorizontalAlignment="Stretch" Margin="0,0,3,0" Padding="8,14">
-													<TextBlock Text="Varsayılan" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+													<TextBlock x:Name="ScalingQualityDefaultText" x:FieldModifier="Public" Text="Varsayılan" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
 												</Button>
 												<Button Grid.Column="1" x:Name="ScalingQualityHighBtn" x:FieldModifier="Public" Classes="TrackBtn" Click="ScalingQualityHigh_Click" HorizontalAlignment="Stretch" Margin="3,0,0,0" Padding="8,14">
-													<TextBlock Text="Kalite (daha keskin ölçekleme)" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+													<TextBlock x:Name="ScalingQualityHighText" x:FieldModifier="Public" Text="Kalite (daha keskin ölçekleme)" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
 												</Button>
 											</Grid>
-											<TextBlock Text="Ton eşleme, SDR ekranlarda HDR içeriği etkiler. Kalite ölçekleme daha fazla GPU kullanır." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,0,0,10"/>
+											<TextBlock x:Name="PlayerPopupQualityDesc" x:FieldModifier="Public" Text="Ton eşleme, SDR ekranlarda HDR içeriği etkiler. Kalite ölçekleme daha fazla GPU kullanır." FontSize="10" Foreground="#77ffffff" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
 											<Border Height="1" Background="#33ffffff" Margin="0,0,0,10"/>
 
@@ -928,11 +928,11 @@
 											     "Oynatıcı Performansı" kartı KALDIRILDI, bu seçenekler
 											     artık SADECE burada yaşıyor.
 											     ═══════════════════════════════════════════════════ -->
-											<TextBlock Text="DONANIM ÇÖZÜMLEMESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
+											<TextBlock x:Name="PlayerPopupHwDecodeTitle" x:FieldModifier="Public" Text="DONANIM ÇÖZÜMLEMESİ" Foreground="#3b82f6" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"/>
 											<StackPanel Spacing="2" Margin="0,0,0,10">
 												<Border x:Name="PopupHwDecodeAutoItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="auto" PointerPressed="HwDecodeItem_PointerPressed">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Otomatik / Önerilen" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupHwDecodeAutoText" x:FieldModifier="Public" Text="Otomatik / Önerilen" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
 														<TextBlock x:Name="PopupHwDecodeAutoCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
 													</Grid>
 												</Border>
@@ -956,7 +956,7 @@
 												</Border>
 												<Border x:Name="PopupHwDecodeOffItem" x:FieldModifier="Public" Classes="SelectListItem" Tag="no" PointerPressed="HwDecodeItem_PointerPressed">
 													<Grid ColumnDefinitions="*, Auto">
-														<TextBlock Text="Kapalı" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupHwDecodeOffText" x:FieldModifier="Public" Text="Kapalı" Foreground="#DDffffff" VerticalAlignment="Center" FontSize="12"/>
 														<TextBlock x:Name="PopupHwDecodeOffCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False"/>
 													</Grid>
 												</Border>
@@ -965,8 +965,8 @@
 											<Border x:Name="PopupInterlaceItem" x:FieldModifier="Public" Classes="SelectListItem" PointerPressed="InterlaceToggle_PointerPressed">
 												<Grid ColumnDefinitions="*, Auto">
 													<StackPanel VerticalAlignment="Center">
-														<TextBlock Text="İnterlacing'i Kaldır" FontWeight="Medium" Foreground="#DDffffff" FontSize="12"/>
-														<TextBlock Text="Taramalı yayınlarda çizgi artefaktlarını azaltır" FontSize="10" Foreground="#88ffffff" Margin="0,2,0,0" TextWrapping="Wrap"/>
+														<TextBlock x:Name="PlayerPopupDeinterlaceTitle" x:FieldModifier="Public" Text="İnterlacing'i Kaldır" FontWeight="Medium" Foreground="#DDffffff" FontSize="12"/>
+														<TextBlock x:Name="PlayerPopupDeinterlaceDesc" x:FieldModifier="Public" Text="Taramalı yayınlarda çizgi artefaktlarını azaltır" FontSize="10" Foreground="#88ffffff" Margin="0,2,0,0" TextWrapping="Wrap"/>
 													</StackPanel>
 													<TextBlock x:Name="PopupInterlaceCheck" x:FieldModifier="Public" Grid.Column="1" Text="✓" Foreground="#3b82f6" FontWeight="Bold" IsVisible="False" VerticalAlignment="Center" Margin="6,0,0,0"/>
 												</Grid>
@@ -974,7 +974,7 @@
 
 											<!-- Bağımlı Deinterlace Modları Seçimi -->
 											<StackPanel x:Name="DeinterlaceModesContainer" x:FieldModifier="Public" Margin="0,2,0,10" Spacing="4">
-												<TextBlock Text="DEINTERLACE ALGORİTMASI" Foreground="#88ffffff" FontSize="10" FontWeight="SemiBold" Margin="2,2,0,2"/>
+												<TextBlock x:Name="PlayerPopupDeinterlaceAlgoTitle" x:FieldModifier="Public" Text="DEINTERLACE ALGORİTMASI" Foreground="#88ffffff" FontSize="10" FontWeight="SemiBold" Margin="2,2,0,2"/>
 												<Grid ColumnDefinitions="*,*,*,*">
 													<Border Grid.Column="0" x:Name="PopupDeintYadif2xItem" x:FieldModifier="Public" Classes="SelectListItemCompact" Tag="yadif2x" PointerPressed="DeinterlaceModeItem_PointerPressed" Margin="0,0,2,0" ToolTip.Tip="Yadif 2X (50/60 FPS Akıcı Çift Kare - Önerilen)">
 														<TextBlock Text="Yadif 2X" Foreground="#DDffffff" HorizontalAlignment="Center" FontSize="10"/>

@@ -271,7 +271,7 @@ namespace GlyphTV
         private string GetSourcesPath()  => _sourcesPath;
         private string GetSettingsPath() => _settingsPath;
         private string GetHistoryPath()  => _historyPath;
-        private static string GetTmdbPopularCachePath() => _tmdbPopularCachePath;
+        private static string GetTmdbPopularCachePath() => Path.Combine(_appDataDir, $"tmdb_popular_cache_{Localization.CurrentLanguage}.json");
         private string GetChannelsPath(string sourceId) => Path.Combine(_appDataDir, $"channels_{sourceId}.json");
         private string GetCategoriesPath(string sourceId) => Path.Combine(_appDataDir, $"categories_{sourceId}.json");
         private string GetSeriesDetailsDiskPath(string sourceId) => Path.Combine(_appDataDir, $"series_details_{sourceId}.json");
@@ -385,7 +385,8 @@ namespace GlyphTV
             {
                 ServerCertificateCustomValidationCallback = AcceptServerCertificate,
                 AllowAutoRedirect        = true,
-                MaxAutomaticRedirections = 10
+                MaxAutomaticRedirections = 10,
+                AutomaticDecompression   = System.Net.DecompressionMethods.All
             };
             _downloadHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(90) };
             _downloadHttpClient.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");

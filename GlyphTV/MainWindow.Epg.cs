@@ -58,6 +58,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -214,7 +215,7 @@ namespace GlyphTV
             // dolduysa sessizce yeni veriyi indirir. Böylece her açılışta
             // "en son ne zaman güncellendi" bilgisi her zaman doğru
             // gösterilir ve gerekiyorsa otomatik tazelenir.
-            EpgStatusText.Text = "EPG kontrol ediliyor...";
+            EpgStatusText.Text = Localization.Get("Epg_StatusChecking");
             await LoadEpgForSourceAsync(active, forceRefresh: false);
         }
 
@@ -229,8 +230,71 @@ namespace GlyphTV
         {
             var active = _sources.FirstOrDefault(s => s.IsActive);
             if (active == null) return;
-            EpgStatusText.Text = "EPG yeniden indiriliyor...";
+            EpgStatusText.Text = Localization.Get("Epg_StatusDownloading");
             await LoadEpgForSourceAsync(active, forceRefresh: true);
+        }
+
+        private TvSource? _epgEditingSource = null;
+
+        private void EpgEditUrl_Click(object? sender, RoutedEventArgs e)
+        {
+            var active = _sources.FirstOrDefault(s => s.IsActive);
+            if (active == null) return;
+            OpenEpgUrlEditForSource(active);
+        }
+
+        public void OpenEpgUrlEditForSource(TvSource source)
+        {
+            _epgEditingSource = source;
+            EpgUrlEditInput.Text = source.EpgUrl ?? "";
+            EpgUrlEditTitleText.Text = $"{source.Name} — {Localization.Get("Epg_EditUrlTitle")}";
+            EpgOverlay.IsVisible = true;
+            EpgUrlEditOverlay.IsVisible = true;
+        }
+
+        private void CancelEpgUrlEdit_Click(object? sender, RoutedEventArgs e)
+        {
+            EpgUrlEditOverlay.IsVisible = false;
+            _epgEditingSource = null;
+        }
+
+        private async void SaveEpgUrlEdit_Click(object? sender, RoutedEventArgs e)
+        {
+            var targetSource = _epgEditingSource ?? _sources.FirstOrDefault(s => s.IsActive);
+            if (targetSource == null)
+            {
+                EpgUrlEditOverlay.IsVisible = false;
+                return;
+            }
+
+            string newUrl = EpgUrlEditInput.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(newUrl) &&
+                !newUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !newUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                newUrl = "http://" + newUrl;
+            }
+
+            targetSource.EpgUrl = newUrl;
+            SaveSources();
+
+            EpgUrlEditOverlay.IsVisible = false;
+            _epgEditingSource = null;
+
+            ShowToast(Localization.CurrentLanguage == "en" ? "EPG URL updated." : "EPG linki güncellendi.");
+
+            try
+            {
+                string cachePath = GetEpgCachePath(targetSource.Id);
+                if (File.Exists(cachePath)) File.Delete(cachePath);
+            }
+            catch { }
+
+            if (targetSource.IsActive)
+            {
+                EpgStatusText.Text = Localization.Get("Epg_StatusDownloading");
+                await LoadEpgForSourceAsync(targetSource, forceRefresh: true);
+            }
         }
 
         // ═════════════════════════════════════════════════════════════
@@ -245,10 +309,12 @@ namespace GlyphTV
                 .OrderBy(g => g)
                 .ToList();
 
-            var items = new List<string> { EPG_ALL_CATEGORIES };
+            string allLabel = Localization.Get("Epg_AllCategories");
+            var items = new List<string> { allLabel };
             items.AddRange(groups);
 
             string? previous = EpgCategoryCombo.SelectedItem as string;
+            int prevIndex = EpgCategoryCombo.SelectedIndex;
 
             // DÜZELTME (gereksiz üçüncü BuildEpgTimeline çağrısı): SelectedItem
             // ataması SelectionChanged'i senkron tetikler; bu bayrak sayesinde
@@ -258,7 +324,18 @@ namespace GlyphTV
             try
             {
                 EpgCategoryCombo.ItemsSource = items;
-                EpgCategoryCombo.SelectedItem = (previous != null && items.Contains(previous)) ? previous : items[0];
+                if (prevIndex <= 0 || previous == "Tüm Kategoriler" || previous == "All Categories" || previous == allLabel)
+                {
+                    EpgCategoryCombo.SelectedIndex = 0;
+                }
+                else if (previous != null && items.Contains(previous))
+                {
+                    EpgCategoryCombo.SelectedItem = previous;
+                }
+                else
+                {
+                    EpgCategoryCombo.SelectedIndex = 0;
+                }
             }
             finally { _epgPopulatingCombo = false; }
         }
@@ -326,20 +403,28 @@ namespace GlyphTV
             _epgIsLoading = true;
             try
             {
-                string signature = source.Type == "Xtream"
-                    ? $"xtream|{source.PathOrUrl}|{source.Username}"
-                    : $"xmltv|{source.EpgUrl}";
+                string signature = !string.IsNullOrWhiteSpace(source.EpgUrl)
+                    ? $"xmltv|{source.EpgUrl}"
+                    : (source.Type == "Xtream" ? $"xtream|{source.PathOrUrl}|{source.Username}" : "");
 
-                bool hasEpgSource = source.Type == "Xtream" || !string.IsNullOrWhiteSpace(source.EpgUrl);
-                if (!hasEpgSource)
+                string url = "";
+                if (!string.IsNullOrWhiteSpace(source.EpgUrl))
+                {
+                    url = source.EpgUrl;
+                }
+                else if (source.Type == "Xtream")
+                {
+                    url = $"{source.PathOrUrl.TrimEnd('/')}/xmltv.php?username={Uri.EscapeDataString(source.Username)}&password={Uri.EscapeDataString(source.Password)}";
+                }
+
+                if (string.IsNullOrWhiteSpace(url))
                 {
                     _epgByChannelId.Clear();
                     _epgByNormalizedName.Clear();
                     _epgLoadedForSourceId = source.Id;
                     if (EpgOverlay.IsVisible)
                     {
-                        EpgStatusText.Text = "Bu kaynak için EPG linki tanımlı değil. " +
-                                             "Kaynağı silip 'Yayın Akışı (EPG) linki' alanını doldurarak yeniden ekleyebilirsiniz.";
+                        EpgStatusText.Text = Localization.Get("Epg_StatusNoLink");
                         BuildEpgTimeline();
                     }
                     return;
@@ -359,7 +444,7 @@ namespace GlyphTV
                             ApplyEpgPrograms(cached.Programs, cached.ChannelNames, source.Id);
                             if (EpgOverlay.IsVisible)
                             {
-                                EpgStatusText.Text = $"EPG güncel · {cached.FetchedAt:dd.MM HH:mm} tarihinde önbellekten yüklendi";
+                                EpgStatusText.Text = Localization.Get("Epg_StatusCached", cached.FetchedAt.ToString("dd.MM HH:mm"));
                                 BuildEpgTimeline();
                             }
                             UpdateLiveChannelsEpgNowInfo();
@@ -373,18 +458,71 @@ namespace GlyphTV
                 XmltvParseResult parsed;
                 try
                 {
-                    string url = source.Type == "Xtream"
-                        ? $"{source.PathOrUrl.TrimEnd('/')}/xmltv.php?username={Uri.EscapeDataString(source.Username)}&password={Uri.EscapeDataString(source.Password)}"
-                        : source.EpgUrl;
-
                     parsed = await DownloadAndParseXmltv(url);
+                }
+                catch (HttpRequestException hre)
+                {
+                    LogError("LoadEpgForSourceAsync.DownloadHttp", hre);
+                    bool is404 = hre.StatusCode == System.Net.HttpStatusCode.NotFound || (hre.Message != null && hre.Message.Contains("404"));
+
+                    if (File.Exists(cachePath))
+                    {
+                        try
+                        {
+                            var cachedText = await File.ReadAllTextAsync(cachePath);
+                            var cached = JsonSerializer.Deserialize<EpgCache>(cachedText, JsonOptions);
+                            if (cached != null && cached.Programs.Count > 0)
+                            {
+                                ApplyEpgPrograms(cached.Programs, cached.ChannelNames, source.Id);
+                                if (EpgOverlay.IsVisible)
+                                {
+                                    EpgStatusText.Text = Localization.Get("Epg_StatusCachedFallback", cached.FetchedAt.ToString("dd.MM HH:mm"));
+                                    BuildEpgTimeline();
+                                }
+                                UpdateLiveChannelsEpgNowInfo();
+                                StartEpgNowInfoTimer();
+                                return;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (EpgOverlay.IsVisible)
+                    {
+                        EpgStatusText.Text = is404 ? Localization.Get("Epg_Status404") : Localization.Get("Epg_StatusFailed");
+                        BuildEpgTimeline();
+                    }
+                    return;
                 }
                 catch (Exception ex)
                 {
                     LogError("LoadEpgForSourceAsync.Download", ex);
+
+                    if (File.Exists(cachePath))
+                    {
+                        try
+                        {
+                            var cachedText = await File.ReadAllTextAsync(cachePath);
+                            var cached = JsonSerializer.Deserialize<EpgCache>(cachedText, JsonOptions);
+                            if (cached != null && cached.Programs.Count > 0)
+                            {
+                                ApplyEpgPrograms(cached.Programs, cached.ChannelNames, source.Id);
+                                if (EpgOverlay.IsVisible)
+                                {
+                                    EpgStatusText.Text = Localization.Get("Epg_StatusCachedFallback", cached.FetchedAt.ToString("dd.MM HH:mm"));
+                                    BuildEpgTimeline();
+                                }
+                                UpdateLiveChannelsEpgNowInfo();
+                                StartEpgNowInfoTimer();
+                                return;
+                            }
+                        }
+                        catch { }
+                    }
+
                     if (EpgOverlay.IsVisible)
                     {
-                        EpgStatusText.Text = "EPG indirilemedi — bağlantıyı veya EPG linkini kontrol edin.";
+                        EpgStatusText.Text = Localization.Get("Epg_StatusFailed");
                         BuildEpgTimeline();
                     }
                     return;
@@ -394,7 +532,7 @@ namespace GlyphTV
                 {
                     if (EpgOverlay.IsVisible)
                     {
-                        EpgStatusText.Text = "EPG sunucudan boş döndü (bu sunucu EPG desteklemiyor olabilir).";
+                        EpgStatusText.Text = Localization.Get("Epg_StatusEmpty");
                         BuildEpgTimeline();
                     }
                     ApplyEpgPrograms(parsed.Programs, parsed.ChannelNames, source.Id);
@@ -406,7 +544,7 @@ namespace GlyphTV
 
                 if (EpgOverlay.IsVisible)
                 {
-                    EpgStatusText.Text = $"EPG güncellendi · {parsed.Programs.Count} program · {DateTime.Now:HH:mm}";
+                    EpgStatusText.Text = Localization.Get("Epg_StatusUpdated", parsed.Programs.Count, DateTime.Now.ToString("HH:mm"));
                     BuildEpgTimeline();
                 }
                 UpdateLiveChannelsEpgNowInfo();
@@ -712,20 +850,14 @@ namespace GlyphTV
                 _epgNowLineHeader = null;
 
                 string? selectedCategory = EpgCategoryCombo.SelectedItem as string;
-                // DÜZELTME (madde 2 — EPG'deki kanal sırası kaynaktaki
-                // sıralamayla uyuşmuyordu): Burada önceden .OrderBy(Group)
-                // .ThenBy(Name) ile ALFABETİK olarak yeniden sıralanıyordu.
-                // _allChannels zaten M3U/Xtream playlist'indeki (sağlayıcının
-                // kendi numaralandırdığı) sırayla doludur — ParseM3u satırları
-                // dosyadaki sırayla ekler, yenileme sonrası da aynı sıra
-                // korunur. Burada sadece Where filtreleri uygulanıp sıralama
-                // hiç dokunulmadan bırakılıyor ki EPG'deki kanal sırası,
-                // Canlı TV listesindeki/kaynaktaki sırayla birebir aynı olsun.
+                bool isAllCategories = EpgCategoryCombo.SelectedIndex <= 0 ||
+                                       string.IsNullOrEmpty(selectedCategory) ||
+                                       selectedCategory == Localization.Get("Epg_AllCategories") ||
+                                       selectedCategory == "Tüm Kategoriler" ||
+                                       selectedCategory == "All Categories";
                 var channels = _allChannels
                     .Where(c => !c.IsHidden && c.Type == "Canlı")
-                    .Where(c => string.IsNullOrEmpty(selectedCategory) ||
-                                selectedCategory == EPG_ALL_CATEGORIES ||
-                                c.Group == selectedCategory)
+                    .Where(c => isAllCategories || c.Group == selectedCategory)
                     .ToList();
 
                 _epgCurrentChannelRows = channels;
@@ -734,7 +866,8 @@ namespace GlyphTV
                 _epgTotalWidth = 1440 * EPG_PPM;
                 double totalHeight = Math.Max(channels.Count, 1) * EPG_ROW_HEIGHT;
 
-                EpgTitleText.Text = $"🗓️ Yayın Akışı — {rangeStart.ToString("dd MMMM yyyy, dddd", new CultureInfo("tr-TR"))}";
+                string dateStr = rangeStart.ToString("dd MMMM yyyy, dddd", Localization.CurrentCulture);
+                EpgTitleText.Text = Localization.Get("Epg_Timeline_Title", dateStr);
 
                 EpgHeaderCanvas.Width   = _epgTotalWidth;
                 EpgRowsCanvas.Width     = _epgTotalWidth;

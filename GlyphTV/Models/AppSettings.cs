@@ -9,6 +9,9 @@ namespace GlyphTV
     {
         public bool AutoRefreshOnStartup { get; set; } = false;
 
+        // Uygulama dili — "tr" | "en". Varsayılan "tr".
+        public string Language { get; set; } = "tr";
+
         // YENİ: Uygulama açılışında otomatik çevrimiçi güncelleme denetimi (Açık / Kapalı)
         public bool CheckUpdatesOnStartup { get; set; } = true;
 

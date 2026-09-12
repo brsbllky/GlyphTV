@@ -56,7 +56,10 @@ namespace GlyphTV
             }
         }
 
-        public string StatusText => IsActive ? "AKTİF" : "SEÇ";
+        public string StatusText => IsActive 
+            ? (Localization.CurrentLanguage == "en" ? "ACTIVE" : "AKTİF") 
+            : (Localization.CurrentLanguage == "en" ? "SELECT" : "SEÇ");
+
         public IBrush StatusBrush => IsActive
             ? Brush.Parse("#28c840")
             : Brush.Parse("#8b8b95");
@@ -97,22 +100,33 @@ namespace GlyphTV
         {
             get
             {
+                bool isEn = Localization.CurrentLanguage == "en";
                 string refreshStr = LastRefreshedDate.HasValue 
                     ? LastRefreshedDate.Value.ToString("dd.MM.yyyy") 
-                    : "Henüz yok";
+                    : (isEn ? "None yet" : "Henüz yok");
 
                 string expiryStr = "";
                 if (ExpiryDate.HasValue)
                 {
-                    expiryStr = $" | Bitiş: {ExpiryDate.Value:dd.MM.yyyy}";
+                    expiryStr = isEn 
+                        ? $" | Expires: {ExpiryDate.Value:dd.MM.yyyy}" 
+                        : $" | Bitiş: {ExpiryDate.Value:dd.MM.yyyy}";
                 }
                 else if (Type == "Xtream")
                 {
-                    expiryStr = " | Bitiş: Sınırsız";
+                    expiryStr = isEn ? " | Expires: Unlimited" : " | Bitiş: Sınırsız";
                 }
 
-                return $"{Type} | Eklendi: {CreatedDate:dd.MM.yyyy} | Yenileme: {refreshStr}{expiryStr}";
+                string addedLabel = isEn ? "Added" : "Eklendi";
+                string updatedLabel = isEn ? "Updated" : "Yenileme";
+                return $"{Type} | {addedLabel}: {CreatedDate:dd.MM.yyyy} | {updatedLabel}: {refreshStr}{expiryStr}";
             }
+        }
+
+        public void RefreshLocalization()
+        {
+            OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(SourceSummaryText));
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -92,6 +92,89 @@ namespace GlyphTV
                     }
                 }
             };
+
+            ApplyLanguage(Localization.CurrentLanguage);
+        }
+
+        public void ApplyLanguage(string lang)
+        {
+            try
+            {
+                if (PlayerLiveBadgeText != null) PlayerLiveBadgeText.Text = Localization.Get("Player_Live");
+                if (PlayerAudioTrackBtnText != null) PlayerAudioTrackBtnText.Text = Localization.Get("Player_AudioTrack");
+                if (PlayerChannelsBtnText != null) PlayerChannelsBtnText.Text = Localization.Get("Player_Channels");
+                if (PlayerSubtitlesBtnText != null) PlayerSubtitlesBtnText.Text = Localization.Get("Player_Subtitles");
+                if (PlayerEnhancedBtnText != null) PlayerEnhancedBtnText.Text = Localization.Get("Player_Enhanced");
+
+                // Tooltips
+                if (PrevChannelBtn != null) ToolTip.SetTip(PrevChannelBtn, lang == "en" ? "Previous Channel" : "Önceki Kanal");
+                if (SkipBackBtnBorder != null) ToolTip.SetTip(SkipBackBtnBorder, lang == "en" ? "10 seconds back" : "10 saniye geri");
+                if (NextChannelBtn != null) ToolTip.SetTip(NextChannelBtn, lang == "en" ? "Next Channel" : "Sonraki Kanal");
+                if (SkipForwardBtnBorder != null) ToolTip.SetTip(SkipForwardBtnBorder, lang == "en" ? "10 seconds forward" : "10 saniye ileri");
+                if (NextEpisodeBtn != null) ToolTip.SetTip(NextEpisodeBtn, lang == "en" ? "Next Episode" : "Sonraki Bölüm");
+                if (SpeedBtn != null) ToolTip.SetTip(SpeedBtn, Localization.Get("Player_SpeedTooltip"));
+                if (MuteBtn != null) ToolTip.SetTip(MuteBtn, Localization.Get("Player_MuteTooltip"));
+                if (PipBtn != null) ToolTip.SetTip(PipBtn, Localization.Get("Player_PipTooltip"));
+                if (FullscreenBtn != null) ToolTip.SetTip(FullscreenBtn, Localization.Get("Player_FullscreenTooltip"));
+                if (ClosePlayerBorder != null) ToolTip.SetTip(ClosePlayerBorder, Localization.Get("Btn_Close"));
+
+                // Popups
+                if (PlayerPopupChannelsTitle != null) PlayerPopupChannelsTitle.Text = Localization.Get("Player_Channels");
+                if (PlayerPopupAudioTrackTitle != null) PlayerPopupAudioTrackTitle.Text = Localization.Get("Player_AudioTrack");
+                if (PlayerPopupAudioSyncTitle != null) PlayerPopupAudioSyncTitle.Text = Localization.Get("Player_AudioSync");
+                if (PlayerPopupAudioSyncResetText != null) PlayerPopupAudioSyncResetText.Text = Localization.Get("Player_AudioSyncReset");
+
+                if (PlayerPopupSubtitlesTitle != null) PlayerPopupSubtitlesTitle.Text = lang == "en" ? "Subtitles" : "Altyazı";
+                if (PlayerPopupSubSyncTitle != null) PlayerPopupSubSyncTitle.Text = Localization.Get("Player_SubtitleSync");
+                if (PlayerPopupSubSyncResetText != null) PlayerPopupSubSyncResetText.Text = Localization.Get("Player_SubtitleSyncReset");
+                if (PlayerPopupVodAudioTrackTitle != null) PlayerPopupVodAudioTrackTitle.Text = Localization.Get("Player_AudioTrack");
+
+                if (PlayerPopupAspectRatioTitle != null) PlayerPopupAspectRatioTitle.Text = Localization.Get("Player_AspectRatio");
+
+                if (PlayerPopupEnhancedTitle != null) PlayerPopupEnhancedTitle.Text = Localization.Get("Player_Enhanced_Title");
+                if (PlayerPopupMpvResetText != null) PlayerPopupMpvResetText.Text = Localization.Get("Player_Enhanced_Reset");
+                if (PlayerPopupShaderTitle != null) PlayerPopupShaderTitle.Text = Localization.Get("Player_ShaderTitle");
+                if (PlayerPopupShaderOffText != null) PlayerPopupShaderOffText.Text = Localization.Get("Player_ShaderOff");
+                if (PlayerPopupShaderDesc != null) PlayerPopupShaderDesc.Text = Localization.Get("Player_ShaderDesc");
+                if (PlayerPopupZappingTitle != null) PlayerPopupZappingTitle.Text = Localization.Get("Player_FastZapTitle");
+                if (PlayerPopupZappingFastText != null) PlayerPopupZappingFastText.Text = Localization.Get("Player_FastZapUltra");
+                if (PlayerPopupZappingStableText != null) PlayerPopupZappingStableText.Text = Localization.Get("Player_FastZapStd");
+                if (PlayerPopupZappingDesc != null) PlayerPopupZappingDesc.Text = Localization.Get("Player_FastZapDesc");
+                if (PlayerPopupAudioEnhanceTitle != null) PlayerPopupAudioEnhanceTitle.Text = Localization.Get("Player_AudioEnhTitle");
+                if (PlayerPopupAudioEnhanceOffText != null) PlayerPopupAudioEnhanceOffText.Text = lang == "en" ? "Standard" : "Standart";
+                if (PlayerPopupAudioEnhanceNightText != null) PlayerPopupAudioEnhanceNightText.Text = lang == "en" ? "Night Mode" : "Gece Modu";
+                if (PlayerPopupAudioEnhanceDesc != null) PlayerPopupAudioEnhanceDesc.Text = lang == "en" ? "Balances volume spikes between channels/ads or clarifies dialogue for night viewing." : "Kanal/reklam arası ani ses patlamalarını dengeler veya gece izlemede diyalogları netleştirir.";
+
+                if (PlayerPopupVideoTitle != null) PlayerPopupVideoTitle.Text = lang == "en" ? "VIDEO" : "VİDEO";
+                if (PlayerPopupPictureModeTitle != null) PlayerPopupPictureModeTitle.Text = Localization.Get("Player_PresetTitle");
+                if (PlayerPopupPresetNaturalText != null) PlayerPopupPresetNaturalText.Text = Localization.Get("Player_PresetNatural");
+                if (PlayerPopupPresetVividText != null) PlayerPopupPresetVividText.Text = Localization.Get("Player_PresetVivid");
+                if (PlayerPopupPresetSportsText != null) PlayerPopupPresetSportsText.Text = Localization.Get("Player_PresetSports");
+                if (PlayerPopupPresetCinemaText != null) PlayerPopupPresetCinemaText.Text = Localization.Get("Player_PresetCinema");
+
+                if (PlayerPopupBrightnessTitle != null) PlayerPopupBrightnessTitle.Text = Localization.Get("Player_Brightness");
+                if (PlayerPopupContrastTitle != null) PlayerPopupContrastTitle.Text = Localization.Get("Player_Contrast");
+                if (PlayerPopupSaturationTitle != null) PlayerPopupSaturationTitle.Text = Localization.Get("Player_Saturation");
+                if (PlayerPopupGammaTitle != null) PlayerPopupGammaTitle.Text = Localization.Get("Player_Gamma");
+
+                if (PlayerPopupHdrToneMapTitle != null) PlayerPopupHdrToneMapTitle.Text = lang == "en" ? "HDR TONE MAPPING" : "HDR TON EŞLEME";
+                if (PlayerPopupHdrAutoText != null) PlayerPopupHdrAutoText.Text = Localization.Get("Player_AspectAuto");
+                if (PlayerPopupHdrTargetPeakTitle != null) PlayerPopupHdrTargetPeakTitle.Text = lang == "en" ? "TARGET DISPLAY PEAK BRIGHTNESS" : "HEDEF EKRAN TEPE PARLAKLIĞI";
+                if (PlayerPopupHdrPeakAutoText != null) PlayerPopupHdrPeakAutoText.Text = Localization.Get("Player_AspectAuto");
+
+                if (PlayerPopupQualityTitle != null) PlayerPopupQualityTitle.Text = lang == "en" ? "RENDERING QUALITY" : "İŞLEME KALİTESİ";
+                if (ScalingQualityDefaultText != null) ScalingQualityDefaultText.Text = lang == "en" ? "Default" : "Varsayılan";
+                if (ScalingQualityHighText != null) ScalingQualityHighText.Text = lang == "en" ? "Quality (sharper scaling)" : "Kalite (daha keskin ölçekleme)";
+                if (PlayerPopupQualityDesc != null) PlayerPopupQualityDesc.Text = lang == "en" ? "Tone mapping affects HDR content on SDR displays. Quality scaling uses more GPU." : "Ton eşleme, SDR ekranlarda HDR içeriği etkiler. Kalite ölçekleme daha fazla GPU kullanır.";
+
+                if (PlayerPopupHwDecodeTitle != null) PlayerPopupHwDecodeTitle.Text = Localization.Get("Player_HwTitle");
+                if (PlayerPopupHwDecodeAutoText != null) PlayerPopupHwDecodeAutoText.Text = lang == "en" ? "Auto / Recommended" : "Otomatik / Önerilen";
+                if (PlayerPopupHwDecodeOffText != null) PlayerPopupHwDecodeOffText.Text = Localization.Get("Player_DeintOff");
+                if (PlayerPopupDeinterlaceTitle != null) PlayerPopupDeinterlaceTitle.Text = Localization.Get("Player_DeintTitle");
+                if (PlayerPopupDeinterlaceDesc != null) PlayerPopupDeinterlaceDesc.Text = Localization.Get("Player_DeintDesc");
+                if (PlayerPopupDeinterlaceAlgoTitle != null) PlayerPopupDeinterlaceAlgoTitle.Text = lang == "en" ? "DEINTERLACE ALGORITHM" : "DEINTERLACE ALGORİTMASI";
+            }
+            catch { }
         }
 
         // ─────────────────────────────────────────────────────────────

@@ -63,11 +63,11 @@ namespace GlyphTV
             VodInfoTitle.Text      = channel.Name;
             VodInfoCategory.Text   = channel.Group;
             VodInfoGenre.Text      = channel.Group;
-            VodInfoModalTitle.Text = "Film Detayları";
+            VodInfoModalTitle.Text = channel.Type == "Dizi" ? Localization.Get("VodInfo_SeriesDetails") : Localization.Get("VodInfo_MovieDetails");
 
             var activeSource = _sources.FirstOrDefault(s => s.IsActive);
-            VodInfoSource.Text  = activeSource?.Name ?? "Bilinmeyen Kaynak";
-            VodInfoFavText.Text = channel.IsFavorite ? "❤️ Favorilerde" : "♡ Favori";
+            VodInfoSource.Text  = activeSource?.Name ?? "-";
+            VodInfoFavText.Text = channel.IsFavorite ? ("❤️ " + Localization.Get("VodInfo_InFavorites")) : ("♡ " + Localization.Get("VodInfo_Favorite"));
 
             // Poster
             VodInfoPoster.Child = null;
@@ -197,7 +197,7 @@ namespace GlyphTV
             if (_currentVodInfo == null) return;
             if (string.IsNullOrEmpty(_currentVodInfo.Url))
             {
-                ShowToast("Bu içerik aktif olan kaynakta mevcut değil.");
+                ShowToast(Localization.Get("Toast_ContentNotAvailableInSource"));
                 return;
             }
             VodInfoOverlay.IsVisible = false;
@@ -213,20 +213,20 @@ namespace GlyphTV
 
             if (string.IsNullOrEmpty(_currentVodInfo.Url) && _currentVodInfoSeriesCard == null)
             {
-                ShowToast("Bu içerik henüz oynatma listenizde bulunmuyor.");
+                ShowToast(Localization.Get("Toast_ContentNotInPlaylist"));
                 return;
             }
 
             if (_currentVodInfo.Type == "Dizi" && _currentVodInfoSeriesCard != null)
             {
                 bool newState = ToggleSeriesFavorite(_currentVodInfoSeriesCard.ShowName);
-                VodInfoFavText.Text = newState ? "❤️ Favorilerde" : "♡ Favori";
-                ShowToast(newState ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+                VodInfoFavText.Text = newState ? ("❤️ " + Localization.Get("VodInfo_InFavorites")) : ("♡ " + Localization.Get("VodInfo_Favorite"));
+                ShowToast(newState ? Localization.Get("Toast_SeriesAddedToFav") : Localization.Get("Toast_SeriesRemovedFromFav"));
             }
             else
             {
                 _currentVodInfo.IsFavorite = !_currentVodInfo.IsFavorite;
-                VodInfoFavText.Text = _currentVodInfo.IsFavorite ? "❤️ Favorilerde" : "♡ Favori";
+                VodInfoFavText.Text = _currentVodInfo.IsFavorite ? ("❤️ " + Localization.Get("VodInfo_InFavorites")) : ("♡ " + Localization.Get("VodInfo_Favorite"));
 
                 var activeSource = _sources.FirstOrDefault(s => s.IsActive);
                 if (activeSource != null) SaveChannelsForSource(activeSource.Id);
@@ -234,7 +234,7 @@ namespace GlyphTV
                 if (_currentTab == "Favori" && _viewState == "Categories")
                     RefreshFavoriGrids();
 
-                ShowToast(_currentVodInfo.IsFavorite ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+                ShowToast(_currentVodInfo.IsFavorite ? Localization.Get("Toast_AddedToFav") : Localization.Get("Toast_RemovedFromFav"));
             }
         }
 

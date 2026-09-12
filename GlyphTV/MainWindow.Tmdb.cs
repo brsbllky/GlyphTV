@@ -645,7 +645,9 @@ namespace GlyphTV
         {
             EnsureTmdbHttpClient();
 
-            var languages = new[] { "tr-TR", "en-US" };
+            var languages = Localization.CurrentLanguage == "en" 
+                ? new[] { "en-US", "tr-TR" } 
+                : new[] { "tr-TR", "en-US" };
 
             foreach (var candidate in GetTmdbNameCandidates(searchName))
             {
@@ -707,7 +709,7 @@ namespace GlyphTV
             if (!string.IsNullOrEmpty(director)) { VodInfoDirector.Text = director; VodInfoDirRow.IsVisible = true; }
             if (!string.IsNullOrEmpty(cast))     { VodInfoCast.Text = cast; VodInfoCastRow.IsVisible = true; }
             if (!string.IsNullOrEmpty(duration) && duration != "0")
-            { VodInfoDuration.Text = duration + " dk"; VodInfoDurRow.IsVisible = true; }
+            { VodInfoDuration.Text = duration + (Localization.CurrentLanguage == "en" ? " min" : " dk"); VodInfoDurRow.IsVisible = true; }
             if (!string.IsNullOrEmpty(releaseDate)) { VodInfoDate.Text = releaseDate; VodInfoDateRow.IsVisible = true; }
             if (!string.IsNullOrEmpty(rating) && rating != "0")
             {
@@ -737,11 +739,13 @@ namespace GlyphTV
 
                 string searchName = "";
                 int? year = null;
+                string currentLang = Localization.CurrentLanguage;
+                string tmdbLang = currentLang == "en" ? "en-US" : "tr-TR";
                 string cacheKey;
 
                 if (hasKnownId)
                 {
-                    cacheKey = $"id_{knownTmdbId!.Value}_{type}";
+                    cacheKey = $"id_{knownTmdbId!.Value}_{type}_{currentLang}";
                 }
                 else
                 {
@@ -753,7 +757,7 @@ namespace GlyphTV
                     if (string.IsNullOrEmpty(searchName) || searchName.Length < 2) return;
 
                     year = knownYear ?? year;
-                    cacheKey = $"{searchName}_{contentType}_{year?.ToString() ?? "-"}";
+                    cacheKey = $"{searchName}_{contentType}_{year?.ToString() ?? "-"}_{currentLang}";
                 }
 
                 // 1. In-Memory Cache Kontrolü
@@ -796,13 +800,13 @@ namespace GlyphTV
                 if (hasKnownId)
                 {
                     EnsureTmdbHttpClient();
-                    string checkUrl = $"{TMDB_BASE}/{resolvedType}/{knownTmdbId!.Value}?api_key={TMDB_API_KEY}&language=tr-TR&append_to_response=credits";
+                    string checkUrl = $"{TMDB_BASE}/{resolvedType}/{knownTmdbId!.Value}?api_key={TMDB_API_KEY}&language={tmdbLang}&append_to_response=credits";
                     detailJson = await TmdbApiGetAsync(checkUrl, "details-by-id");
 
                     if (detailJson == null)
                     {
                         string altType = resolvedType == "tv" ? "movie" : "tv";
-                        string altUrl = $"{TMDB_BASE}/{altType}/{knownTmdbId!.Value}?api_key={TMDB_API_KEY}&language=tr-TR&append_to_response=credits";
+                        string altUrl = $"{TMDB_BASE}/{altType}/{knownTmdbId!.Value}?api_key={TMDB_API_KEY}&language={tmdbLang}&append_to_response=credits";
                         detailJson = await TmdbApiGetAsync(altUrl, "details-by-id-alt");
                         if (detailJson != null) resolvedType = altType;
                     }
@@ -846,7 +850,7 @@ namespace GlyphTV
                         (searchName, year) = CleanNameForSearch(nameForSearch);
                         if (string.IsNullOrEmpty(searchName) || searchName.Length < 2) return;
                         year = knownYear ?? year;
-                        cacheKey = $"{searchName}_{contentType}_{year?.ToString() ?? "-"}";
+                        cacheKey = $"{searchName}_{contentType}_{year?.ToString() ?? "-"}_{currentLang}";
                     }
 
                     var match = await FindTmdbSearchResultAnyType(type, searchName, year);
@@ -860,13 +864,13 @@ namespace GlyphTV
                     resolvedType = match.Value.type;
 
                     EnsureTmdbHttpClient();
-                    string detailUrl = $"{TMDB_BASE}/{resolvedType}/{tmdbId}?api_key={TMDB_API_KEY}&language=tr-TR&append_to_response=credits";
+                    string detailUrl = $"{TMDB_BASE}/{resolvedType}/{tmdbId}?api_key={TMDB_API_KEY}&language={tmdbLang}&append_to_response=credits";
                     detailJson = await TmdbApiGetAsync(detailUrl, "details");
 
                     if (detailJson == null)
                     {
                         string altType = resolvedType == "tv" ? "movie" : "tv";
-                        string altUrl = $"{TMDB_BASE}/{altType}/{tmdbId}?api_key={TMDB_API_KEY}&language=tr-TR&append_to_response=credits";
+                        string altUrl = $"{TMDB_BASE}/{altType}/{tmdbId}?api_key={TMDB_API_KEY}&language={tmdbLang}&append_to_response=credits";
                         string? altJson = await TmdbApiGetAsync(altUrl, "details-alt-type");
                         if (altJson != null)
                         {
@@ -890,7 +894,7 @@ namespace GlyphTV
 
                     if (string.IsNullOrWhiteSpace(overviewValue) &&
                         !string.IsNullOrEmpty(originalLang) &&
-                        !originalLang.Equals("tr", StringComparison.OrdinalIgnoreCase))
+                        !originalLang.Equals(currentLang, StringComparison.OrdinalIgnoreCase))
                     {
                         try
                         {
@@ -941,6 +945,7 @@ namespace GlyphTV
         private static string FormatTmdbCountry(JsonElement detail)
         {
             var countries = new List<string>();
+            bool isEn = Localization.CurrentLanguage == "en";
             if (detail.TryGetProperty("production_countries", out var pc) && pc.ValueKind == JsonValueKind.Array)
             {
                 foreach (var c in pc.EnumerateArray())
@@ -948,8 +953,8 @@ namespace GlyphTV
                     if (c.TryGetProperty("iso_3166_1", out var codeEl) && codeEl.ValueKind == JsonValueKind.String)
                     {
                         string code = codeEl.GetString() ?? "";
-                        string trName = MapCountryCodeToTurkish(code);
-                        if (!string.IsNullOrEmpty(trName) && !countries.Contains(trName)) countries.Add(trName);
+                        string cName = isEn ? MapCountryCodeToEnglish(code) : MapCountryCodeToTurkish(code);
+                        if (!string.IsNullOrEmpty(cName) && !countries.Contains(cName)) countries.Add(cName);
                     }
                     else if (c.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
                     {
@@ -966,14 +971,43 @@ namespace GlyphTV
                     if (c.ValueKind == JsonValueKind.String)
                     {
                         string code = c.GetString() ?? "";
-                        string trName = MapCountryCodeToTurkish(code);
-                        if (!string.IsNullOrEmpty(trName) && !countries.Contains(trName)) countries.Add(trName);
+                        string cName = isEn ? MapCountryCodeToEnglish(code) : MapCountryCodeToTurkish(code);
+                        if (!string.IsNullOrEmpty(cName) && !countries.Contains(cName)) countries.Add(cName);
                     }
                     if (countries.Count >= 2) break;
                 }
             }
             return string.Join(", ", countries);
         }
+
+        private static string MapCountryCodeToEnglish(string code) => code.ToUpperInvariant() switch
+        {
+            "TR" => "Turkey",
+            "US" => "USA",
+            "GB" or "UK" => "United Kingdom",
+            "DE" => "Germany",
+            "FR" => "France",
+            "IT" => "Italy",
+            "ES" => "Spain",
+            "KR" => "South Korea",
+            "JP" => "Japan",
+            "CN" => "China",
+            "IN" => "India",
+            "CA" => "Canada",
+            "AU" => "Australia",
+            "RU" => "Russia",
+            "SE" => "Sweden",
+            "NO" => "Norway",
+            "DK" => "Denmark",
+            "BR" => "Brazil",
+            "MX" => "Mexico",
+            "NL" => "Netherlands",
+            "BE" => "Belgium",
+            "PL" => "Poland",
+            "IE" => "Ireland",
+            "NZ" => "New Zealand",
+            _ => code
+        };
 
         private static string MapCountryCodeToTurkish(string code) => code.ToUpperInvariant() switch
         {
@@ -1055,19 +1089,31 @@ namespace GlyphTV
                 }
 
                 string runtime = "";
+                bool isEn = Localization.CurrentLanguage == "en";
                 if (contentType == "Dizi")
                 {
+                    string seasonWord = isEn ? "Season" : "Sezon";
+                    string seasonsWord = isEn ? "Seasons" : "Sezon";
+                    string episodeWord = isEn ? "Episode" : "Bölüm";
+                    string episodesWord = isEn ? "Episodes" : "Bölüm";
+
                     if (detail.TryGetProperty("number_of_seasons", out var ns) && ns.TryGetInt32(out int seasons) && seasons > 0)
                     {
+                        string sStr = seasons > 1 ? seasonsWord : seasonWord;
                         if (detail.TryGetProperty("number_of_episodes", out var ne) && ne.TryGetInt32(out int episodes) && episodes > 0)
-                            runtime = $"{seasons} Sezon • {episodes} Bölüm";
+                        {
+                            string epStr = episodes > 1 ? episodesWord : episodeWord;
+                            runtime = $"{seasons} {sStr} • {episodes} {epStr}";
+                        }
                         else
-                            runtime = $"{seasons} Sezon";
+                        {
+                            runtime = $"{seasons} {sStr}";
+                        }
                     }
                     else if (detail.TryGetProperty("episode_run_time", out var ert) &&
                         ert.ValueKind == JsonValueKind.Array && ert.GetArrayLength() > 0)
                     {
-                        runtime = ert[0].GetRawText() + " dk";
+                        runtime = ert[0].GetRawText() + (isEn ? " min" : " dk");
                     }
                 }
                 else
@@ -1075,11 +1121,13 @@ namespace GlyphTV
                     string rawRuntime = SafeTmdb(detail, "runtime");
                     if (int.TryParse(rawRuntime, out int mins) && mins > 0)
                     {
-                        runtime = mins >= 60 ? $"{mins / 60}s {mins % 60}dk" : $"{mins} dk";
+                        runtime = mins >= 60 
+                            ? (isEn ? $"{mins / 60}h {mins % 60}m" : $"{mins / 60}s {mins % 60}dk") 
+                            : (isEn ? $"{mins} min" : $"{mins} dk");
                     }
                     else if (!string.IsNullOrEmpty(rawRuntime) && rawRuntime != "0")
                     {
-                        runtime = rawRuntime + " dk";
+                        runtime = rawRuntime + (isEn ? " min" : " dk");
                     }
                 }
 

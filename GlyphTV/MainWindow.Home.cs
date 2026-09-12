@@ -34,8 +34,8 @@ namespace GlyphTV
         private int _currentHeroIndex = 0;
         private DispatcherTimer? _heroCarouselTimer;
 
-        // TMDb Tür Haritası
-        private static readonly Dictionary<int, string> _tmdbGenreMap = new()
+        // TMDb Tür Haritaları (Türkçe & İngilizce)
+        private static readonly Dictionary<int, string> _tmdbGenreMapTr = new()
         {
             { 28, "Aksiyon" }, { 12, "Macera" }, { 16, "Animasyon" }, { 35, "Komedi" },
             { 80, "Suç" }, { 99, "Belgesel" }, { 18, "Dram" }, { 10751, "Aile" },
@@ -45,6 +45,18 @@ namespace GlyphTV
             { 10759, "Aksiyon & Macera" }, { 10762, "Çocuk" }, { 10763, "Haber" },
             { 10764, "Reality" }, { 10765, "Bilim Kurgu & Fantazi" }, { 10766, "Pembe Dizi" },
             { 10767, "Talk Show" }, { 10768, "Savaş & Politik" }
+        };
+
+        private static readonly Dictionary<int, string> _tmdbGenreMapEn = new()
+        {
+            { 28, "Action" }, { 12, "Adventure" }, { 16, "Animation" }, { 35, "Comedy" },
+            { 80, "Crime" }, { 99, "Documentary" }, { 18, "Drama" }, { 10751, "Family" },
+            { 14, "Fantasy" }, { 36, "History" }, { 27, "Horror" }, { 10402, "Music" },
+            { 9648, "Mystery" }, { 10749, "Romance" }, { 878, "Sci-Fi" },
+            { 10770, "TV Movie" }, { 53, "Thriller" }, { 10752, "War" }, { 37, "Western" },
+            { 10759, "Action & Adventure" }, { 10762, "Kids" }, { 10763, "News" },
+            { 10764, "Reality" }, { 10765, "Sci-Fi & Fantasy" }, { 10766, "Soap" },
+            { 10767, "Talk Show" }, { 10768, "War & Politics" }
         };
 
         // ─────────────────────────────────────────────────────────────
@@ -131,7 +143,9 @@ namespace GlyphTV
                         VoteAverage = vote,
                         ReleaseYear = releaseYear,
                         Overview = overview,
-                        MatchRateText = $"%{(int)Math.Clamp(vote * 10 + 12, 85, 99)} Eşleşme"
+                        MatchRateText = Localization.CurrentLanguage == "en"
+                            ? $"{(int)Math.Clamp(vote * 10 + 12, 85, 99)}% Match"
+                            : $"%{(int)Math.Clamp(vote * 10 + 12, 85, 99)} Eşleşme"
                     };
 
                     if (el.TryGetProperty("Genres", out var gArr) && gArr.ValueKind == JsonValueKind.Array)
@@ -226,12 +240,16 @@ namespace GlyphTV
             try
             {
                 EnsureTmdbHttpClient();
-                string url = $"{TMDB_BASE}/trending/all/week?api_key={TMDB_API_KEY}&language=tr-TR";
-                var json = await TmdbApiGetAsync(url, "TrendingPopularTr");
+                string currentLang = Localization.CurrentLanguage;
+                string tmdbLang = currentLang == "en" ? "en-US" : "tr-TR";
+                string cacheContext = currentLang == "en" ? "TrendingPopularEn" : "TrendingPopularTr";
 
-                if (string.IsNullOrEmpty(json))
+                string url = $"{TMDB_BASE}/trending/all/week?api_key={TMDB_API_KEY}&language={tmdbLang}";
+                var json = await TmdbApiGetAsync(url, cacheContext);
+
+                if (string.IsNullOrEmpty(json) && currentLang != "en")
                 {
-                    url = $"{TMDB_BASE}/trending/all/week?api_key={TMDB_API_KEY}";
+                    url = $"{TMDB_BASE}/trending/all/week?api_key={TMDB_API_KEY}&language=en-US";
                     json = await TmdbApiGetAsync(url, "TrendingPopularEn");
                 }
 
@@ -243,6 +261,9 @@ namespace GlyphTV
 
                 var items = new List<PopularMediaItem>();
                 int rank = 1;
+
+                bool isEn = currentLang == "en";
+                var genreMap = isEn ? _tmdbGenreMapEn : _tmdbGenreMapTr;
 
                 foreach (var el in results.EnumerateArray())
                 {
@@ -286,7 +307,9 @@ namespace GlyphTV
                         VoteAverage = vote,
                         ReleaseYear = releaseYear,
                         Overview = overview,
-                        MatchRateText = $"%{(int)Math.Clamp(vote * 10 + 12, 85, 99)} Eşleşme"
+                        MatchRateText = isEn 
+                            ? $"{(int)Math.Clamp(vote * 10 + 12, 85, 99)}% Match" 
+                            : $"%{(int)Math.Clamp(vote * 10 + 12, 85, 99)} Eşleşme"
                     };
 
                     // Türleri haritalandır
@@ -295,7 +318,7 @@ namespace GlyphTV
                         foreach (var gId in gIds.EnumerateArray())
                         {
                             int id = gId.GetInt32();
-                            if (_tmdbGenreMap.TryGetValue(id, out var gName) && !item.Genres.Contains(gName))
+                            if (genreMap.TryGetValue(id, out var gName) && !item.Genres.Contains(gName))
                             {
                                 item.Genres.Add(gName);
                                 if (item.Genres.Count >= 4) break;
@@ -307,7 +330,7 @@ namespace GlyphTV
                     if (items.Count >= 20) break; // 20 adet içerikle sınırlandır
                 }
 
-                // TMDb üzerinden her içerik için detaylı Türkçe slogan (tagline) çek
+                // TMDb üzerinden her içerik için detaylı slogan (tagline) ve özet çek
                 await FetchHeroDetailsAsync(items);
 
                 if (items.Count > 0)
@@ -372,14 +395,16 @@ namespace GlyphTV
         private async Task FetchHeroDetailsAsync(List<PopularMediaItem> items)
         {
             var sem = new SemaphoreSlim(4, 4);
+            string currentLang = Localization.CurrentLanguage;
+            string tmdbLang = currentLang == "en" ? "en-US" : "tr-TR";
             var tasks = items.Select(async item =>
             {
                 await sem.WaitAsync();
                 try
                 {
                     EnsureTmdbHttpClient();
-                    string detailUrl = $"{TMDB_BASE}/{item.MediaType}/{item.TmdbId}?api_key={TMDB_API_KEY}&language=tr-TR";
-                    var json = await TmdbApiGetAsync(detailUrl, $"HeroDetail_{item.TmdbId}");
+                    string detailUrl = $"{TMDB_BASE}/{item.MediaType}/{item.TmdbId}?api_key={TMDB_API_KEY}&language={tmdbLang}";
+                    var json = await TmdbApiGetAsync(detailUrl, $"HeroDetail_{item.TmdbId}_{currentLang}");
                     if (!string.IsNullOrEmpty(json))
                     {
                         using var doc = JsonDocument.Parse(json);
@@ -389,7 +414,7 @@ namespace GlyphTV
                         {
                             item.Tagline = tg.GetString()!.Trim();
                         }
-                        else if (root.TryGetProperty("overview", out var ov) && !string.IsNullOrWhiteSpace(ov.GetString()) && string.IsNullOrEmpty(item.Overview))
+                        if (root.TryGetProperty("overview", out var ov) && !string.IsNullOrWhiteSpace(ov.GetString()))
                         {
                             item.Overview = ov.GetString()!.Trim();
                         }
@@ -855,7 +880,7 @@ namespace GlyphTV
                 }
             }
 
-            ShowToast("İçerik mevcut oynatma listenizde bulunamadı.");
+            ShowToast(Localization.Get("Toast_ContentNotInPlaylist"));
         }
 
         private void HeroDetail_Click(object? sender, RoutedEventArgs e)
@@ -888,11 +913,15 @@ namespace GlyphTV
 
             PreloadCachedImagesForPopularItem(item);
 
+            string defaultGroup = item.MediaType == "tv" 
+                ? (Localization.CurrentLanguage == "en" ? "Series" : "Dizi") 
+                : (Localization.CurrentLanguage == "en" ? "Movie" : "Sinema");
+
             var dummyChannel = new Channel
             {
                 Name = item.Title,
                 OriginalName = item.OriginalTitle,
-                Group = item.Genres.FirstOrDefault() ?? (item.MediaType == "tv" ? "Dizi" : "Sinema"),
+                Group = item.Genres.FirstOrDefault() ?? defaultGroup,
                 Type = item.MediaType == "tv" ? "Dizi" : "VOD",
                 TmdbId = item.TmdbId,
                 LogoBitmap = item.PosterBitmap,
@@ -916,13 +945,13 @@ namespace GlyphTV
             VodInfoBackdropImage.Source = item.BackdropBitmap ?? item.PosterBitmap;
 
             VodInfoTitle.Text      = item.Title;
-            VodInfoCategory.Text   = item.Genres.Count > 0 ? string.Join(", ", item.Genres) : (item.MediaType == "tv" ? "Dizi" : "Sinema");
-            VodInfoGenre.Text      = item.Genres.Count > 0 ? string.Join(", ", item.Genres) : (item.MediaType == "tv" ? "Dizi" : "Sinema");
-            VodInfoModalTitle.Text = item.MediaType == "tv" ? "Dizi Detayları" : "Film Detayları";
+            VodInfoCategory.Text   = item.Genres.Count > 0 ? string.Join(", ", item.Genres) : defaultGroup;
+            VodInfoGenre.Text      = item.Genres.Count > 0 ? string.Join(", ", item.Genres) : defaultGroup;
+            VodInfoModalTitle.Text = item.MediaType == "tv" ? Localization.Get("VodInfo_SeriesDetails") : Localization.Get("VodInfo_MovieDetails");
 
             var activeSource = _sources.FirstOrDefault(s => s.IsActive);
-            VodInfoSource.Text  = activeSource?.Name ?? "TMDb Keşif";
-            VodInfoFavText.Text = "♡ Favori";
+            VodInfoSource.Text  = activeSource?.Name ?? "TMDb";
+            VodInfoFavText.Text = "♡ " + Localization.Get("VodInfo_Favorite");
 
             // Poster
             VodInfoPoster.Child = null;
@@ -998,18 +1027,18 @@ namespace GlyphTV
                 if (activeSource != null) SaveChannelsForSource(activeSource.Id);
                 item.NotifyFavoriteChanged();
                 UpdateHeroBannerDisplay();
-                ShowToast(item.MatchedChannel.IsFavorite ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+                ShowToast(item.MatchedChannel.IsFavorite ? Localization.Get("Toast_AddedToFav") : Localization.Get("Toast_RemovedFromFav"));
             }
             else if (item.MatchedSeries != null)
             {
                 bool newState = ToggleSeriesFavorite(item.MatchedSeries.ShowName);
                 item.NotifyFavoriteChanged();
                 UpdateHeroBannerDisplay();
-                ShowToast(newState ? "Dizi favorilere eklendi" : "Dizi favorilerden çıkarıldı");
+                ShowToast(newState ? Localization.Get("Toast_SeriesAddedToFav") : Localization.Get("Toast_SeriesRemovedFromFav"));
             }
             else
             {
-                ShowToast("Bu içerik henüz oynatma listenizde bulunmuyor.");
+                ShowToast(Localization.Get("Toast_ContentNotInPlaylist"));
             }
         }
 
@@ -1361,11 +1390,11 @@ namespace GlyphTV
                 PlayerContainer.Height = 450;
                 _resumePosition = 0;
                 await PlayChannel(targetChannel.Url);
-                ShowToast("Baştan başlatılıyor...");
+                ShowToast(Localization.Get("Toast_StartingOver"));
             }
             else
             {
-                ShowToast("İçerik mevcut oynatma listesinde bulunamadı.");
+                ShowToast(Localization.Get("Toast_ContentNotInPlaylist"));
             }
         }
 
@@ -1386,7 +1415,7 @@ namespace GlyphTV
                     item.SeriesCard.OnPropertyChanged("FavoriteBrush");
                 }
                 item.NotifyFavoriteChanged();
-                ShowToast(newState ? "Dizi favorilere eklendi" : "Dizi favorilerden çıkarıldı");
+                ShowToast(newState ? Localization.Get("Toast_SeriesAddedToFav") : Localization.Get("Toast_SeriesRemovedFromFav"));
             }
             else
             {
@@ -1409,12 +1438,12 @@ namespace GlyphTV
                     if (_currentTab == "Favori" && _viewState == "Categories")
                         RefreshFavoriGrids();
                     item.NotifyFavoriteChanged();
-                    ShowToast(targetChannel.IsFavorite ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+                    ShowToast(targetChannel.IsFavorite ? Localization.Get("Toast_AddedToFav") : Localization.Get("Toast_RemovedFromFav"));
                 }
                 else
                 {
                     item.IsFavorite = !item.IsFavorite;
-                    ShowToast(item.IsFavorite ? "Favorilere eklendi" : "Favorilerden çıkarıldı");
+                    ShowToast(item.IsFavorite ? Localization.Get("Toast_AddedToFav") : Localization.Get("Toast_RemovedFromFav"));
                 }
             }
         }
@@ -1459,8 +1488,61 @@ namespace GlyphTV
             }
             else
             {
-                ShowToast("Detay bilgisi yüklenemedi.");
+                ShowToast(Localization.Get("Toast_LoadDetailsError"));
             }
+        }
+
+        private void ResumeRemove_Click(object? sender, RoutedEventArgs e)
+        {
+            var item = (sender as Button)?.Tag as ResumeWatchItem 
+                    ?? (sender as MenuItem)?.Tag as ResumeWatchItem
+                    ?? (sender as Control)?.Tag as ResumeWatchItem;
+            if (item == null) return;
+
+            if (item.Type == "Dizi")
+            {
+                string showName = item.SeriesCard?.ShowName 
+                               ?? item.History?.ShowName 
+                               ?? (item.Channel?.ShowName ?? item.Title);
+
+                _watchHistory.RemoveAll(h => (!string.IsNullOrEmpty(h.ShowName) && h.ShowName.Equals(showName, StringComparison.OrdinalIgnoreCase))
+                                          || (!string.IsNullOrEmpty(item.History?.ShowName) && h.ShowName == item.History.ShowName));
+
+                foreach (var c in _allChannels)
+                {
+                    if (c.Type == "Dizi" && (c.ShowName?.Equals(showName, StringComparison.OrdinalIgnoreCase) == true))
+                    {
+                        c.HasResume = false;
+                    }
+                }
+
+                if (item.SeriesCard != null)
+                {
+                    item.SeriesCard.HasResume = false;
+                    item.SeriesCard.RestoreSelection(0, 0);
+                }
+
+                _seriesSelections.Remove(showName);
+            }
+            else
+            {
+                string? url = item.History?.Url ?? item.Channel?.Url;
+                if (!string.IsNullOrEmpty(url))
+                {
+                    _watchHistory.RemoveAll(h => h.Url == url);
+                }
+                if (item.Channel != null)
+                {
+                    item.Channel.HasResume = false;
+                }
+                var ch = _allChannels.FirstOrDefault(c => c.Url == url);
+                if (ch != null) ch.HasResume = false;
+            }
+
+            _watchHistoryByUrlCache = null;
+            SaveWatchHistory();
+            RefreshHomeResumeSection();
+            ShowToast(string.Format(Localization.Get("Toast_RemovedFromResume"), item.Title));
         }
 
         // ─────────────────────────────────────────────────────────────

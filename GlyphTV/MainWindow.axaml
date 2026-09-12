@@ -533,25 +533,25 @@
 					<Button x:Name="BtnHome" Classes="MenuBtn Active" Click="MenuFilter_Click" Tag="Anasayfa">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🏠" FontSize="16" VerticalAlignment="Center"/>
-							<TextBlock Text="Anasayfa" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnHomeText" Text="Anasayfa" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 					<Button x:Name="BtnLive" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Canlı">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="📺" FontSize="16" VerticalAlignment="Center"/>
-							<TextBlock Text="Canlı TV" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnLiveText" Text="Canlı TV" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 					<Button x:Name="BtnVOD" Classes="MenuBtn" Click="MenuFilter_Click" Tag="VOD">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🎬" FontSize="16" VerticalAlignment="Center"/>
-							<TextBlock Text="Filmler" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnVODText" Text="Filmler" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 					<Button x:Name="BtnSeries" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Dizi">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🎞️" FontSize="18" VerticalAlignment="Center"/>
-							<TextBlock Text="Diziler" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnSeriesText" Text="Diziler" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 
@@ -559,19 +559,19 @@
 					<Button x:Name="BtnEpg" Classes="MenuBtn" Click="EpgButton_Click">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🗓️" FontSize="15" VerticalAlignment="Center"/>
-							<TextBlock Text="Yayın Akışı" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnEpgText" Text="Yayın Akışı" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 					<Button x:Name="BtnFav" Classes="MenuBtn" Click="MenuFilter_Click" Tag="Favori">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🤍" FontSize="15" VerticalAlignment="Center"/>
-							<TextBlock Text="Favoriler" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnFavText" Text="Favoriler" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 					<Button x:Name="BtnSettings" Classes="MenuBtn" Click="SettingsButton_Click">
 						<StackPanel Orientation="Horizontal" Spacing="10">
 							<TextBlock Text="🛠️" FontSize="18" VerticalAlignment="Center"/>
-							<TextBlock Text="Ayarlar" VerticalAlignment="Center"/>
+							<TextBlock x:Name="BtnSettingsText" Text="Ayarlar" VerticalAlignment="Center"/>
 						</StackPanel>
 					</Button>
 				</StackPanel>
@@ -665,8 +665,8 @@
 							Padding="14,20,10,16" IsVisible="False">
 						<Grid RowDefinitions="Auto, *">
 							<Grid Grid.Row="0" Margin="6,0,4,12">
-								<TextBlock Text="Kategoriler" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSec}"/>
-								<TextBlock Text="⠿ ile sürükleyip sıralayın" FontSize="9" Foreground="{DynamicResource TextSec}" Opacity="0.7" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+								<TextBlock x:Name="CategoriesHeaderTitle" Text="Kategoriler" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSec}"/>
+								<TextBlock x:Name="CategoriesDragReorderText" Text="⠿ ile sürükleyip sıralayın" FontSize="9" Foreground="{DynamicResource TextSec}" Opacity="0.7" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
 							</Grid>
 
 							<ScrollViewer Grid.Row="1"
@@ -723,9 +723,9 @@
 							     UpdateSortButtons ile "Selected" class'ı üzerinden
 							     vurgulanır. -->
 							<StackPanel x:Name="SortOptionsPanel" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="False">
-								<Button Classes="ActionBtn SettingsToggleBtn" Content="A-Z" Tag="AZ" Click="SortMode_Click"/>
-								<Button Classes="ActionBtn SettingsToggleBtn" Content="Z-A" Tag="ZA" Click="SortMode_Click"/>
-								<Button Classes="ActionBtn SettingsToggleBtn" Content="Son Eklenenler" Tag="New" Click="SortMode_Click"/>
+								<Button x:Name="SortAZBtn" Classes="ActionBtn SettingsToggleBtn" Content="A-Z" Tag="AZ" Click="SortMode_Click"/>
+								<Button x:Name="SortZABtn" Classes="ActionBtn SettingsToggleBtn" Content="Z-A" Tag="ZA" Click="SortMode_Click"/>
+								<Button x:Name="SortNewBtn" Classes="ActionBtn SettingsToggleBtn" Content="Son Eklenenler" Tag="New" Click="SortMode_Click"/>
 							</StackPanel>
 						</Grid>
 
@@ -830,21 +830,21 @@
 															</StackPanel>
 															<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5">
 																<Button Classes="ActionBtn" Click="Content_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="Content_Resume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
-																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="ToggleFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																	<StackPanel Orientation="Horizontal" Spacing="4">
 																		<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
-																		<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_Favorite}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
 																<Button Classes="ActionBtn" Click="VodInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																	<StackPanel Orientation="Horizontal" Spacing="4">
 																		<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
-																		<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_Detail}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
 															</StackPanel>
@@ -898,10 +898,10 @@
 															</StackPanel>
 															<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5">
 																<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
-																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																</Button>
 																<Grid ColumnDefinitions="Auto, *, Auto">
 																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
@@ -1063,7 +1063,7 @@
 													<Button Classes="ActionBtn" Click="HeroPlay_Click" Background="#0084ff" Foreground="White" CornerRadius="12" Padding="24,11" BorderThickness="0">
 														<StackPanel Orientation="Horizontal" Spacing="8">
 															<TextBlock Text="▶" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-															<TextBlock Text="Hemen İzle" FontSize="13.5" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+															<TextBlock x:Name="HeroPlayBtnText" Text="Hemen İzle" FontSize="13.5" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 												</Border>
@@ -1072,7 +1072,7 @@
 												<Button Classes="ActionBtn" Click="HeroDetail_Click" Background="#260f172a" Foreground="White" CornerRadius="12" Padding="18,11" BorderThickness="1" BorderBrush="#334155">
 													<StackPanel Orientation="Horizontal" Spacing="7">
 														<TextBlock Text="ⓘ" FontSize="14" Foreground="#38bdf8" VerticalAlignment="Center"/>
-														<TextBlock Text="Detaylar &amp; Bölümler" FontSize="12.5" FontWeight="SemiBold" Foreground="#e2e8f0" VerticalAlignment="Center"/>
+														<TextBlock x:Name="HeroDetailBtnText" Text="Detaylar &amp; Bölümler" FontSize="12.5" FontWeight="SemiBold" Foreground="#e2e8f0" VerticalAlignment="Center"/>
 													</StackPanel>
 												</Button>
 
@@ -1127,14 +1127,14 @@
 											</LinearGradientBrush>
 										</Border.Background>
 										<Grid Height="40" Margin="22,0,26,0">
-											<TextBlock Text="Devam Et" FontSize="17" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+											<TextBlock x:Name="HomeResumeSectionTitle" Text="Devam Et" FontSize="17" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
 										</Grid>
 									</Border>
 
 									<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-										<Button x:Name="BtnResumeAll" Classes="ActionBtn SettingsToggleBtn Selected" Click="ResumeFilter_Click" Tag="All" Content="Tümü"/>
-										<Button x:Name="BtnResumeMovies" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Movies" Content="Filmler"/>
-										<Button x:Name="BtnResumeSeries" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Series" Content="Diziler"/>
+										<Button x:Name="BtnResumeAll" Classes="ActionBtn SettingsToggleBtn Selected" Click="ResumeFilter_Click" Tag="All" Content="{DynamicResource Home_FilterAll}"/>
+										<Button x:Name="BtnResumeMovies" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Movies" Content="{DynamicResource Home_FilterMovies}"/>
+										<Button x:Name="BtnResumeSeries" Classes="ActionBtn SettingsToggleBtn" Click="ResumeFilter_Click" Tag="Series" Content="{DynamicResource Home_FilterSeries}"/>
 									</StackPanel>
 								</Grid>
 
@@ -1144,7 +1144,7 @@
 									<Border x:Name="HomeResumeEmptyNotice" IsVisible="False" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="12" Padding="20" HorizontalAlignment="Stretch">
 										<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
 											<TextBlock Text="⏳" FontSize="18" VerticalAlignment="Center"/>
-											<TextBlock Text="Henüz yarıda bırakılan bir film veya dizi bulunmuyor." FontSize="13" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+											<TextBlock x:Name="HomeResumeEmptyText" Text="Henüz yarıda bırakılan bir film veya dizi bulunmuyor." FontSize="13" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
 										</StackPanel>
 									</Border>
 
@@ -1158,6 +1158,11 @@
 											<ItemsControl.ItemTemplate>
 												<DataTemplate x:DataType="local:ResumeWatchItem">
 													<Border Classes="VodCardBorder" Height="240" Margin="0,0,12,0">
+														<Border.ContextFlyout>
+															<MenuFlyout>
+																<MenuItem Header="{DynamicResource Loc_ResumeRemove}" Click="ResumeRemove_Click" Tag="{Binding}"/>
+															</MenuFlyout>
+														</Border.ContextFlyout>
 														<Grid ColumnDefinitions="Auto, *">
 															<!-- Sol: Poster & İkon -->
 															<Border Grid.Column="0" Width="112" CornerRadius="12,0,0,12" ClipToBounds="True" IsHitTestVisible="False">
@@ -1184,18 +1189,23 @@
 
 															<!-- Sağ: Başlık, Kategori/Tür ve İşlem Butonları -->
 															<Grid Grid.Column="1" RowDefinitions="Auto, *">
-																<StackPanel Grid.Row="0" Margin="14,12,14,0" IsHitTestVisible="False">
-																	<TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
-																	<TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
-																</StackPanel>
+																<Grid Grid.Row="0" Margin="14,10,10,0" ColumnDefinitions="*, Auto">
+																	<StackPanel Grid.Column="0" IsHitTestVisible="False">
+																		<TextBlock Text="{Binding Title}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource Text}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}"/>
+																		<TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+																	</StackPanel>
+																	<Button Grid.Column="1" Classes="IconBtn" Click="ResumeRemove_Click" Tag="{Binding}" Background="Transparent" BorderThickness="0" Width="24" Height="24" Padding="0" VerticalAlignment="Top" HorizontalAlignment="Right" Cursor="Hand" ToolTip.Tip="{DynamicResource Loc_ResumeRemoveTooltip}">
+																		<Path Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Fill="{DynamicResource TextSec}" Width="10" Height="10" Stretch="Uniform"/>
+																	</Button>
+																</Grid>
 
 																<!-- Dizi İçin İşlem Butonları (Diziler sekmesiyle birebir aynı) -->
 																<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5" IsVisible="{Binding IsSeries}">
 																	<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																		<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																		<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																	</Button>
 																	<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding SeriesCard}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding SeriesCard.HasResume}">
-																		<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																		<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																	</Button>
 																	<Grid ColumnDefinitions="Auto, *, Auto">
 																		<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding SeriesCard}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
@@ -1228,21 +1238,21 @@
 																<!-- Film / VOD İçin İşlem Butonları (Filmler sekmesiyle birebir aynı) -->
 																<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5" IsVisible="{Binding IsMovie}">
 																	<Button Classes="ActionBtn" Click="ResumeRestart_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																		<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																		<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																	</Button>
 																	<Button Classes="ActionBtn" Click="ResumeCard_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
-																		<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																		<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																	</Button>
 																	<Button Classes="ActionBtn" Click="ResumeFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																		<StackPanel Orientation="Horizontal" Spacing="4">
 																			<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
-																			<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																			<TextBlock Text="{DynamicResource Btn_Favorite}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																		</StackPanel>
 																	</Button>
 																	<Button Classes="ActionBtn" Click="ResumeDetail_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																		<StackPanel Orientation="Horizontal" Spacing="4">
 																			<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
-																			<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																			<TextBlock Text="{DynamicResource Btn_Detail}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																		</StackPanel>
 																	</Button>
 																</StackPanel>
@@ -1268,7 +1278,7 @@
 
 						<StackPanel x:Name="FavoriPanel" IsVisible="False" Spacing="0">
 							<StackPanel x:Name="FavoriLiveSection" IsVisible="False" Margin="0,0,0,32">
-								<TextBlock Text="Canlı TV" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<TextBlock x:Name="FavoriLiveTitle" Text="Canlı TV" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
 								<Grid>
 									<ScrollViewer x:Name="FavoriLiveScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriLiveScroll_ScrollChanged">
 										<ItemsControl x:Name="FavoriLiveGrid">
@@ -1298,7 +1308,7 @@
 								</Grid>
 							</StackPanel>
 							<StackPanel x:Name="FavoriVodSection" IsVisible="False" Margin="0,0,0,32">
-								<TextBlock Text="Filmler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<TextBlock x:Name="FavoriVodTitle" Text="Filmler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
 								<Grid>
 								<ScrollViewer x:Name="FavoriVodScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriVodScroll_ScrollChanged">
 									<!-- KALICI DÜZELTME (CPU spike): tek satır yatay liste
@@ -1332,21 +1342,21 @@
 															</StackPanel>
 															<StackPanel Grid.Row="1" Margin="14,10,14,12" VerticalAlignment="Bottom" Spacing="5">
 																<Button Classes="ActionBtn" Click="Content_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="Content_Resume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
-																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="ToggleFavorite_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																	<StackPanel Orientation="Horizontal" Spacing="4">
 																		<TextBlock Text="{Binding FavoriteIcon}" FontSize="12" Foreground="{Binding FavoriteBrush}" VerticalAlignment="Center"/>
-																		<TextBlock Text="Favori" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_Favorite}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
 																<Button Classes="ActionBtn" Click="VodInfo_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
 																	<StackPanel Orientation="Horizontal" Spacing="4">
 																		<TextBlock Text="ⓘ" FontSize="12" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
-																		<TextBlock Text="Detay" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_Detail}" FontSize="11" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
 															</StackPanel>
@@ -1366,7 +1376,7 @@
 								</Grid>
 							</StackPanel>
 							<StackPanel x:Name="FavoriSeriesSection" IsVisible="False" Margin="0,0,0,32">
-								<TextBlock Text="Diziler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
+								<TextBlock x:Name="FavoriSeriesTitle" Text="Diziler" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="0,0,0,16"/>
 								<Grid>
 								<ScrollViewer x:Name="FavoriSeriesScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ScrollChanged="FavoriSeriesScroll_ScrollChanged">
 									<!-- KALICI DÜZELTME (CPU spike): tek satır yatay liste
@@ -1400,10 +1410,10 @@
 															</StackPanel>
 															<StackPanel Grid.Row="1" Margin="14,8,14,12" VerticalAlignment="Bottom" Spacing="5">
 																<Button Classes="ActionBtn" Click="PlaySeries_Click" Tag="{Binding}" Background="{DynamicResource Accent}" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
-																	<TextBlock Text="▶ Oynat" FontSize="12" FontWeight="Bold" Foreground="White"/>
+																	<TextBlock Text="{DynamicResource Btn_Play}" FontSize="12" FontWeight="Bold" Foreground="White"/>
 																</Button>
 																<Button Classes="ActionBtn" Click="PlaySeriesResume_Click" Tag="{Binding}" Background="#223b82f6" Foreground="White" CornerRadius="8" Padding="0,6" BorderThickness="1" BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="{Binding HasResume}">
-																	<TextBlock Text="▶ Devam Et" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
+																	<TextBlock Text="{DynamicResource Btn_Resume}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Accent}"/>
 																</Button>
 																<Grid ColumnDefinitions="Auto, *, Auto">
 																	<Button Grid.Column="0" Classes="ActionBtn" Click="PrevSeason_Click" Tag="{Binding}" Background="{DynamicResource BgActive}" Foreground="{DynamicResource Text}" CornerRadius="8,0,0,8" Padding="10,6" BorderThickness="1" BorderBrush="{DynamicResource Border}" Content="◀" FontSize="10"/>
@@ -1528,8 +1538,8 @@
 								<TextBlock Text="🛠️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 							</Border>
 							<StackPanel VerticalAlignment="Center">
-								<TextBlock Text="Ayarlar" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-								<TextBlock Text="Uygulama tercihleri, oynatıcı ve IPTV kaynak yönetimi" FontSize="11" Foreground="{DynamicResource TextSec}"/>
+								<TextBlock x:Name="SettingsModalHeaderTitle" Text="Ayarlar" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+								<TextBlock x:Name="SettingsModalHeaderSub" Text="Uygulama tercihleri, oynatıcı ve IPTV kaynak yönetimi" FontSize="11" Foreground="{DynamicResource TextSec}"/>
 							</StackPanel>
 						</StackPanel>
 
@@ -1551,8 +1561,8 @@
 											<Grid ColumnDefinitions="26, *">
 												<TextBlock Grid.Column="0" Text="🌐" FontSize="15" VerticalAlignment="Center"/>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="Kaynaklar" FontWeight="SemiBold" FontSize="13"/>
-													<TextBlock Text="M3U &amp; Xtream listeleri" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+													<TextBlock x:Name="SettingsNavSourcesTitle" Text="Kaynaklar" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock x:Name="SettingsNavSourcesSub" Text="M3U &amp; Xtream listeleri" FontSize="10" Foreground="{DynamicResource TextSec}"/>
 												</StackPanel>
 											</Grid>
 										</Button>
@@ -1561,8 +1571,8 @@
 											<Grid ColumnDefinitions="26, *">
 												<TextBlock Grid.Column="0" Text="✨" FontSize="15" VerticalAlignment="Center"/>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="Genel &amp; Görünüm" FontWeight="SemiBold" FontSize="13"/>
-													<TextBlock Text="Tema, başlangıç &amp; motor" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+													<TextBlock x:Name="SettingsNavAppearanceTitle" Text="Genel &amp; Görünüm" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock x:Name="SettingsNavAppearanceSub" Text="Tema, başlangıç &amp; motor" FontSize="10" Foreground="{DynamicResource TextSec}"/>
 												</StackPanel>
 											</Grid>
 										</Button>
@@ -1571,8 +1581,8 @@
 											<Grid ColumnDefinitions="26, *">
 												<TextBlock Grid.Column="0" Text="🗄️" FontSize="15" VerticalAlignment="Center"/>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="Veri &amp; Depolama" FontWeight="SemiBold" FontSize="13"/>
-													<TextBlock Text="Geçmiş, önbellek ve sıfırlama" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+													<TextBlock x:Name="SettingsNavDataTitle" Text="Veri &amp; Depolama" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock x:Name="SettingsNavDataSub" Text="Geçmiş, önbellek ve sıfırlama" FontSize="10" Foreground="{DynamicResource TextSec}"/>
 												</StackPanel>
 											</Grid>
 										</Button>
@@ -1581,8 +1591,8 @@
 											<Grid ColumnDefinitions="26, *">
 												<TextBlock Grid.Column="0" Text="⌨️" FontSize="15" VerticalAlignment="Center"/>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="Kısayollar" FontWeight="SemiBold" FontSize="13"/>
-													<TextBlock Text="Klavye &amp; fare tuşları" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+													<TextBlock x:Name="SettingsNavShortcutsTitle" Text="Kısayollar" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock x:Name="SettingsNavShortcutsSub" Text="Klavye &amp; fare tuşları" FontSize="10" Foreground="{DynamicResource TextSec}"/>
 												</StackPanel>
 											</Grid>
 										</Button>
@@ -1591,8 +1601,8 @@
 											<Grid ColumnDefinitions="26, *">
 												<TextBlock Grid.Column="0" Text="ⓘ" FontSize="15" VerticalAlignment="Center"/>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="Hakkında" FontWeight="SemiBold" FontSize="13"/>
-													<TextBlock Text="Sürüm bilgisi &amp; topluluk" FontSize="10" Foreground="{DynamicResource TextSec}"/>
+													<TextBlock x:Name="SettingsNavAboutTitle" Text="Hakkında" FontWeight="SemiBold" FontSize="13"/>
+													<TextBlock x:Name="SettingsNavAboutSub" Text="Sürüm bilgisi &amp; topluluk" FontSize="10" Foreground="{DynamicResource TextSec}"/>
 												</StackPanel>
 											</Grid>
 										</Button>
@@ -1602,7 +1612,7 @@
 								<!-- Alt Bilgi / Sürüm Rozeti -->
 								<Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
 									<StackPanel Spacing="2">
-										<TextBlock Text="GlyphTV™ v2.1.0" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Text}"/>
+										<TextBlock Text="GlyphTV™ v2.1.1" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Text}"/>
 										<TextBlock Text="Designed by AkuLaTa" FontSize="9.5" Foreground="{DynamicResource TextSec}"/>
 									</StackPanel>
 								</Border>
@@ -1616,17 +1626,17 @@
 								<StackPanel Spacing="16">
 									<Grid ColumnDefinitions="*, Auto">
 										<StackPanel VerticalAlignment="Center">
-											<TextBlock Text="IPTV Kaynakları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-											<TextBlock Text="M3U oynatma listelerinizi veya Xtream hesaplarınızı yönetin." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+											<TextBlock x:Name="SettingsSourcesTitle" Text="IPTV Kaynakları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+											<TextBlock x:Name="SettingsSourcesSub" Text="M3U oynatma listelerinizi veya Xtream hesaplarınızı yönetin." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 										</StackPanel>
 										<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Background="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}" Foreground="White" Click="ShowChangeSource_Click">
-											<TextBlock Text="+ Yeni Kaynak Ekle" FontWeight="SemiBold" VerticalAlignment="Center"/>
+											<TextBlock x:Name="SettingsAddSourceBtnText" Text="+ Yeni Kaynak Ekle" FontWeight="SemiBold" VerticalAlignment="Center"/>
 										</Button>
 									</Grid>
 
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="14">
-											<TextBlock Text="Kayıtlı Oynatma Listeleri" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+											<TextBlock x:Name="SettingsSavedSourcesTitle" Text="Kayıtlı Oynatma Listeleri" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
 											<ItemsControl x:Name="SourcesList">
 												<ItemsControl.ItemTemplate>
 													<DataTemplate x:DataType="local:TvSource">
@@ -1641,21 +1651,21 @@
 																	<TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Text}" FontSize="13"/>
 																	<TextBlock Text="{Binding SourceSummaryText}" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
 																</StackPanel>
-																<Button Grid.Column="2" Classes="ActionBtn" Click="SelectSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="{Binding StatusBrush}" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand" ToolTip.Tip="Kaynağı Seç / Aktif Et">
+																<Button Grid.Column="2" Classes="ActionBtn" Click="SelectSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="{Binding StatusBrush}" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand" ToolTip.Tip="{DynamicResource Settings_SelectSourceTooltip}">
 																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
 																		<Border Width="7" Height="7" CornerRadius="3.5" Background="{Binding StatusBrush}"/>
 																		<TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" FontSize="11"/>
 																	</StackPanel>
 																</Button>
-																<Button Grid.Column="3" Classes="ActionBtn" Click="RefreshSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#3981f3" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" Margin="0,0,8,0" ToolTip.Tip="Kaynağı Yenile" Cursor="Hand">
+																<Button Grid.Column="3" Classes="ActionBtn" Click="RefreshSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#3981f3" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" Margin="0,0,8,0" ToolTip.Tip="{DynamicResource Settings_RefreshSourceTooltip}" Cursor="Hand">
 																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
 																		<Viewbox Width="12" Height="12" VerticalAlignment="Center">
 																			<Path Fill="#3981f3" Data="M64,256H34A222,222,0,0,1,430,118.15V85h30V190H355V160h67.27A192.21,192.21,0,0,0,256,64C150.13,64,64,150.13,64,256Zm384,0c0,105.87-86.13,192-192,192A192.21,192.21,0,0,1,89.73,352H157V322H52V427H82V393.85A222,222,0,0,0,478,256Z"/>
 																		</Viewbox>
-																		<TextBlock Text="YENİLE" FontSize="11" Foreground="#3981f3" FontWeight="Bold" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_RefreshUpper}" FontSize="11" Foreground="#3981f3" FontWeight="Bold" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
-																<Button Grid.Column="4" Classes="ActionBtn" Click="DeleteSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#f70c0c" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" ToolTip.Tip="Kaynağı Sil" Cursor="Hand">
+																<Button Grid.Column="4" Classes="ActionBtn" Click="DeleteSource_Click" Tag="{Binding}" Background="Transparent" BorderBrush="#f70c0c" BorderThickness="1" CornerRadius="6" Width="78" Height="28" Padding="0" ToolTip.Tip="{DynamicResource Settings_DeleteSourceTooltip}" Cursor="Hand">
 																	<StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
 																		<Viewbox Width="12" Height="12" VerticalAlignment="Center">
 																			<Canvas Width="24" Height="24">
@@ -1666,7 +1676,7 @@
 																				<Path Data="M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6" Stroke="#f70c0c" StrokeThickness="1.5"/>
 																			</Canvas>
 																		</Viewbox>
-																		<TextBlock Text="SİL" FontSize="11" Foreground="#f70c0c" FontWeight="Bold" VerticalAlignment="Center"/>
+																		<TextBlock Text="{DynamicResource Btn_DeleteUpper}" FontSize="11" Foreground="#f70c0c" FontWeight="Bold" VerticalAlignment="Center"/>
 																	</StackPanel>
 																</Button>
 															</Grid>
@@ -1683,23 +1693,62 @@
 							<ScrollViewer x:Name="SettingsTabAppearance" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
 								<StackPanel Spacing="16">
 									<StackPanel VerticalAlignment="Center">
-										<TextBlock Text="Genel &amp; Görünüm Ayarları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-										<TextBlock Text="Arayüz teması, başlangıç tercihleri ve oynatma motorunu yapılandırın." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										<TextBlock x:Name="SettingsAppearanceHeaderTitle" Text="Genel &amp; Görünüm Ayarları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock x:Name="SettingsAppearanceHeaderSub" Text="Arayüz teması, başlangıç tercihleri ve oynatma motorunu yapılandırın." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 									</StackPanel>
 
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="16">
+											<!-- Dil Seçimi -->
+											<Grid ColumnDefinitions="*, Auto">
+												<StackPanel VerticalAlignment="Center">
+													<TextBlock x:Name="SettingsLangTitleText" Text="Dil Seçimi" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsLangSubText" Text="Uygulama arayüz dilini belirleyin (Türkçe / English)" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+													<Button x:Name="LangTrBtn" Classes="ActionBtn SettingsToggleBtn" Click="LangTr_Click" Padding="12,7">
+														<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+															<Border Width="22" Height="16" CornerRadius="2" ClipToBounds="True" Background="#E92434" VerticalAlignment="Center">
+																<Viewbox Stretch="Uniform">
+																	<Canvas Width="28" Height="20">
+																		<Path Fill="White" Data="M17.4028 13.6838C16.3049 15.0934 14.5916 16 12.6665 16C9.3528 16 6.6665 13.3137 6.6665 10C6.6665 6.68629 9.3528 4 12.6665 4C14.5916 4 16.3049 4.90659 17.4028 6.31611C16.5555 5.70019 15.4902 5.33331 14.333 5.33331C11.5716 5.33331 9.33301 7.42265 9.33301 9.99998C9.33301 12.5773 11.5716 14.6666 14.333 14.6666C15.4902 14.6666 16.5556 14.2997 17.4028 13.6838Z"/>
+																		<Path Fill="White" Data="M19.0208 10.7684L17.796 12.2533L17.8795 10.3302L16.0887 9.62423L17.9434 9.1093L18.0615 7.18799L19.1244 8.79287L20.9881 8.31142L19.7902 9.81822L20.8241 11.442L19.0208 10.7684V10.7684V10.7684V10.7684Z"/>
+																	</Canvas>
+																</Viewbox>
+															</Border>
+															<TextBlock Text="TR" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+													<Button x:Name="LangEnBtn" Classes="ActionBtn SettingsToggleBtn" Click="LangEn_Click" Padding="12,7">
+														<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+															<Border Width="22" Height="16" CornerRadius="2" ClipToBounds="True" Background="White" VerticalAlignment="Center">
+																<Viewbox Stretch="Uniform">
+																	<Canvas Width="28" Height="20">
+																		<Path Fill="#D02F44" Data="M28 0H0V1.33333H28V0ZM28 2.66667H0V4H28V2.66667ZM0 5.33333H28V6.66667H0V5.33333ZM28 8H0V9.33333H28V8ZM0 10.6667H28V12H0V10.6667ZM28 13.3333H0V14.6667H28V13.3333ZM0 16H28V17.3333H0V16ZM28 18.6667H0V20H28V18.6667Z"/>
+																		<Path Fill="#46467F" Data="M0 0H12V9.33333H0Z"/>
+																		<Path Fill="White" Data="M2.66665 1.99999C2.66665 2.36818 2.36817 2.66666 1.99998 2.66666C1.63179 2.66666 1.33331 2.36818 1.33331 1.99999C1.33331 1.63181 1.63179 1.33333 1.99998 1.33333C2.36817 1.33333 2.66665 1.63181 2.66665 1.99999ZM5.33331 1.99999C5.33331 2.36818 5.03484 2.66666 4.66665 2.66666C4.29846 2.66666 3.99998 2.36818 3.99998 1.99999C3.99998 1.63181 4.29846 1.33333 4.66665 1.33333C5.03484 1.33333 5.33331 1.63181 5.33331 1.99999ZM7.33331 2.66666C7.7015 2.66666 7.99998 2.36818 7.99998 1.99999C7.99998 1.63181 7.7015 1.33333 7.33331 1.33333C6.96512 1.33333 6.66665 1.63181 6.66665 1.99999C6.66665 2.36818 6.96512 2.66666 7.33331 2.66666ZM10.6666 1.99999C10.6666 2.36818 10.3682 2.66666 9.99998 2.66666C9.63179 2.66666 9.33331 2.36818 9.33331 1.99999C9.33331 1.63181 9.63179 1.33333 9.99998 1.33333C10.3682 1.33333 10.6666 1.63181 10.6666 1.99999ZM3.33331 3.99999C3.7015 3.99999 3.99998 3.70152 3.99998 3.33333C3.99998 2.96514 3.7015 2.66666 3.33331 2.66666C2.96512 2.66666 2.66665 2.96514 2.66665 3.33333C2.66665 3.70152 2.96512 3.99999 3.33331 3.99999ZM6.66665 3.33333C6.66665 3.70152 6.36817 3.99999 5.99998 3.99999C5.63179 3.99999 5.33331 3.70152 5.33331 3.33333C5.33331 2.96514 5.63179 2.66666 5.99998 2.66666C6.36817 2.66666 6.66665 2.96514 6.66665 3.33333ZM8.66665 3.99999C9.03484 3.99999 9.33331 3.70152 9.33331 3.33333C9.33331 2.96514 9.03484 2.66666 8.66665 2.66666C8.29846 2.66666 7.99998 2.96514 7.99998 3.33333C7.99998 3.70152 8.29846 3.99999 8.66665 3.99999ZM10.6666 4.66666C10.6666 5.03485 10.3682 5.33333 9.99998 5.33333C9.63179 5.33333 9.33331 5.03485 9.33331 4.66666C9.33331 4.29847 9.63179 3.99999 9.99998 3.99999C10.3682 3.99999 10.6666 4.29847 10.6666 4.66666ZM7.33331 5.33333C7.7015 5.33333 7.99998 5.03485 7.99998 4.66666C7.99998 4.29847 7.7015 3.99999 7.33331 3.99999C6.96512 3.99999 6.66665 4.29847 6.66665 4.66666C6.66665 5.03485 6.96512 5.33333 7.33331 5.33333ZM5.33331 4.66666C5.33331 5.03485 5.03484 5.33333 4.66665 5.33333C4.29846 5.33333 3.99998 5.03485 3.99998 4.66666C3.99998 4.29847 4.29846 3.99999 4.66665 3.99999C5.03484 3.99999 5.33331 4.29847 5.33331 4.66666ZM1.99998 5.33333C2.36817 5.33333 2.66665 5.03485 2.66665 4.66666C2.66665 4.29847 2.36817 3.99999 1.99998 3.99999C1.63179 3.99999 1.33331 4.29847 1.33331 4.66666C1.33331 5.03485 1.63179 5.33333 1.99998 5.33333ZM3.99998 5.99999C3.99998 6.36819 3.7015 6.66666 3.33331 6.66666C2.96512 6.66666 2.66665 6.36819 2.66665 5.99999C2.66665 5.6318 2.96512 5.33333 3.33331 5.33333C3.7015 5.33333 3.99998 5.6318 3.99998 5.99999ZM5.99998 6.66666C6.36817 6.66666 6.66665 6.36819 6.66665 5.99999C6.66665 5.6318 6.36817 5.33333 5.99998 5.33333C5.63179 5.33333 5.33331 5.6318 5.33331 5.99999C5.33331 6.36819 5.63179 6.66666 5.99998 6.66666ZM9.33331 5.99999C9.33331 6.36819 9.03484 6.66666 8.66665 6.66666C8.29846 6.66666 7.99998 6.36819 7.99998 5.99999C7.99998 5.6318 8.29846 5.33333 8.66665 5.33333C9.03484 5.33333 9.33331 5.6318 9.33331 5.99999ZM9.99998 8C10.3682 8 10.6666 7.70152 10.6666 7.33333C10.6666 6.96514 10.3682 6.66666 9.99998 6.66666C9.63179 6.66666 9.33331 6.96514 9.33331 7.33333C9.33331 7.70152 9.63179 8 9.99998 8ZM7.99998 7.33333C7.99998 7.70152 7.7015 8 7.33331 8C6.96512 8 6.66665 7.70152 6.66665 7.33333C6.66665 6.96514 6.96512 6.66666 6.96512 6.66666C6.66665 7.33333 7.7015 7.99998 7.99998 7.33333ZM4.66665 8C5.03484 8 5.33331 7.70152 5.33331 7.33333C5.33331 6.96514 5.03484 6.66666 4.66665 6.66666C4.29846 6.66666 3.99998 6.96514 3.99998 7.33333C3.99998 7.70152 4.29846 8 4.66665 8ZM2.66665 7.33333C2.66665 7.70152 2.36817 8 1.99998 8C1.63179 8 1.33331 7.70152 1.33331 7.33333C1.33331 6.96514 1.63179 6.66666 1.99998 6.66666C2.36817 6.66666 2.66665 6.96514 2.66665 7.33333Z"/>
+																	</Canvas>
+																</Viewbox>
+															</Border>
+															<TextBlock Text="ENG" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+														</StackPanel>
+													</Button>
+												</StackPanel>
+											</Grid>
+
+											<Border Height="1" Background="{DynamicResource Border}"/>
+
 											<!-- Tema Seçimi -->
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Tema Seçimi" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="Sistem temasına uyun veya koyu/açık temayı zorlayın" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsThemeTitleText" Text="Tema Seçimi" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsThemeSubText" Text="Sistem temasına uyun veya koyu/açık temayı zorlayın" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
 													<Button x:Name="ThemeSystemBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeSystem_Click">
 														<StackPanel Orientation="Horizontal" Spacing="6">
 															<TextBlock Text="💻" VerticalAlignment="Center"/>
-															<TextBlock Text="SİSTEM" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsThemeSystemText" Text="SİSTEM" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 													<Button x:Name="ThemeLightBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeLight_Click">
@@ -1710,7 +1759,7 @@
 																	<Ellipse Fill="#FFAC33" Width="20" Height="20" Canvas.Left="8" Canvas.Top="8"/>
 																</Canvas>
 															</Viewbox>
-															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsThemeLightText" Text="AÇIK" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 													<Button x:Name="ThemeDarkBtn" Classes="ActionBtn SettingsToggleBtn" Click="ThemeDark_Click">
@@ -1732,7 +1781,7 @@
 																	<Path Fill="#040000" Opacity="0.1" Data="M254.81,381.707c-105.358,0-198.419-52.064-254.72-131.654 c-2.703,99.72,55.552,194.334,153.936,236.742c128.773,55.507,279.648,1.534,335.155-127.239 c15.267-35.419,21.657-72.747,20.288-109.416C453.162,329.68,360.13,381.707,254.81,381.707z"/>
 																</Canvas>
 															</Viewbox>
-															<TextBlock Text="KOYU" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsThemeDarkText" Text="KOYU" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 												</StackPanel>
@@ -1743,8 +1792,8 @@
 											<!-- Başlangıçta Otomatik Yenileme -->
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Başlangıçta Otomatik Yenileme" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="Uygulama her açıldığında aktif IPTV listesini sunucudan otomatik günceller" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsAutoRefreshTitleText" Text="Başlangıçta Otomatik Yenileme" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsAutoRefreshSubText" Text="Uygulama her açıldığında aktif IPTV listesini sunucudan otomatik günceller" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
 													<Button x:Name="AutoRefreshOnBtn" Classes="ActionBtn SettingsToggleBtn" Click="AutoRefreshOn_Click">
@@ -1752,7 +1801,7 @@
 															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
 																<Path Fill="#28a430" Data="M393.401,124.425L179.603,338.208c-15.832,15.835-41.514,15.835-57.361,0L11.878,227.836 c-15.838-15.835-15.838-41.52,0-57.358c15.841-15.841,41.521-15.841,57.355-0.006l81.698,81.699L336.037,67.064 c15.841-15.841,41.523-15.829,57.358,0C409.23,82.902,409.23,108.578,393.401,124.425z"/>
 															</Viewbox>
-															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsAutoRefreshOnText" Text="AÇIK" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 													<Button x:Name="AutoRefreshOffBtn" Classes="ActionBtn SettingsToggleBtn" Click="AutoRefreshOff_Click">
@@ -1760,7 +1809,7 @@
 															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
 																<Path Fill="#e61919" Data="F0 M19.207 6.207a1 1 0 0 0-1.414-1.414L12 10.586 6.207 4.793a1 1 0 0 0-1.414 1.414L10.586 12l-5.793 5.793a1 1 0 1 0 1.414 1.414L12 13.414l5.793 5.793a1 1 0 0 0 1.414-1.414L13.414 12l5.793-5.793z"/>
 															</Viewbox>
-															<TextBlock Text="KAPALI" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsAutoRefreshOffText" Text="KAPALI" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 												</StackPanel>
@@ -1771,8 +1820,8 @@
 											<!-- Açılışta Güncellemeleri Denetle -->
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Açılışta Güncellemeleri Denetle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="Uygulama başladığında arka planda sessizce yeni sürüm olup olmadığını kontrol eder" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsCheckUpdatesTitleText" Text="Açılışta Güncellemeleri Denetle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsCheckUpdatesSubText" Text="Uygulama başladığında arka planda sessizce yeni sürüm olup olmadığını kontrol eder" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
 													<Button x:Name="CheckUpdatesOnBtn" Classes="ActionBtn SettingsToggleBtn" Click="CheckUpdatesOn_Click">
@@ -1780,7 +1829,7 @@
 															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
 																<Path Fill="#28a430" Data="M393.401,124.425L179.603,338.208c-15.832,15.835-41.514,15.835-57.361,0L11.878,227.836 c-15.838-15.835-15.838-41.52,0-57.358c15.841-15.841,41.521-15.841,57.355-0.006l81.698,81.699L336.037,67.064 c15.841-15.841,41.523-15.829,57.358,0C409.23,82.902,409.23,108.578,393.401,124.425z"/>
 															</Viewbox>
-															<TextBlock Text="AÇIK" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsCheckUpdatesOnText" Text="AÇIK" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 													<Button x:Name="CheckUpdatesOffBtn" Classes="ActionBtn SettingsToggleBtn" Click="CheckUpdatesOff_Click">
@@ -1788,7 +1837,7 @@
 															<Viewbox Width="13" Height="13" VerticalAlignment="Center">
 																<Path Fill="#e61919" Data="F0 M19.207 6.207a1 1 0 0 0-1.414-1.414L12 10.586 6.207 4.793a1 1 0 0 0-1.414 1.414L10.586 12l-5.793 5.793a1 1 0 1 0 1.414 1.414L12 13.414l5.793 5.793a1 1 0 0 0 1.414-1.414L13.414 12l5.793-5.793z"/>
 															</Viewbox>
-															<TextBlock Text="KAPALI" VerticalAlignment="Center"/>
+															<TextBlock x:Name="SettingsCheckUpdatesOffText" Text="KAPALI" VerticalAlignment="Center"/>
 														</StackPanel>
 													</Button>
 												</StackPanel>
@@ -1799,8 +1848,8 @@
 											<!-- Oynatıcı Motoru -->
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Oynatıcı Motoru" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="VLC (LibVLCSharp) veya mpv (libmpv) motoru" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsPlayerEngineTitleText" Text="Oynatıcı Motoru" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsPlayerEngineSubText" Text="VLC (LibVLCSharp) veya mpv (libmpv) motoru" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
 													<Button x:Name="PlayerEngineVlcBtn" Classes="ActionBtn SettingsToggleBtn" Click="PlayerEngineVlc_Click">
@@ -1842,19 +1891,19 @@
 							<ScrollViewer x:Name="SettingsTabData" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
 								<StackPanel Spacing="16">
 									<StackPanel VerticalAlignment="Center">
-										<TextBlock Text="Veri &amp; Depolama Yönetimi" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-										<TextBlock Text="İzleme geçmişi, disk ve RAM önbelleği ile uygulama sıfırlama işlemleri." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										<TextBlock x:Name="SettingsDataHeaderTitle" Text="Veri &amp; Depolama Yönetimi" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock x:Name="SettingsDataHeaderSub" Text="İzleme geçmişi, disk ve RAM önbelleği ile uygulama sıfırlama işlemleri." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 									</StackPanel>
 
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="16">
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="İzleme Geçmişini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="Kaldığınız yerden devam etme pozisyonlarını ve izleme geçmişini siler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsClearHistoryTitleText" Text="İzleme Geçmişini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsClearHistorySubText" Text="Kaldığınız yerden devam etme pozisyonlarını ve izleme geçmişini siler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ClearHistory_Click" Foreground="#dc2626" BorderBrush="#dc2626">
-													<TextBlock Text="GEÇMİŞİ TEMİZLE" VerticalAlignment="Center"/>
+													<TextBlock x:Name="SettingsClearHistoryBtnText" Text="GEÇMİŞİ TEMİZLE" VerticalAlignment="Center"/>
 												</Button>
 											</Grid>
 
@@ -1862,11 +1911,11 @@
 
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Logo &amp; Görsel Önbelleğini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="İndirilen kanal logolarını ve TMDb poster önbelleğini temizler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsClearCacheTitleText" Text="Logo &amp; Görsel Önbelleğini Temizle" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsClearCacheSubText" Text="İndirilen kanal logolarını ve TMDb poster önbelleğini temizler" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ClearCache_Click" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}">
-													<TextBlock Text="ÖNBELLEĞİ TEMİZLE" VerticalAlignment="Center"/>
+													<TextBlock x:Name="SettingsClearCacheBtnText" Text="ÖNBELLEĞİ TEMİZLE" VerticalAlignment="Center"/>
 												</Button>
 											</Grid>
 
@@ -1874,11 +1923,11 @@
 
 											<Grid ColumnDefinitions="*, Auto">
 												<StackPanel VerticalAlignment="Center">
-													<TextBlock Text="Fabrika Ayarlarına Sıfırla" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
-													<TextBlock Text="Tüm uygulama ayarlarını ve tercihleri varsayılan değerlere döndürür" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+													<TextBlock x:Name="SettingsResetAppTitleText" Text="Fabrika Ayarlarına Sıfırla" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+													<TextBlock x:Name="SettingsResetAppSubText" Text="Tüm uygulama ayarlarını ve tercihleri varsayılan değerlere döndürür" FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 												</StackPanel>
 												<Button Grid.Column="1" Classes="ActionBtn SettingsToggleBtn" Click="ResetApp_Click" Foreground="#dc2626" BorderBrush="#dc2626">
-													<TextBlock Text="UYGULAMAYI SIFIRLA" VerticalAlignment="Center"/>
+													<TextBlock x:Name="SettingsResetAppBtnText" Text="UYGULAMAYI SIFIRLA" VerticalAlignment="Center"/>
 												</Button>
 											</Grid>
 										</StackPanel>
@@ -1890,52 +1939,52 @@
 							<ScrollViewer x:Name="SettingsTabShortcuts" Margin="24,18,24,24" VerticalScrollBarVisibility="Hidden" IsVisible="False">
 								<StackPanel Spacing="18">
 									<StackPanel VerticalAlignment="Center">
-										<TextBlock Text="Klavye &amp; Fare Kısayolları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-										<TextBlock Text="Hızlı gezinme, medya kontrolü, resim modları ve ses/altyazı senkronizasyonu için kullanabileceğiniz tüm kısayollar." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										<TextBlock x:Name="SettingsShortcutsHeaderTitle" Text="Klavye &amp; Fare Kısayolları" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock x:Name="SettingsShortcutsHeaderSub" Text="Hızlı gezinme, medya kontrolü, resim modları ve ses/altyazı senkronizasyonu için kullanabileceğiniz tüm kısayollar." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 									</StackPanel>
 
 									<!-- 1. GRUP: TEMEL & OYNATMA KONTROLLERİ -->
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="12">
-											<TextBlock Text="Oynatma &amp; Medya Kontrolleri" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+											<TextBlock x:Name="SettingsScGroup1Title" Text="Oynatma &amp; Medya Kontrolleri" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
 
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Oynat / Duraklat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
-												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Space  /  Sol Tık" FontWeight="Bold" FontSize="11"/></Border>
+												<TextBlock x:Name="SettingsScPlayPauseText" Text="Oynat / Duraklat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock x:Name="SettingsScPlayPauseKey" Text="Space  /  Sol Tık" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Tam Ekran Aç / Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
-												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F  /  Çift Tık" FontWeight="Bold" FontSize="11"/></Border>
+												<TextBlock x:Name="SettingsScFullscreenText" Text="Tam Ekran Aç / Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock x:Name="SettingsScFullscreenKey" Text="F  /  Çift Tık" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Resim İçinde Resim (PiP) Modu" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScPipText" Text="Resim İçinde Resim (PiP) Modu" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Shift + T" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Sesi Aç / Kapat (Mute)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScMuteText" Text="Sesi Aç / Kapat (Mute)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="M" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="10 Saniye Geri / İleri Sar (Film &amp; Dizi)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScSeekText" Text="10 Saniye Geri / İleri Sar (Film &amp; Dizi)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="←  /  →" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Ses Seviyesi (Film/Dizi) / Kanal Değiştir (Canlı)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScVolumeText" Text="Ses Seviyesi (Film/Dizi) / Kanal Değiştir (Canlı)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="↑  /  ↓" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Kanal ve İçerik Arama" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScSearchText" Text="Kanal ve İçerik Arama" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Ctrl + F" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Pencereleri, PiP ve Modalleri Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScCloseText" Text="Pencereleri, PiP ve Modalleri Kapat" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Esc" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 										</StackPanel>
@@ -1944,25 +1993,25 @@
 									<!-- 2. GRUP: GÖRÜNTÜ VE RESİM MODLARI -->
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="12">
-											<TextBlock Text="Görüntü ve Resim Modları" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+											<TextBlock x:Name="SettingsScGroup2Title" Text="Görüntü ve Resim Modları" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
 
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Resim Modu: Doğal (Nötr / Standart Renkler)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScPicNaturalText" Text="Resim Modu: Doğal (Nötr / Standart Renkler)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F1" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Resim Modu: Canlı (Yüksek Doygunluk &amp; Dinamik Kontrast)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScPicVividText" Text="Resim Modu: Canlı (Yüksek Doygunluk &amp; Dinamik Kontrast)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F2" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Resim Modu: Spor (Akıcı Hareket &amp; Canlı Saha/Zemin Tonları)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScPicSportText" Text="Resim Modu: Spor (Akıcı Hareket &amp; Canlı Saha/Zemin Tonları)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F3" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Resim Modu: Sinema (Sıcak Film Tonları &amp; Derin Siyahlar)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScPicCinemaText" Text="Resim Modu: Sinema (Sıcak Film Tonları &amp; Derin Siyahlar)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="F4" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 										</StackPanel>
@@ -1971,35 +2020,35 @@
 									<!-- 3. GRUP: SES VE ALTYAZI SENKRONİZASYONU -->
 									<Border Classes="SettingsCard">
 										<StackPanel Spacing="12">
-											<TextBlock Text="Ses ve Altyazı Senkronizasyonu" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
+											<TextBlock x:Name="SettingsScGroup3Title" Text="Ses ve Altyazı Senkronizasyonu" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,0,0,2"/>
 
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Sesi İlerlet / Hızlı İlerlet (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScAudioAdvanceText" Text="Sesi İlerlet / Hızlı İlerlet (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="J  /  Shift + J" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Sesi Geciktir / Hızlı Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScAudioDelayText" Text="Sesi Geciktir / Hızlı Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="K  /  Shift + K" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScAudioResetText" Text="Ses Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="L" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Altyazıyı Erken / Çok Erken Ver (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScSubAdvanceText" Text="Altyazıyı Erken / Çok Erken Ver (-50 ms / -500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="G  /  Shift + G" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Altyazıyı Geciktir / Çok Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScSubDelayText" Text="Altyazıyı Geciktir / Çok Geciktir (+50 ms / +500 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="H  /  Shift + H" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 											<Border Height="1" Background="{DynamicResource Border}"/>
 											<Grid ColumnDefinitions="*, Auto">
-												<TextBlock Text="Altyazı Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+												<TextBlock x:Name="SettingsScSubResetText" Text="Altyazı Senkronunu Sıfırla (0 ms)" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 												<Border Grid.Column="1" Classes="KbdBadge"><TextBlock Text="Z" FontWeight="Bold" FontSize="11"/></Border>
 											</Grid>
 										</StackPanel>
@@ -2011,8 +2060,8 @@
 							<ScrollViewer x:Name="SettingsTabAbout" Margin="24,18,24,24" VerticalScrollBarVisibility="Auto" IsVisible="False">
 								<StackPanel Spacing="16">
 									<StackPanel VerticalAlignment="Center">
-										<TextBlock Text="Hakkında &amp; Topluluk" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
-										<TextBlock Text="GlyphTV geliştirici bilgileri, lisans ve topluluk bağlantıları." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
+										<TextBlock x:Name="SettingsAboutHeaderTitle" Text="Hakkında &amp; Topluluk" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+										<TextBlock x:Name="SettingsAboutHeaderSub" Text="GlyphTV geliştirici bilgileri, lisans ve topluluk bağlantıları." FontSize="12" Foreground="{DynamicResource TextSec}" Margin="0,2,0,0"/>
 									</StackPanel>
 
 									<Border Classes="SettingsCard">
@@ -2023,15 +2072,15 @@
 												</Border>
 												<Border Grid.Column="1" Width="350" Height="140" Background="Transparent" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10" Padding="18,14">
 													<Grid VerticalAlignment="Center" ColumnDefinitions="Auto, Auto, *" RowDefinitions="Auto, Auto, Auto">
-														<TextBlock Grid.Row="0" Grid.Column="0" Text="Sürüm" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
+														<TextBlock Grid.Row="0" Grid.Column="0" x:Name="SettingsAboutVersionLabel" Text="Sürüm" FontWeight="Medium" Foreground="{DynamicResource Text}"/>
 														<TextBlock Grid.Row="0" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,0"/>
-														<TextBlock Grid.Row="0" Grid.Column="2" Text="2.1.0" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+														<TextBlock Grid.Row="0" Grid.Column="2" Text="2.1.1" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
 
-														<TextBlock Grid.Row="1" Grid.Column="0" Text="Geliştirici" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
+														<TextBlock Grid.Row="1" Grid.Column="0" x:Name="SettingsAboutDevLabel" Text="Geliştirici" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
 														<TextBlock Grid.Row="1" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,10,0,0"/>
 														<TextBlock Grid.Row="1" Grid.Column="2" Text="Barış Ballıkaya" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" Margin="0,10,0,0" FontWeight="SemiBold"/>
 
-														<TextBlock Grid.Row="2" Grid.Column="0" Text="Telif" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
+														<TextBlock Grid.Row="2" Grid.Column="0" x:Name="SettingsAboutCopyLabel" Text="Telif" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="0,10,0,0"/>
 														<TextBlock Grid.Row="2" Grid.Column="1" Text=":" FontWeight="Medium" Foreground="{DynamicResource Text}" Margin="8,10,0,0"/>
 														<TextBlock Grid.Row="2" Grid.Column="2" Text="© 2026" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Right" Margin="0,10,0,0" FontWeight="SemiBold"/>
 													</Grid>
@@ -2048,7 +2097,7 @@
 												</Border.Background>
 												<StackPanel Spacing="6">
 													<TextBlock Text="GlyphTV™" FontWeight="Bold" Foreground="White" FontSize="18"/>
-													<TextBlock Text="Modern, hızlı ve minimal IPTV oynatıcı. Avalonia UI, LibVLCSharp ve libmpv ile güçlendirilmiştir." Foreground="#F3F4F6" FontSize="12" TextWrapping="Wrap"/>
+													<TextBlock x:Name="SettingsAboutDescText" Text="Modern, hızlı ve minimal IPTV oynatıcı. Avalonia UI, LibVLCSharp ve libmpv ile güçlendirilmiştir." Foreground="#F3F4F6" FontSize="12" TextWrapping="Wrap"/>
 												</StackPanel>
 											</Border>
 
@@ -2059,7 +2108,7 @@
 													<Grid ColumnDefinitions="*, Auto">
 														<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
 															<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-																<TextBlock Text="Yazılım Güncellemesi" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+																<TextBlock x:Name="SettingsAboutUpdateTitle" Text="Yazılım Güncellemesi" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
 																<Border x:Name="SettingsAboutStatusBadge" CornerRadius="5" Padding="6,2" Background="#223b82f6" VerticalAlignment="Center">
 																	<TextBlock x:Name="SettingsAboutStatusBadgeText" Text="Sürüm Güncel" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/>
 																</Border>
@@ -2092,8 +2141,8 @@
 															</Canvas>
 														</Viewbox>
 														<StackPanel Grid.Column="1" VerticalAlignment="Center">
-															<TextBlock Text="GitHub Deposu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
-															<TextBlock Text="Projeyi yıldızlayın veya katkıda bulunun" FontSize="11" Foreground="{DynamicResource TextSec}"/>
+															<TextBlock x:Name="SettingsAboutGithubTitle" Text="GitHub Deposu" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+															<TextBlock x:Name="SettingsAboutGithubSub" Text="Projeyi yıldızlayın veya katkıda bulunun" FontSize="11" Foreground="{DynamicResource TextSec}"/>
 														</StackPanel>
 													</Grid>
 												</Button>
@@ -2221,13 +2270,13 @@
 
 									<!-- Oyuncular -->
 									<StackPanel x:Name="VodInfoCastRow" Spacing="2" Margin="0,0,0,6" IsVisible="False">
-										<TextBlock Text="Oyuncular" FontSize="11" Foreground="#94a3b8"/>
+										<TextBlock x:Name="VodInfoCastTitle" Text="Oyuncular" FontSize="11" Foreground="#94a3b8"/>
 										<TextBlock x:Name="VodInfoCast" Text="-" FontSize="13" FontWeight="SemiBold" Foreground="#f1f5f9" TextWrapping="Wrap"/>
 									</StackPanel>
 
 									<!-- Yönetmen -->
 									<StackPanel x:Name="VodInfoDirRow" Spacing="2" Margin="0,0,0,6" IsVisible="False">
-										<TextBlock Text="Yönetmen" FontSize="11" Foreground="#94a3b8"/>
+										<TextBlock x:Name="VodInfoDirTitle" Text="Yönetmen" FontSize="11" Foreground="#94a3b8"/>
 										<TextBlock x:Name="VodInfoDirector" Text="-" FontSize="13" FontWeight="SemiBold" Foreground="#f1f5f9" TextWrapping="Wrap"/>
 									</StackPanel>
 
@@ -2236,7 +2285,7 @@
 										<Button Classes="ActionBtn" x:Name="VodInfoPlayBtn" Click="VodInfoPlay_Click" CornerRadius="8" Padding="24,10" BorderThickness="0" Cursor="Hand" Background="#0084ff">
 											<StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
 												<TextBlock Text="▶" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-												<TextBlock Text="Oynat" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+												<TextBlock x:Name="VodInfoPlayBtnText" Text="Oynat" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
 											</StackPanel>
 										</Button>
 										<Button Classes="ActionBtn" x:Name="VodInfoFavBtn" Click="VodInfoFav_Click" Background="#26334155" Foreground="White" CornerRadius="8" Padding="18,10" BorderThickness="1" BorderBrush="#475569" Cursor="Hand">
@@ -2256,15 +2305,15 @@
 			<Border Background="{DynamicResource BgCard}" Width="450" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" BoxShadow="0 10 40 0 #88000000">
 				<StackPanel Spacing="16">
 					<Grid ColumnDefinitions="*, Auto">
-						<TextBlock Text="Yeni Kaynak Ekle" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
+						<TextBlock x:Name="ChangeSourceModalTitle" Text="Yeni Kaynak Ekle" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource Text}" VerticalAlignment="Center"/>
 						<Button Grid.Column="1" Content="✕" Click="CancelChangeSource_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}"/>
 					</Grid>
 					<StackPanel Spacing="6">
-						<TextBlock Text="Kaynak Adı" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBlock x:Name="ChangeSourceNameTitle" Text="Kaynak Adı" FontSize="12" Foreground="{DynamicResource TextSec}"/>
 						<TextBox x:Name="SourceNameInput" Watermark="Örn: Ana Kaynak" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
 					</StackPanel>
 					<StackPanel Spacing="6">
-						<TextBlock Text="Kaynak Tipi" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBlock x:Name="ChangeSourceTypeTitle" Text="Kaynak Tipi" FontSize="12" Foreground="{DynamicResource TextSec}"/>
 						<Grid ColumnDefinitions="*,*,*">
 							<Button x:Name="BtnTypeM3U" Grid.Column="0" Content="M3U" Click="SourceType_Click" Tag="M3U" Classes="ActionBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" Foreground="{DynamicResource Accent}" CornerRadius="8,0,0,8" Padding="8"/>
 							<Button x:Name="BtnTypeLink" Grid.Column="1" Content="Link" Click="SourceType_Click" Tag="Link" Classes="ActionBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1,1,1,1" Foreground="{DynamicResource TextSec}" CornerRadius="0" Padding="8"/>
@@ -2273,7 +2322,7 @@
 						<!-- YENİ: Kaynak türleri arasındaki farkı basitçe açıklayan
 						     yönlendirme metni — "hangi bilgiyi nereden bulacağım"
 						     belirsizliğini azaltmak için. -->
-						<TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,4,0,0">
+						<TextBlock x:Name="ChangeSourceTypeDesc" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextSec}" Margin="0,4,0,0">
 							<Run Text="Xtream Code:"/> <Run Text="sağlayıcınızın verdiği sunucu adresi + kullanıcı adı + şifre (bir Xtream/Xtreme Codes panel girişi)." FontWeight="Normal"/>
 							<LineBreak/>
 							<Run Text="M3U:"/> <Run Text="bilgisayarınızdaki bir .m3u/.m3u8 dosyası." FontWeight="Normal"/>  <Run Text="Link:"/> <Run Text="aynı listenin bir internet adresi (URL)." FontWeight="Normal"/>
@@ -2286,23 +2335,23 @@
 									<Rectangle Stroke="{DynamicResource Border}" StrokeThickness="2" StrokeDashArray="4,4" RadiusX="10" RadiusY="10" Fill="Transparent" Height="90"/>
 									<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
 										<TextBlock Text="📁" FontSize="24" HorizontalAlignment="Center" Foreground="#FFC107"/>
-										<TextBlock Text="M3U dosyasını buraya sürükleyin" Foreground="{DynamicResource Text}" FontWeight="Medium" HorizontalAlignment="Center" FontSize="13"/>
-										<TextBlock Text="veya tıklayın" FontSize="11" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
+										<TextBlock x:Name="M3uDragDropText" Text="M3U dosyasını buraya sürükleyin" Foreground="{DynamicResource Text}" FontWeight="Medium" HorizontalAlignment="Center" FontSize="13"/>
+										<TextBlock x:Name="M3uOrClickText" Text="veya tıklayın" FontSize="11" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
 									</StackPanel>
 								</Panel>
 							</Button>
 							<TextBlock x:Name="SelectedFileName" Text="" Foreground="{DynamicResource Accent}" FontSize="12" HorizontalAlignment="Center" IsVisible="False"/>
 							<TextBlock x:Name="SelectedFilePath" IsVisible="False"/>
-							<TextBlock Text="veya URL ile ekleyin" FontSize="12" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
+							<TextBlock x:Name="M3uOrUrlText" Text="veya URL ile ekleyin" FontSize="12" Foreground="{DynamicResource TextSec}" HorizontalAlignment="Center"/>
 						</StackPanel>
 						<TextBox x:Name="M3uUrlInput" Watermark="http:// veya https:// ile başlayan link" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
 
 						<!-- YENİ (EPG): M3U/Link kaynaklarında yayın akışı (EPG)
 						     için sağlayıcının XMLTV linki gerekir; Xtream'in
 						     aksine burada otomatik bir uç nokta yoktur. -->
-						<TextBlock Text="Yayın Akışı (EPG) linki — opsiyonel" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBlock x:Name="M3uEpgUrlTitle" Text="Yayın Akışı (EPG) linki — opsiyonel" FontSize="12" Foreground="{DynamicResource TextSec}"/>
 						<TextBox x:Name="M3uEpgUrlInput" Watermark="ör: http://saglayici.com/xmltv.php  veya  .../epg.xml.gz" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
-						<TextBlock TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Sağlayıcınız genelde bunu 'EPG URL' veya 'XMLTV URL' adıyla panelinde/duyurularında paylaşır. Bulamıyorsanız boş bırakın; kaynağı EPG'siz de kullanabilir, sonradan kaynağı silip bu linkle yeniden ekleyebilirsiniz."/>
+						<TextBlock x:Name="M3uEpgHelpText" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Sağlayıcınız genelde bunu 'EPG URL' veya 'XMLTV URL' adıyla panelinde/duyurularında paylaşır. Bulamıyorsanız boş bırakın; kaynağı EPG'siz de kullanabilir, sonradan kaynağı silip bu linkle yeniden ekleyebilirsiniz."/>
 					</StackPanel>
 					<StackPanel x:Name="InputAreaXtream" Spacing="10" IsVisible="False">
 						<TextBox x:Name="XtreamUrlInput" Watermark="Sunucu URL (http://...)" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
@@ -2313,7 +2362,10 @@
 								<TextBlock x:Name="XtreamPassToggleIcon" Text="👁️" FontSize="14" Foreground="{DynamicResource TextSec}"/>
 							</Button>
 						</Grid>
-						<TextBlock TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Yayın Akışı (EPG) bu tür kaynaklarda otomatik gelir — sunucunuz xmltv.php destekliyorsa ekstra bir şey girmenize gerek yok."/>
+						<TextBlock x:Name="XtreamHelpText" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Yayın Akışı (EPG) bu tür kaynaklarda otomatik gelir — sunucunuz xmltv.php destekliyorsa ekstra bir şey girmenize gerek yok."/>
+						<TextBlock x:Name="XtreamEpgUrlTitle" Text="Yayın Akışı (EPG) linki — opsiyonel" FontSize="12" Foreground="{DynamicResource TextSec}"/>
+						<TextBox x:Name="XtreamEpgUrlInput" Watermark="ör: http://.../epg.xml.gz (harici XMLTV linki)" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderThickness="1" BorderBrush="{DynamicResource Border}" CornerRadius="8" Padding="12"/>
+						<TextBlock x:Name="XtreamEpgHelpText" TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextSec}" Text="Sunucunuz xmltv.php desteklemiyorsa harici bir XMLTV linki (örn. .../epg.xml.gz) girebilirsiniz."/>
 					</StackPanel>
 					<Button Classes="ActionBtn" Click="ConfirmAddSource_Click" CornerRadius="8" Padding="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" BorderThickness="0" Margin="0,10,0,0">
 						<Button.Background>
@@ -2322,7 +2374,7 @@
 								<GradientStop Color="#ec4899" Offset="1.0"/>
 							</LinearGradientBrush>
 						</Button.Background>
-						<TextBlock Text="Kaynak Ekle" Foreground="White" FontWeight="Bold"/>
+						<TextBlock x:Name="ConfirmAddSourceBtnText" Text="Kaynak Ekle" Foreground="White" FontWeight="Bold"/>
 					</Button>
 				</StackPanel>
 			</Border>
@@ -2344,13 +2396,14 @@
 						<Button Grid.Column="1" Content="✕" Click="CloseEpg_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}"/>
 					</Grid>
 
-					<Grid Grid.Row="1" ColumnDefinitions="220, Auto, *, Auto, Auto, Auto, Auto" Margin="20,12,20,0">
+					<Grid Grid.Row="1" ColumnDefinitions="200, Auto, *, Auto, Auto, Auto, Auto, Auto" Margin="20,12,20,0">
 						<ComboBox x:Name="EpgCategoryCombo" Grid.Column="0" HorizontalAlignment="Stretch" SelectionChanged="EpgCategoryCombo_SelectionChanged" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
 						<TextBlock x:Name="EpgStatusText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextSec}" FontSize="11"/>
-						<Button Grid.Column="3" Classes="ActionBtn SettingsToggleBtn" Content="◀ Önceki Gün" Click="EpgPrevDay_Click" Margin="0,0,6,0"/>
-						<Button Grid.Column="4" Classes="ActionBtn SettingsToggleBtn" Content="Bugün / Şimdi" Click="EpgJumpNow_Click" Margin="0,0,6,0"/>
-						<Button Grid.Column="5" Classes="ActionBtn SettingsToggleBtn" Content="Sonraki Gün ▶" Click="EpgNextDay_Click" Margin="0,0,6,0"/>
-						<Button Grid.Column="6" Classes="ActionBtn SettingsToggleBtn" Content="↻" ToolTip.Tip="EPG'yi yeniden indir" Click="EpgRefresh_Click" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}"/>
+						<Button x:Name="EpgPrevDayBtn" Grid.Column="3" Classes="ActionBtn SettingsToggleBtn" Content="◀ Önceki Gün" Click="EpgPrevDay_Click" Margin="0,0,6,0"/>
+						<Button x:Name="EpgNowBtn" Grid.Column="4" Classes="ActionBtn SettingsToggleBtn" Content="Bugün / Şimdi" Click="EpgJumpNow_Click" Margin="0,0,6,0"/>
+						<Button x:Name="EpgNextDayBtn" Grid.Column="5" Classes="ActionBtn SettingsToggleBtn" Content="Sonraki Gün ▶" Click="EpgNextDay_Click" Margin="0,0,6,0"/>
+						<Button x:Name="BtnEpgRefresh" Grid.Column="6" Classes="ActionBtn SettingsToggleBtn" Content="↻" ToolTip.Tip="EPG'yi yeniden indir" Click="EpgRefresh_Click" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}"/>
+						<Button x:Name="BtnEpgEditUrl" Grid.Column="7" Classes="ActionBtn SettingsToggleBtn" Content="🔗" ToolTip.Tip="EPG linkini düzenle" Click="EpgEditUrl_Click" Margin="6,0,0,0" Foreground="{DynamicResource Accent}" BorderBrush="{DynamicResource Accent}"/>
 					</Grid>
 
 					<Border x:Name="EpgSelectedInfoBar" Grid.Row="2" Margin="20,12,20,0" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10" Padding="14,10" IsVisible="False">
@@ -2367,7 +2420,7 @@
 					<Grid Grid.Row="3" ColumnDefinitions="190, *" Margin="20,12,20,20">
 						<Grid Grid.Column="0" RowDefinitions="40, *">
 							<Border Grid.Row="0" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,1" CornerRadius="8,0,0,0">
-								<TextBlock Text="Kanallar" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center" Margin="10,0"/>
+								<TextBlock x:Name="EpgChannelsHeader" Text="Kanallar" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center" Margin="10,0"/>
 							</Border>
 							<ScrollViewer x:Name="EpgChannelNamesScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" ScrollChanged="EpgChannelNamesScroll_ScrollChanged">
 								<Canvas x:Name="EpgChannelNamesPanel"/>
@@ -2383,6 +2436,21 @@
 							</Grid>
 						</ScrollViewer>
 					</Grid>
+
+					<!-- EPG URL Düzenleme Modalı (EpgOverlay içinde mini-modal) -->
+					<Border x:Name="EpgUrlEditOverlay" Grid.Row="0" Grid.RowSpan="4" Background="#CC000000" IsVisible="False" ZIndex="20">
+						<Border Background="{DynamicResource BgCard}" Width="480" CornerRadius="12" Padding="20" BorderBrush="{DynamicResource Border}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+							<StackPanel Spacing="12">
+								<TextBlock x:Name="EpgUrlEditTitleText" Text="EPG (Yayın Akışı) Bağlantısı" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
+								<TextBlock x:Name="EpgUrlEditSubText" Text="Bu kaynak için XMLTV (.xml veya .xml.gz) linki girin:" FontSize="11" Foreground="{DynamicResource TextSec}" TextWrapping="Wrap"/>
+								<TextBox x:Name="EpgUrlEditInput" Watermark="http://.../epg.xml.gz" Foreground="{DynamicResource Text}" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="10"/>
+								<Grid ColumnDefinitions="*, Auto, Auto" Margin="0,8,0,0">
+									<Button Grid.Column="1" x:Name="EpgUrlEditCancelBtn" Classes="ActionBtn SettingsToggleBtn" Content="İptal" Click="CancelEpgUrlEdit_Click" Margin="0,0,8,0"/>
+									<Button Grid.Column="2" x:Name="EpgUrlEditSaveBtn" Classes="ActionBtn" Content="Kaydet ve Güncelle" Background="{DynamicResource Accent}" Foreground="White" Click="SaveEpgUrlEdit_Click" Padding="14,6" CornerRadius="6"/>
+								</Grid>
+							</StackPanel>
+						</Border>
+					</Border>
 				</Grid>
 			</Border>
 		</Border>
@@ -2406,9 +2474,9 @@
 								<TextBlock x:Name="UpdateModalTitleText" Text="GlyphTV Güncellemesi Mevcut!" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text}"/>
 								<StackPanel Orientation="Horizontal" Spacing="8">
 									<Border CornerRadius="4" Padding="6,1" Background="#2222c55e">
-										<TextBlock x:Name="UpdateModalVersionBadgeText" Text="v2.1.0" FontSize="11" FontWeight="Bold" Foreground="#16a34a"/>
+										<TextBlock x:Name="UpdateModalVersionBadgeText" Text="v2.1.1" FontSize="11" FontWeight="Bold" Foreground="#16a34a"/>
 									</Border>
-									<TextBlock x:Name="UpdateModalCurrentVersionText" Text="Mevcut: v2.1.0" FontSize="11" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
+									<TextBlock x:Name="UpdateModalCurrentVersionText" Text="Mevcut: v2.1.1" FontSize="11" Foreground="{DynamicResource TextSec}" VerticalAlignment="Center"/>
 								</StackPanel>
 							</StackPanel>
 							<Button Grid.Column="2" Content="✕" Click="CloseUpdateModal_Click" Classes="IconBtn" FontSize="16" Foreground="{DynamicResource TextSec}" VerticalAlignment="Top"/>
@@ -2431,7 +2499,7 @@
 
 					<!-- 3. Sürüm Notları (Changelog) -->
 					<Grid Grid.Row="2" RowDefinitions="Auto, *" Margin="20,14,20,14">
-						<TextBlock Grid.Row="0" Text="SÜRÜM NOTLARI &amp; YENİLİKLER" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" Margin="0,0,0,8"/>
+						<TextBlock x:Name="UpdateModalChangelogHeader" Grid.Row="0" Text="SÜRÜM NOTLARI &amp; YENİLİKLER" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSec}" Margin="0,0,0,8"/>
 						<Border Grid.Row="1" Background="{DynamicResource BgActive}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="14,10" MaxHeight="220">
 							<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
 								<TextBlock x:Name="UpdateModalChangelogText" Text="Yenilikler..." Foreground="{DynamicResource Text}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
@@ -2448,7 +2516,7 @@
 									<TextBlock x:Name="UpdateProgressStatusText" Text="İndiriliyor... %0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
 								</Grid>
 								<ProgressBar x:Name="UpdateProgressBar" Height="8" Minimum="0" Maximum="100" Value="0" CornerRadius="4" Foreground="{DynamicResource Accent}"/>
-								<TextBlock Text="İndirme tamamlandığında GlyphTV otomatik güncellenip yeniden başlayacaktır." FontSize="11" Foreground="{DynamicResource TextSec}"/>
+								<TextBlock x:Name="UpdateDownloadHelpText" Text="İndirme tamamlandığında GlyphTV otomatik güncellenip yeniden başlayacaktır." FontSize="11" Foreground="{DynamicResource TextSec}"/>
 							</StackPanel>
 
 							<!-- İşlem Butonları (Normal Durumda Görünür) -->
@@ -2460,15 +2528,15 @@
 											<GradientStop Color="#ec4899" Offset="1.0"/>
 										</LinearGradientBrush>
 									</Button.Background>
-									<TextBlock Text="🚀 Şimdi Güncelle" Foreground="White" FontWeight="Bold" FontSize="13"/>
+									<TextBlock x:Name="BtnUpdateNowText" Text="🚀 Şimdi Güncelle" Foreground="White" FontWeight="Bold" FontSize="13"/>
 								</Button>
 
 								<Button Grid.Column="1" Classes="ActionBtn" Click="UpdateOpenGithub_Click" Background="Transparent" Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,10,0" Cursor="Hand">
-									<TextBlock Text="🌐 GitHub'da Aç" FontSize="12" FontWeight="Medium"/>
+									<TextBlock x:Name="UpdateOpenGithubText" Text="🌐 GitHub'da Aç" FontSize="12" FontWeight="Medium"/>
 								</Button>
 
 								<Button Grid.Column="2" Classes="ActionBtn" Click="CloseUpdateModal_Click" Background="Transparent" Foreground="{DynamicResource TextSec}" BorderThickness="0" CornerRadius="8" Padding="12,10" Cursor="Hand">
-									<TextBlock Text="Daha Sonra" FontSize="12"/>
+									<TextBlock x:Name="UpdateLaterText" Text="Daha Sonra" FontSize="12"/>
 								</Button>
 							</Grid>
 						</Grid>

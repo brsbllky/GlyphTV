@@ -112,7 +112,7 @@ namespace GlyphTV
                 if (updateBadge != null && updateBadgeText != null)
                 {
                     updateBadge.IsVisible = true;
-                    updateBadgeText.Text = $"Yeni Sürüm Mevcut: v{_latestUpdateInfo!.Version}";
+                    updateBadgeText.Text = $"{Localization.Get("Settings_NewVersionAvailable")}: v{_latestUpdateInfo!.Version}";
                     updateBadge.Background = new SolidColorBrush(Color.Parse("#2222c55e"));
                     updateBadgeText.Foreground = new SolidColorBrush(Color.Parse("#16a34a"));
                 }
@@ -123,7 +123,7 @@ namespace GlyphTV
             if (statusBadge != null && statusBadgeText != null)
             {
                 statusBadge.IsVisible = true;
-                statusBadgeText.Text = "Sürüm Güncel";
+                statusBadgeText.Text = Localization.Get("Settings_VersionUpToDate");
                 statusBadge.Background = new SolidColorBrush(Color.Parse("#223b82f6"));
                 statusBadgeText.Foreground = (IBrush)this.FindResource("Accent")!;
             }
@@ -137,12 +137,14 @@ namespace GlyphTV
             if (string.IsNullOrEmpty(_appSettings.LastUpdateCheckTime))
             {
                 lastCheckText.Text = _appSettings.CheckUpdatesOnStartup
-                    ? "Otomatik denetim aktif"
-                    : "Otomatik denetim kapalı";
+                    ? Localization.Get("Settings_AutoCheckActive")
+                    : (Localization.CurrentLanguage == "en" ? "Automatic check disabled" : "Otomatik denetim kapalı");
             }
             else
             {
-                lastCheckText.Text = $"Son denetim: {_appSettings.LastUpdateCheckTime}";
+                lastCheckText.Text = Localization.CurrentLanguage == "en"
+                    ? $"Last checked: {_appSettings.LastUpdateCheckTime}"
+                    : $"Son denetim: {_appSettings.LastUpdateCheckTime}";
             }
         }
 
@@ -848,6 +850,318 @@ namespace GlyphTV
         }
 
         // ─────────────────────────────────────────────────────────────
+        // Dil Seçimi — Türkçe / English (iki ayrı buton)
+        // ─────────────────────────────────────────────────────────────
+        private void LangTr_Click(object? sender, RoutedEventArgs e) => SetLanguage("tr");
+        private void LangEn_Click(object? sender, RoutedEventArgs e) => SetLanguage("en");
+
+        public void SetLanguage(string lang)
+        {
+            if (_appSettings.Language == lang && Localization.CurrentLanguage == lang)
+            {
+                UpdateLanguageButtonsActiveState();
+                return;
+            }
+
+            _appSettings.Language = lang;
+            SaveAppSettings();
+            Localization.SetLanguage(lang);
+            ApplyLanguage(lang);
+            UpdateLanguageButtonsActiveState();
+
+            // Popüler TMDb içeriklerini yeni dile göre yeniden yükle
+            _isPopularLoaded = false;
+            _ = LoadWeeklyPopularFromTmdbAsync();
+
+            ShowToast(Localization.Get("Toast_LangChanged"));
+        }
+
+        private void UpdateLanguageButtonsActiveState()
+        {
+            string lang = _appSettings.Language ?? "tr";
+            SetActiveClass(LangTrBtn, lang == "tr");
+            SetActiveClass(LangEnBtn, lang == "en");
+        }
+
+        public void ApplyLanguage(string lang)
+        {
+            try
+            {
+                // Sidebar
+                if (BtnHomeText != null) BtnHomeText.Text = Localization.Get("Nav_Home");
+                if (BtnLiveText != null) BtnLiveText.Text = Localization.Get("Nav_Live");
+                if (BtnVODText != null) BtnVODText.Text = Localization.Get("Nav_Movies");
+                if (BtnSeriesText != null) BtnSeriesText.Text = Localization.Get("Nav_Series");
+                if (BtnEpgText != null) BtnEpgText.Text = Localization.Get("Nav_Epg");
+                if (BtnFavText != null) BtnFavText.Text = Localization.Get("Nav_Favorites");
+                if (BtnSettingsText != null) BtnSettingsText.Text = Localization.Get("Nav_Settings");
+
+                // SearchBox & Categories
+                if (SearchBox != null) SearchBox.Watermark = "🔎 " + Localization.Get("Nav_SearchPlaceholder");
+                if (CategoriesHeaderTitle != null) CategoriesHeaderTitle.Text = Localization.Get("Nav_Categories");
+                if (CategoriesDragReorderText != null) CategoriesDragReorderText.Text = Localization.Get("Nav_DragReorder");
+                if (BackBtn != null) BackBtn.Content = Localization.Get("Nav_Back");
+                if (SortAZBtn != null)
+                {
+                    SortAZBtn.Content = Localization.Get("Sort_AZ");
+                    ToolTip.SetTip(SortAZBtn, Localization.Get("Sort_AZ_Tooltip"));
+                }
+                if (SortZABtn != null)
+                {
+                    SortZABtn.Content = Localization.Get("Sort_ZA");
+                    ToolTip.SetTip(SortZABtn, Localization.Get("Sort_ZA_Tooltip"));
+                }
+                if (SortNewBtn != null)
+                {
+                    SortNewBtn.Content = Localization.Get("Sort_New");
+                    ToolTip.SetTip(SortNewBtn, Localization.Get("Sort_New_Tooltip"));
+                }
+
+                // Search Labels
+                if (SearchLiveLabel != null) SearchLiveLabel.Text = "📺 " + Localization.Get("Nav_Live");
+                if (SearchSeriesLabel != null) SearchSeriesLabel.Text = "🎞️ " + Localization.Get("Nav_Series");
+
+                // Hero Banner & Resume & Favorites
+                if (HeroPlayBtnText != null) HeroPlayBtnText.Text = Localization.Get("Hero_WatchNow");
+                if (HeroDetailBtnText != null) HeroDetailBtnText.Text = Localization.Get("Hero_Details");
+                if (HomeResumeSectionTitle != null) HomeResumeSectionTitle.Text = Localization.Get("Home_ResumeTitle");
+                if (HomeResumeEmptyText != null) HomeResumeEmptyText.Text = Localization.Get("Home_ResumeEmpty");
+                if (BtnResumeAll != null) BtnResumeAll.Content = Localization.Get("Home_FilterAll");
+                if (BtnResumeMovies != null) BtnResumeMovies.Content = Localization.Get("Home_FilterMovies");
+                if (BtnResumeSeries != null) BtnResumeSeries.Content = Localization.Get("Home_FilterSeries");
+                if (SidebarClockDate != null)
+                {
+                    var now = DateTime.Now;
+                    SidebarClockDate.Text = $"{now:dd} {now.ToString("MMMM", Localization.CurrentCulture)}";
+                }
+                if (FavoriLiveTitle != null) FavoriLiveTitle.Text = "📺 " + Localization.Get("Fav_LiveChannels");
+                if (FavoriVodTitle != null) FavoriVodTitle.Text = "🎬 " + Localization.Get("Fav_Movies");
+                if (FavoriSeriesTitle != null) FavoriSeriesTitle.Text = "🎞️ " + Localization.Get("Fav_Series");
+
+                // Settings Modal Header & Navigation
+                if (SettingsModalHeaderTitle != null) SettingsModalHeaderTitle.Text = Localization.Get("Settings_Title");
+                if (SettingsModalHeaderSub != null) SettingsModalHeaderSub.Text = Localization.Get("Settings_Subtitle");
+                if (SettingsNavSourcesTitle != null) SettingsNavSourcesTitle.Text = Localization.Get("Settings_NavSources");
+                if (SettingsNavSourcesSub != null) SettingsNavSourcesSub.Text = Localization.Get("Settings_NavSourcesSub");
+                if (SettingsNavAppearanceTitle != null) SettingsNavAppearanceTitle.Text = Localization.Get("Settings_NavAppearance");
+                if (SettingsNavAppearanceSub != null) SettingsNavAppearanceSub.Text = Localization.Get("Settings_NavAppearanceSub");
+                if (SettingsNavDataTitle != null) SettingsNavDataTitle.Text = Localization.Get("Settings_NavData");
+                if (SettingsNavDataSub != null) SettingsNavDataSub.Text = Localization.Get("Settings_NavDataSub");
+                if (SettingsNavShortcutsTitle != null) SettingsNavShortcutsTitle.Text = Localization.Get("Settings_NavShortcuts");
+                if (SettingsNavShortcutsSub != null) SettingsNavShortcutsSub.Text = Localization.Get("Settings_NavShortcutsSub");
+                if (SettingsNavAboutTitle != null) SettingsNavAboutTitle.Text = Localization.Get("Settings_NavAbout");
+                if (SettingsNavAboutSub != null) SettingsNavAboutSub.Text = Localization.Get("Settings_NavAboutSub");
+
+                // Settings Tab 1: Sources
+                if (SettingsSourcesTitle != null) SettingsSourcesTitle.Text = Localization.Get("Settings_SourcesTitle");
+                if (SettingsSourcesSub != null) SettingsSourcesSub.Text = Localization.Get("Settings_SourcesSubtitle");
+                if (SettingsAddSourceBtnText != null) SettingsAddSourceBtnText.Text = Localization.Get("Settings_AddSourceBtn");
+                if (SettingsSavedSourcesTitle != null) SettingsSavedSourcesTitle.Text = Localization.Get("Settings_SavedSources");
+
+                // Settings Tab 2: Appearance
+                if (SettingsAppearanceHeaderTitle != null) SettingsAppearanceHeaderTitle.Text = Localization.Get("Settings_AppearanceTitle");
+                if (SettingsAppearanceHeaderSub != null) SettingsAppearanceHeaderSub.Text = Localization.Get("Settings_AppearanceSubtitle");
+                if (SettingsLangTitleText != null) SettingsLangTitleText.Text = Localization.Get("Settings_LanguageTitle");
+                if (SettingsLangSubText != null) SettingsLangSubText.Text = Localization.Get("Settings_LanguageSubtitle");
+                if (SettingsThemeTitleText != null) SettingsThemeTitleText.Text = Localization.Get("Settings_ThemeTitle");
+                if (SettingsThemeSubText != null) SettingsThemeSubText.Text = Localization.Get("Settings_ThemeSubtitle");
+                if (SettingsThemeSystemText != null) SettingsThemeSystemText.Text = Localization.Get("Settings_ThemeSystem");
+                if (SettingsThemeLightText != null) SettingsThemeLightText.Text = Localization.Get("Settings_ThemeLight");
+                if (SettingsThemeDarkText != null) SettingsThemeDarkText.Text = Localization.Get("Settings_ThemeDark");
+                if (SettingsAutoRefreshTitleText != null) SettingsAutoRefreshTitleText.Text = Localization.Get("Settings_AutoRefreshTitle");
+                if (SettingsAutoRefreshSubText != null) SettingsAutoRefreshSubText.Text = Localization.Get("Settings_AutoRefreshSubtitle");
+                if (SettingsAutoRefreshOnText != null) SettingsAutoRefreshOnText.Text = Localization.Get("Settings_ToggleOn");
+                if (SettingsAutoRefreshOffText != null) SettingsAutoRefreshOffText.Text = Localization.Get("Settings_ToggleOff");
+                if (SettingsCheckUpdatesTitleText != null) SettingsCheckUpdatesTitleText.Text = Localization.Get("Settings_CheckUpdatesTitle");
+                if (SettingsCheckUpdatesSubText != null) SettingsCheckUpdatesSubText.Text = Localization.Get("Settings_CheckUpdatesSubtitle");
+                if (SettingsCheckUpdatesOnText != null) SettingsCheckUpdatesOnText.Text = Localization.Get("Settings_ToggleOn");
+                if (SettingsCheckUpdatesOffText != null) SettingsCheckUpdatesOffText.Text = Localization.Get("Settings_ToggleOff");
+                if (SettingsPlayerEngineTitleText != null) SettingsPlayerEngineTitleText.Text = Localization.Get("Settings_PlayerEngineTitle");
+                if (SettingsPlayerEngineSubText != null) SettingsPlayerEngineSubText.Text = Localization.Get("Settings_PlayerEngineSubtitle");
+
+                // Settings Tab 3: Data
+                if (SettingsDataHeaderTitle != null) SettingsDataHeaderTitle.Text = Localization.Get("Settings_DataTitle");
+                if (SettingsDataHeaderSub != null) SettingsDataHeaderSub.Text = Localization.Get("Settings_DataSubtitle");
+                if (SettingsClearHistoryTitleText != null) SettingsClearHistoryTitleText.Text = Localization.Get("Settings_ClearHistoryTitle");
+                if (SettingsClearHistorySubText != null) SettingsClearHistorySubText.Text = Localization.Get("Settings_ClearHistorySubtitle");
+                if (SettingsClearHistoryBtnText != null) SettingsClearHistoryBtnText.Text = Localization.Get("Settings_ClearHistoryBtn");
+                if (SettingsClearCacheTitleText != null) SettingsClearCacheTitleText.Text = Localization.Get("Settings_ClearCacheTitle");
+                if (SettingsClearCacheSubText != null) SettingsClearCacheSubText.Text = Localization.Get("Settings_ClearCacheSubtitle");
+                if (SettingsClearCacheBtnText != null) SettingsClearCacheBtnText.Text = Localization.Get("Settings_ClearCacheBtn");
+                if (SettingsResetAppTitleText != null) SettingsResetAppTitleText.Text = Localization.Get("Settings_ResetAppTitle");
+                if (SettingsResetAppSubText != null) SettingsResetAppSubText.Text = Localization.Get("Settings_ResetAppSubtitle");
+                if (SettingsResetAppBtnText != null) SettingsResetAppBtnText.Text = Localization.Get("Settings_ResetAppBtn");
+
+                // Settings Tab 4: Shortcuts
+                if (SettingsShortcutsHeaderTitle != null) SettingsShortcutsHeaderTitle.Text = Localization.Get("Settings_ShortcutsTitle");
+                if (SettingsShortcutsHeaderSub != null) SettingsShortcutsHeaderSub.Text = Localization.Get("Settings_ShortcutsSubtitle");
+                if (SettingsScGroup1Title != null) SettingsScGroup1Title.Text = Localization.Get("Kbd_PlaybackControls");
+                if (SettingsScPlayPauseText != null) SettingsScPlayPauseText.Text = Localization.Get("Kbd_PlayPause");
+                if (SettingsScPlayPauseKey != null) SettingsScPlayPauseKey.Text = Localization.Get("Kbd_PlayPauseKeys");
+                if (SettingsScFullscreenText != null) SettingsScFullscreenText.Text = Localization.Get("Kbd_Fullscreen");
+                if (SettingsScFullscreenKey != null) SettingsScFullscreenKey.Text = Localization.Get("Kbd_FullscreenKeys");
+                if (SettingsScPipText != null) SettingsScPipText.Text = Localization.Get("Kbd_Pip");
+                if (SettingsScMuteText != null) SettingsScMuteText.Text = Localization.Get("Kbd_Mute");
+                if (SettingsScSeekText != null) SettingsScSeekText.Text = Localization.Get("Kbd_Seek");
+                if (SettingsScVolumeText != null) SettingsScVolumeText.Text = Localization.Get("Kbd_VolumeChannel");
+                if (SettingsScSearchText != null) SettingsScSearchText.Text = Localization.Get("Kbd_Search");
+                if (SettingsScCloseText != null) SettingsScCloseText.Text = Localization.Get("Kbd_Close");
+                if (SettingsScGroup2Title != null) SettingsScGroup2Title.Text = Localization.Get("Kbd_PictureModes");
+                if (SettingsScPicNaturalText != null) SettingsScPicNaturalText.Text = Localization.Get("Kbd_PresetNatural");
+                if (SettingsScPicVividText != null) SettingsScPicVividText.Text = Localization.Get("Kbd_PresetVivid");
+                if (SettingsScPicSportText != null) SettingsScPicSportText.Text = Localization.Get("Kbd_PresetSports");
+                if (SettingsScPicCinemaText != null) SettingsScPicCinemaText.Text = Localization.Get("Kbd_PresetCinema");
+                if (SettingsScGroup3Title != null) SettingsScGroup3Title.Text = Localization.Get("Kbd_SyncControls");
+                if (SettingsScAudioAdvanceText != null) SettingsScAudioAdvanceText.Text = Localization.Get("Kbd_AudioAdvance");
+                if (SettingsScAudioDelayText != null) SettingsScAudioDelayText.Text = Localization.Get("Kbd_AudioDelay");
+                if (SettingsScAudioResetText != null) SettingsScAudioResetText.Text = Localization.Get("Kbd_AudioReset");
+                if (SettingsScSubAdvanceText != null) SettingsScSubAdvanceText.Text = Localization.Get("Kbd_SubAdvance");
+                if (SettingsScSubDelayText != null) SettingsScSubDelayText.Text = Localization.Get("Kbd_SubDelay");
+                if (SettingsScSubResetText != null) SettingsScSubResetText.Text = Localization.Get("Kbd_SubReset");
+
+                // Settings Tab 5: About
+                if (SettingsAboutHeaderTitle != null) SettingsAboutHeaderTitle.Text = Localization.Get("Settings_AboutTitle");
+                if (SettingsAboutHeaderSub != null) SettingsAboutHeaderSub.Text = Localization.Get("Settings_AboutSubtitle");
+                if (SettingsAboutVersionLabel != null) SettingsAboutVersionLabel.Text = Localization.Get("Settings_Version");
+                if (SettingsAboutDevLabel != null) SettingsAboutDevLabel.Text = Localization.Get("Settings_Developer");
+                if (SettingsAboutCopyLabel != null) SettingsAboutCopyLabel.Text = Localization.Get("Settings_Copyright");
+                if (SettingsAboutDescText != null) SettingsAboutDescText.Text = Localization.Get("Settings_AppDesc");
+                if (SettingsAboutUpdateTitle != null) SettingsAboutUpdateTitle.Text = Localization.Get("Settings_UpdateTitle");
+                if (SettingsAboutCheckUpdatesText != null) SettingsAboutCheckUpdatesText.Text = Localization.Get("Settings_CheckNow");
+                if (SettingsAboutGithubTitle != null) SettingsAboutGithubTitle.Text = Localization.Get("Settings_GithubTitle");
+                if (SettingsAboutGithubSub != null) SettingsAboutGithubSub.Text = Localization.Get("Settings_GithubSubtitle");
+
+                // VOD / Series Detail
+                if (VodInfoCastTitle != null) VodInfoCastTitle.Text = Localization.Get("VodInfo_Cast");
+                if (VodInfoDirTitle != null) VodInfoDirTitle.Text = Localization.Get("VodInfo_Director");
+                if (VodInfoPlayBtnText != null) VodInfoPlayBtnText.Text = Localization.Get("VodInfo_Play");
+                if (VodInfoFavText != null)
+                {
+                    bool isFav = _currentVodInfo?.IsFavorite == true;
+                    VodInfoFavText.Text = isFav ? ("❤️ " + Localization.Get("VodInfo_InFavorites")) : ("♡ " + Localization.Get("VodInfo_Favorite"));
+                }
+                if (VodInfoModalTitle != null && _currentVodInfo != null)
+                {
+                    VodInfoModalTitle.Text = _currentVodInfo.Type == "Dizi" ? Localization.Get("VodInfo_SeriesDetails") : Localization.Get("VodInfo_MovieDetails");
+                }
+
+                // Change Source Modal
+                if (ChangeSourceModalTitle != null) ChangeSourceModalTitle.Text = Localization.Get("SourceModal_TitleAdd");
+                if (ChangeSourceNameTitle != null) ChangeSourceNameTitle.Text = Localization.Get("SourceModal_Name");
+                if (SourceNameInput != null) SourceNameInput.Watermark = Localization.Get("SourceModal_NamePlaceholder");
+                if (ChangeSourceTypeTitle != null) ChangeSourceTypeTitle.Text = Localization.Get("SourceModal_Type");
+                if (ChangeSourceTypeDesc != null)
+                {
+                    ChangeSourceTypeDesc.Inlines = new Avalonia.Controls.Documents.InlineCollection
+                    {
+                        new Avalonia.Controls.Documents.Run { Text = "Xtream Code: ", FontWeight = Avalonia.Media.FontWeight.Bold },
+                        new Avalonia.Controls.Documents.Run { Text = Localization.Get("SourceModal_TypeXtreamDesc") },
+                        new Avalonia.Controls.Documents.LineBreak(),
+                        new Avalonia.Controls.Documents.Run { Text = "M3U: ", FontWeight = Avalonia.Media.FontWeight.Bold },
+                        new Avalonia.Controls.Documents.Run { Text = Localization.Get("SourceModal_TypeM3uDesc") + " " },
+                        new Avalonia.Controls.Documents.Run { Text = "Link: ", FontWeight = Avalonia.Media.FontWeight.Bold },
+                        new Avalonia.Controls.Documents.Run { Text = Localization.Get("SourceModal_TypeLinkDesc") }
+                    };
+                }
+                if (M3uDragDropText != null) M3uDragDropText.Text = Localization.Get("SourceModal_DragDrop");
+                if (M3uOrClickText != null) M3uOrClickText.Text = Localization.Get("SourceModal_OrClick");
+                if (M3uOrUrlText != null) M3uOrUrlText.Text = Localization.Get("SourceModal_OrUrl");
+                if (M3uUrlInput != null) M3uUrlInput.Watermark = Localization.Get("SourceModal_UrlPlaceholder");
+                if (M3uEpgUrlTitle != null) M3uEpgUrlTitle.Text = Localization.Get("SourceModal_EpgUrl");
+                if (M3uEpgUrlInput != null) M3uEpgUrlInput.Watermark = Localization.Get("SourceModal_EpgPlaceholder");
+                if (M3uEpgHelpText != null) M3uEpgHelpText.Text = Localization.Get("SourceModal_EpgHelp");
+                if (XtreamUrlInput != null) XtreamUrlInput.Watermark = Localization.Get("SourceModal_XtreamUrlPlaceholder");
+                if (XtreamUserInput != null) XtreamUserInput.Watermark = Localization.Get("SourceModal_XtreamUserPlaceholder");
+                if (XtreamPassInput != null) XtreamPassInput.Watermark = Localization.Get("SourceModal_XtreamPassPlaceholder");
+                if (XtreamHelpText != null) XtreamHelpText.Text = Localization.Get("SourceModal_XtreamHelp");
+                if (XtreamEpgUrlTitle != null) XtreamEpgUrlTitle.Text = Localization.Get("SourceModal_XtreamEpgUrl");
+                if (XtreamEpgUrlInput != null) XtreamEpgUrlInput.Watermark = Localization.Get("SourceModal_XtreamEpgPlaceholder");
+                if (XtreamEpgHelpText != null) XtreamEpgHelpText.Text = Localization.Get("SourceModal_XtreamEpgHelp");
+                if (ConfirmAddSourceBtnText != null) ConfirmAddSourceBtnText.Text = Localization.Get("SourceModal_AddBtn");
+
+                // EPG Overlay
+                if (EpgTitleText != null) EpgTitleText.Text = Localization.Get("Epg_Title");
+                if (EpgPrevDayBtn != null) EpgPrevDayBtn.Content = Localization.Get("Epg_PrevDay");
+                if (EpgNowBtn != null) EpgNowBtn.Content = Localization.Get("Epg_Now");
+                if (EpgNextDayBtn != null) EpgNextDayBtn.Content = Localization.Get("Epg_NextDay");
+                if (BtnEpgRefresh != null) ToolTip.SetTip(BtnEpgRefresh, Localization.Get("Epg_RefreshTooltip"));
+                if (BtnEpgEditUrl != null) ToolTip.SetTip(BtnEpgEditUrl, Localization.Get("Epg_EditUrlTooltip"));
+                if (EpgChannelsHeader != null) EpgChannelsHeader.Text = Localization.Get("Player_Channels");
+                if (EpgPlaySelectedBtn != null) EpgPlaySelectedBtn.Content = Localization.Get("Btn_Play");
+                if (EpgUrlEditTitleText != null) EpgUrlEditTitleText.Text = Localization.Get("Epg_EditUrlTitle");
+                if (EpgUrlEditSubText != null) EpgUrlEditSubText.Text = Localization.Get("Epg_EditUrlSub");
+                if (EpgUrlEditInput != null) EpgUrlEditInput.Watermark = Localization.Get("Epg_EditUrlPlaceholder");
+                if (EpgUrlEditCancelBtn != null) EpgUrlEditCancelBtn.Content = Localization.Get("Epg_EditUrlCancelBtn");
+                if (EpgUrlEditSaveBtn != null) EpgUrlEditSaveBtn.Content = Localization.Get("Epg_EditUrlSaveBtn");
+                if (EpgOverlay != null && EpgOverlay.IsVisible)
+                {
+                    PopulateEpgCategoryCombo();
+                    BuildEpgTimeline();
+                }
+
+                // Update Modal
+                if (UpdateModalTitleText != null) UpdateModalTitleText.Text = Localization.Get("Update_Title");
+                if (UpdateModalCurrentVersionText != null) UpdateModalCurrentVersionText.Text = Localization.Get("Update_Current", UpdateManager.CURRENT_VERSION);
+                if (UpdateModalChangelogHeader != null) UpdateModalChangelogHeader.Text = Localization.Get("Update_WhatsNew");
+                if (BtnUpdateNowText != null) BtnUpdateNowText.Text = "🚀 " + Localization.Get("Update_BtnUpdate");
+                if (UpdateLaterText != null) UpdateLaterText.Text = Localization.Get("Update_BtnLater");
+                if (UpdateDownloadHelpText != null) UpdateDownloadHelpText.Text = Localization.Get("Update_DownloadHelp");
+
+                // Player Overlay Window
+                _playerOverlay?.ApplyLanguage(lang);
+
+                // Update Status Text in About Tab
+                UpdateAboutTabUpdateStatusText();
+
+                // Saved Sources Localization Refresh
+                if (_sources != null)
+                {
+                    foreach (var s in _sources)
+                    {
+                        s.RefreshLocalization();
+                    }
+                }
+
+                if (_displayPopularItems != null)
+                {
+                    foreach (var it in _displayPopularItems)
+                    {
+                        it.RefreshLocalization();
+                    }
+                }
+
+                if (_displayResumeItems != null)
+                {
+                    foreach (var it in _displayResumeItems)
+                    {
+                        it.RefreshLocalization();
+                    }
+                }
+
+                if (_allResumeItems != null)
+                {
+                    foreach (var it in _allResumeItems)
+                    {
+                        it.RefreshLocalization();
+                    }
+                }
+
+                // If VodInfo is currently open, update its title/fav status
+                if (VodInfoOverlay != null && VodInfoOverlay.IsVisible && _currentVodInfo != null)
+                {
+                    if (VodInfoModalTitle != null)
+                        VodInfoModalTitle.Text = _currentVodInfo.Type == "Dizi" ? Localization.Get("VodInfo_SeriesDetails") : Localization.Get("VodInfo_MovieDetails");
+                    if (VodInfoFavText != null)
+                        VodInfoFavText.Text = _currentVodInfo.IsFavorite ? ("❤️ " + Localization.Get("VodInfo_InFavorites")) : ("♡ " + Localization.Get("VodInfo_Favorite"));
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("ApplyLanguage", ex);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // Tema — Sistem / Açık / Koyu (üç ayrı buton)
         // ─────────────────────────────────────────────────────────────
         private void ThemeSystem_Click(object? sender, RoutedEventArgs e) => SetThemeMode("System");
@@ -1002,7 +1316,7 @@ namespace GlyphTV
                     }
                 }
 
-                ShowToast("Görsel ve logo önbelleği temizlendi.");
+                ShowToast(Localization.Get("Toast_CacheCleared"));
             }
             catch (Exception ex)
             {
@@ -1015,6 +1329,9 @@ namespace GlyphTV
         {
             _appSettings = new AppSettings();
             SaveAppSettings();
+            Localization.SetLanguage(_appSettings.Language ?? "tr");
+            ApplyLanguage(_appSettings.Language ?? "tr");
+            UpdateLanguageButtonsActiveState();
             ApplyThemeMode(_appSettings.ThemeMode);
             UpdateAutoRefreshButtonsActiveState();
             UpdatePlayerEngineButtonsActiveState();
@@ -1051,7 +1368,7 @@ namespace GlyphTV
 
             LoadSources();
             UpdateView();
-            ShowToast("Uygulama ve ayarlar sıfırlandı.");
+            ShowToast(Localization.Get("Toast_AppReset"));
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -1082,7 +1399,7 @@ namespace GlyphTV
 
             SaveWatchHistory();
             RefreshHomeResumeSection();
-            ShowToast("İzleme geçmişi temizlendi.");
+            ShowToast(Localization.Get("Toast_AllHistoryCleared"));
         }
 
         // ─────────────────────────────────────────────────────────────
