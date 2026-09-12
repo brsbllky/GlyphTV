@@ -84,11 +84,11 @@ Antivirüs yazılımları bazen aşağıdaki nedenlerle yanlış alarm üretebil
 
 | Alan | Detay |
 |------|-------|
-| Sürüm | v2.1.0 |
-| Dosya | GlyphTV.exe |
-| SHA256 | b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21 |
+| Sürüm | `v2.1.1` |
+| Dosya | `GlyphTV.exe` |
+| SHA256 |`7d234c1aaec0095b47cf0838803b6262db44352f00fe22f0195e525460dce482` |
 | Sonuç | 0/70 tespit | 
-| Rapor | https://www.virustotal.com/gui/file/b70288f2d3fd5336d4143913ff43c04d48678f572a9fa55335093b953013eb21?nocache=1 |
+| Rapor | https://www.virustotal.com/gui/file/7d234c1aaec0095b47cf0838803b6262db44352f00fe22f0195e525460dce482?nocache=1 |
 
 ---
 
