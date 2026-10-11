@@ -1,6 +1,8 @@
 using Avalonia;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using LibVLCSharp.Shared;
 
 namespace GlyphTV
@@ -85,12 +87,26 @@ namespace GlyphTV
 
                 if (isRunningFromTemp)
                 {
-                    string? targetExe = FindInstalledGlyphTvExe(installPathFile);
+                    var candidates = FindCandidateExecutables(installPathFile);
 
-                    if (!string.IsNullOrEmpty(targetExe) &&
-                        !string.Equals(currentExe, targetExe, StringComparison.OrdinalIgnoreCase))
+                    // En son erişilen / üzerinde işlem yapılan dosyayı birincil hedef olarak seçmek için sırala
+                    var orderedCandidates = candidates
+                        .Where(p => File.Exists(p) && !string.Equals(currentExe, p, StringComparison.OrdinalIgnoreCase))
+                        .Select(p => new
+                        {
+                            Path = p,
+                            LastTime = File.GetLastAccessTime(p) > File.GetLastWriteTime(p) ? File.GetLastAccessTime(p) : File.GetLastWriteTime(p)
+                        })
+                        .OrderByDescending(x => x.LastTime)
+                        .ToList();
+
+                    string? primaryTargetToLaunch = null;
+
+                    foreach (var item in orderedCandidates)
                     {
-                        // Hedef dosyanın üzerindeki kilitlerin kalkması için yeniden deneme döngüsü
+                        string targetExe = item.Path;
+
+                        // Hedef dosyayı güncelle (üzerine yaz)
                         bool copied = false;
                         for (int retry = 0; retry < 10; retry++)
                         {
@@ -112,20 +128,25 @@ namespace GlyphTV
                             }
                         }
 
-                        if (copied)
+                        if (copied && primaryTargetToLaunch == null)
                         {
-                            try { File.WriteAllText(installPathFile, targetExe); } catch { }
-
-                            var psi = new System.Diagnostics.ProcessStartInfo
-                            {
-                                FileName = targetExe,
-                                WorkingDirectory = Path.GetDirectoryName(targetExe) ?? "",
-                                UseShellExecute = true
-                            };
-                            System.Diagnostics.Process.Start(psi);
-                            Environment.Exit(0);
-                            return;
+                            primaryTargetToLaunch = targetExe;
                         }
+                    }
+
+                    if (!string.IsNullOrEmpty(primaryTargetToLaunch))
+                    {
+                        try { File.WriteAllText(installPathFile, primaryTargetToLaunch); } catch { }
+
+                        var psi = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = primaryTargetToLaunch,
+                            WorkingDirectory = Path.GetDirectoryName(primaryTargetToLaunch) ?? "",
+                            UseShellExecute = true
+                        };
+                        System.Diagnostics.Process.Start(psi);
+                        Environment.Exit(0);
+                        return;
                     }
                 }
                 else
@@ -167,9 +188,11 @@ namespace GlyphTV
             }
         }
 
-        private static string? FindInstalledGlyphTvExe(string installPathFile)
+        private static List<string> FindCandidateExecutables(string installPathFile)
         {
-            // 1. Daha önceden kaydedilmiş kurulum konumu
+            var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. install_path.txt
             try
             {
                 if (File.Exists(installPathFile))
@@ -177,20 +200,46 @@ namespace GlyphTV
                     string saved = File.ReadAllText(installPathFile).Trim();
                     if (File.Exists(saved) && !saved.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase))
                     {
-                        return saved;
+                        candidates.Add(saved);
                     }
                 }
             }
             catch { }
 
-            // 2. Standart C:\GlyphTV\GlyphTV.exe konumu
-            string defaultPath = @"C:\GlyphTV\GlyphTV.exe";
-            if (File.Exists(defaultPath))
+            // 2. Downloads (İndirilenler) klasörü
+            try
             {
-                return defaultPath;
+                string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "GlyphTV.exe");
+                if (File.Exists(downloadsPath))
+                {
+                    candidates.Add(downloadsPath);
+                }
             }
+            catch { }
 
-            // 3. Görev Çubuğu, Masaüstü ve Başlat Menüsü Kısayolları
+            // 3. Desktop (Masaüstü) klasörü
+            try
+            {
+                string desktopPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "GlyphTV.exe");
+                if (File.Exists(desktopPath))
+                {
+                    candidates.Add(desktopPath);
+                }
+            }
+            catch { }
+
+            // 4. Standart C:\GlyphTV\GlyphTV.exe konumu
+            try
+            {
+                string defaultPath = @"C:\GlyphTV\GlyphTV.exe";
+                if (File.Exists(defaultPath))
+                {
+                    candidates.Add(defaultPath);
+                }
+            }
+            catch { }
+
+            // 5. Görev Çubuğu, Masaüstü ve Başlat Menüsü Kısayolları (.lnk)
             string[] shortcutDirs = new[]
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),
@@ -212,7 +261,7 @@ namespace GlyphTV
                             if (!string.IsNullOrEmpty(target) && File.Exists(target) &&
                                 !target.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase))
                             {
-                                return target;
+                                candidates.Add(target);
                             }
                         }
                     }
@@ -220,7 +269,7 @@ namespace GlyphTV
                 }
             }
 
-            return null;
+            return candidates.ToList();
         }
 
         private static string? ResolveShortcutTarget(string lnkPath)
