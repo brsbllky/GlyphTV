@@ -149,7 +149,7 @@ namespace GlyphTV
             {
                 string targetFileName = !string.IsNullOrEmpty(_latestUpdateInfo.FileName)
                     ? _latestUpdateInfo.FileName
-                    : $"GlyphTV-v{_latestUpdateInfo.Version}-setup.exe";
+                    : "GlyphTV.exe";
 
                 string downloadedFilePath = await UpdateManager.DownloadUpdateAsync(
                     _latestUpdateInfo.DownloadUrl,

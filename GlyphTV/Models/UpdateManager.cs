@@ -232,52 +232,164 @@ namespace GlyphTV
         }
 
         /// <summary>
-        /// İndirilen kurulum paketini veya güncelleme betiğini çalıştırıp mevcut GlyphTV'yi kapatır
+        /// İndirilen güncelleme paketini veya .exe dosyasını mevcut çalışan GlyphTV'nin üzerine
+        /// doğrudan yazıp (in-place replacement) güncellenen uygulamayı yeniden başlatır.
         /// </summary>
         public static void ApplyUpdateAndRestart(string downloadedFilePath)
         {
             try
             {
-                string currentExePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                string currentExePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "";
+
+                // dotnet.exe ile çalıştırılıyorsa (geliştirme ortamı) varsayılan GlyphTV.exe yolunu al
+                if (string.IsNullOrWhiteSpace(currentExePath) ||
+                    Path.GetFileNameWithoutExtension(currentExePath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentExePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GlyphTV.exe");
+                }
+
+                // Eğer uygulama daha önceki bir yönlendirme hatası nedeniyle %TEMP% dizininden çalıştırılmışsa,
+                // kalıcı bilinen konumu (örneğin C:\GlyphTV\GlyphTV.exe) güncelle
+                if (currentExePath.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase))
+                {
+                    string standardInstalledExe = @"C:\GlyphTV\GlyphTV.exe";
+                    if (File.Exists(standardInstalledExe))
+                    {
+                        currentExePath = standardInstalledExe;
+                    }
+                }
+
                 string currentExeDir = Path.GetDirectoryName(currentExePath) ?? AppDomain.CurrentDomain.BaseDirectory;
                 int currentPid = Process.GetCurrentProcess().Id;
 
-                // Eğer indirilen dosya doğrudan bir setup installer ise doğrudan çalıştır
-                if (downloadedFilePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                bool isInstaller = downloadedFilePath.IndexOf("setup", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   downloadedFilePath.IndexOf("installer", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                string updateScriptPath = Path.Combine(Path.GetTempPath(), "glyphtv_updater.cmd");
+
+                string scriptContent;
+                if (isInstaller)
                 {
-                    // Bağımsız güncelleme taşıyıcı betiği (PowerShell / CMD) oluştur:
-                    // 1. Mevcut GlyphTV PID'sinin kapanmasını bekle
-                    // 2. Yeni .exe'yi mevcut klasöre kopyala (veya installer ise sessizce/normal çalıştır)
-                    // 3. Uygulamayı yeniden başlat
-                    string updateScriptPath = Path.Combine(Path.GetTempPath(), "glyphtv_updater.cmd");
-                    string scriptContent = $@"@echo off
-timeout /t 1 /nobreak >nul
-:waitloop
-tasklist /fi ""pid eq {currentPid}"" | find ""{currentPid}"" >nul
+                    // Installer/Kurulum dosyası ise: Mevcut işlemin bitmesini bekle ve kurulum sihirbazını başlat
+                    scriptContent = $@"@echo off
+chcp 65001 >nul
+setlocal enabledelayedexpansion
+
+set ""PID={currentPid}""
+set ""INSTALLER={downloadedFilePath}""
+
+:wait_pid
+tasklist /fi ""PID eq %PID%"" 2>nul | find ""%PID%"" >nul
 if not errorlevel 1 (
     timeout /t 1 /nobreak >nul
-    goto waitloop
+    goto wait_pid
 )
-start """" ""{downloadedFilePath}""
-";
-                    File.WriteAllText(updateScriptPath, scriptContent);
 
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "cmd.exe",
-                        Arguments = $"/c \"{updateScriptPath}\"",
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    };
-                    Process.Start(psi);
+timeout /t 1 /nobreak >nul
+start """" ""%INSTALLER%""
+exit /b
+";
+                }
+                else if (downloadedFilePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Zip arşivi ise: Klasöre çıkart ve ana uygulamayı başlat
+                    scriptContent = $@"@echo off
+chcp 65001 >nul
+setlocal enabledelayedexpansion
+
+set ""PID={currentPid}""
+set ""TARGET_EXE={currentExePath}""
+set ""TARGET_DIR={currentExeDir}""
+set ""SOURCE_ZIP={downloadedFilePath}""
+
+:wait_pid
+tasklist /fi ""PID eq %PID%"" 2>nul | find ""%PID%"" >nul
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto wait_pid
+)
+
+timeout /t 1 /nobreak >nul
+powershell -NoProfile -Command ""Expand-Archive -LiteralPath '%SOURCE_ZIP%' -DestinationPath '%TARGET_DIR%' -Force"" >nul 2>&1
+del /f /q ""%SOURCE_ZIP%"" >nul 2>&1
+
+cd /d ""%TARGET_DIR%""
+start """" ""%TARGET_EXE%""
+exit /b
+";
                 }
                 else
                 {
-                    // Tarayıcı veya dosya açılışı
-                    Process.Start(new ProcessStartInfo(downloadedFilePath) { UseShellExecute = true });
+                    // Taşınabilir/Doğrudan GlyphTV.exe binary dosyası:
+                    // Mevcut exe'nin üzerine doğrudan yaz (in-place update)
+                    scriptContent = $@"@echo off
+chcp 65001 >nul
+setlocal enabledelayedexpansion
+
+set ""PID={currentPid}""
+set ""TARGET_EXE={currentExePath}""
+set ""TARGET_DIR={currentExeDir}""
+set ""SOURCE_FILE={downloadedFilePath}""
+
+:wait_pid
+tasklist /fi ""PID eq %PID%"" 2>nul | find ""%PID%"" >nul
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto wait_pid
+)
+
+timeout /t 1 /nobreak >nul
+
+set RETRIES=0
+:replace_loop
+set /a RETRIES+=1
+
+:: 1. Deneme: Doğrudan üzerine kopyalama
+copy /y ""%SOURCE_FILE%"" ""%TARGET_EXE%"" >nul 2>&1
+if not errorlevel 1 goto replace_success
+
+:: 2. Deneme: Eski dosyayı .old yaparak kilidi kaldırma ve yeni dosyayı kopyalama
+if exist ""%TARGET_EXE%.old"" del /f /q ""%TARGET_EXE%.old"" >nul 2>&1
+move /y ""%TARGET_EXE%"" ""%TARGET_EXE%.old"" >nul 2>&1
+copy /y ""%SOURCE_FILE%"" ""%TARGET_EXE%"" >nul 2>&1
+if not errorlevel 1 (
+    del /f /q ""%TARGET_EXE%.old"" >nul 2>&1
+    goto replace_success
+)
+
+if !RETRIES! leq 15 (
+    timeout /t 1 /nobreak >nul
+    goto replace_loop
+)
+
+:: Eğer yetki vb. nedenlerle kopyalanamazsa kullanıcıyı mağdur etmemek için indirilen dosyayı çalıştır
+cd /d ""%TARGET_DIR%""
+start """" ""%SOURCE_FILE%""
+exit /b
+
+:replace_success
+del /f /q ""%SOURCE_FILE%"" >nul 2>&1
+if exist ""%TARGET_EXE%.old"" del /f /q ""%TARGET_EXE%.old"" >nul 2>&1
+
+cd /d ""%TARGET_DIR%""
+start """" ""%TARGET_EXE%""
+exit /b
+";
                 }
 
-                // Mevcut uygulamayı güvenle sonlandır
+                File.WriteAllText(updateScriptPath, scriptContent);
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"\"{updateScriptPath}\"\"",
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+
+                // Mevcut uygulamayı sonlandır
                 Environment.Exit(0);
             }
             catch (Exception ex)
