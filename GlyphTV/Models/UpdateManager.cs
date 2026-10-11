@@ -33,7 +33,7 @@ namespace GlyphTV
     {
         public const string GITHUB_OWNER = "brsbllky";
         public const string GITHUB_REPO = "GlyphTV";
-        public const string CURRENT_VERSION = "2.1.1";
+        public const string CURRENT_VERSION = "2.1.2";
 
         private static readonly HttpClient _httpClient = new HttpClient();
 

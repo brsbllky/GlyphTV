@@ -44,39 +44,67 @@ namespace GlyphTV
         private static readonly Queue<string> _contentCacheOrder = new();
         private static readonly Queue<string> _seriesCardCacheOrder = new();
 
-        private void RebuildCategoriesCache(string? sourceId = null, bool saveDisk = true)
+        private void ClearContentAndSeriesCaches()
         {
-            if (_allChannels.Count == 0) return;
+            _contentCache.Clear();
+            _contentCacheOrder.Clear();
+            _seriesCardCache.Clear();
+            _seriesCardCacheOrder.Clear();
+            _seriesSelections.Clear();
+        }
 
-            // 1. Tek geçişte hem kategorileri hem de kanal indeksini O(N) oluştur
-            _channelsByTypeAndGroup.Clear();
+        private void RebuildCategoriesCache(string? sourceId = null, bool saveDisk = true, IEnumerable<Channel>? channels = null)
+        {
+            var channelSource = channels ?? _allChannels;
+            if (channelSource == null) return;
+            var channelList = channelSource as IList<Channel> ?? channelSource.ToList();
+            if (channelList.Count == 0) return;
+
+            bool isActiveSource = channels == null ||
+                (!string.IsNullOrEmpty(sourceId) && _sources.FirstOrDefault(s => s.Id == sourceId)?.IsActive == true);
+
             var distinctGroupsByType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-
             var types = new[] { "Canlı", "VOD", "Dizi" };
             foreach (var t in types)
             {
-                _channelsByTypeAndGroup[t] = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
                 distinctGroupsByType[t] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
-            foreach (var ch in _allChannels)
+            if (isActiveSource)
+            {
+                _channelsByTypeAndGroup.Clear();
+                foreach (var t in types)
+                {
+                    _channelsByTypeAndGroup[t] = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            foreach (var ch in channelList)
             {
                 if (ch.IsHidden || string.IsNullOrEmpty(ch.Group) || string.IsNullOrEmpty(ch.Type)) continue;
 
-                if (!_channelsByTypeAndGroup.TryGetValue(ch.Type, out var groupDict))
+                if (isActiveSource)
                 {
-                    groupDict = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
-                    _channelsByTypeAndGroup[ch.Type] = groupDict;
-                    distinctGroupsByType[ch.Type] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!_channelsByTypeAndGroup.TryGetValue(ch.Type, out var groupDict))
+                    {
+                        groupDict = new Dictionary<string, List<Channel>>(StringComparer.OrdinalIgnoreCase);
+                        _channelsByTypeAndGroup[ch.Type] = groupDict;
+                    }
+
+                    if (!groupDict.TryGetValue(ch.Group, out var list))
+                    {
+                        list = new List<Channel>();
+                        groupDict[ch.Group] = list;
+                    }
+                    list.Add(ch);
                 }
 
-                if (!groupDict.TryGetValue(ch.Group, out var list))
+                if (!distinctGroupsByType.TryGetValue(ch.Type, out var distinctSet))
                 {
-                    list = new List<Channel>();
-                    groupDict[ch.Group] = list;
-                    distinctGroupsByType[ch.Type].Add(ch.Group);
+                    distinctSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    distinctGroupsByType[ch.Type] = distinctSet;
                 }
-                list.Add(ch);
+                distinctSet.Add(ch.Group);
             }
 
             // 2. Kategori sıralamasını uygula ve önbelleğe yaz
@@ -86,12 +114,12 @@ namespace GlyphTV
                 if (distinctGroupsByType.TryGetValue(type, out var set))
                 {
                     var ordered = ApplyCategoryOrder(type, set.ToList());
-                    _cachedCategoriesByTab[type] = ordered;
+                    if (isActiveSource) _cachedCategoriesByTab[type] = ordered;
                     dictToSave[type] = ordered;
                 }
                 else
                 {
-                    _cachedCategoriesByTab[type] = new List<string>();
+                    if (isActiveSource) _cachedCategoriesByTab[type] = new List<string>();
                     dictToSave[type] = new List<string>();
                 }
             }
@@ -103,7 +131,9 @@ namespace GlyphTV
                 {
                     try
                     {
-                        File.WriteAllText(catPath, JsonSerializer.Serialize(dictToSave, JsonOptions));
+                        string tempCatPath = $"{catPath}.{Guid.NewGuid():N}.tmp";
+                        File.WriteAllText(tempCatPath, JsonSerializer.Serialize(dictToSave, JsonOptions));
+                        File.Move(tempCatPath, catPath, overwrite: true);
                     }
                     catch { }
                 });

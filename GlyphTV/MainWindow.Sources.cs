@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -198,17 +199,36 @@ namespace GlyphTV
                 var bytes = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
                 return Encoding.UTF8.GetString(bytes);
             }
+            catch (FormatException) { return encryptedBase64; }
             catch (Exception ex) { LogError("UnprotectString", ex); return ""; }
         }
 
         private static readonly Dictionary<string, CancellationTokenSource> _saveDebounceTokens = new();
         private static readonly Dictionary<string, (List<Channel> Snapshot, string Path)> _pendingChannelSaves = new();
         private static readonly object _saveDebounceLock = new object();
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _sourceWriteLocks = new();
+        private static SemaphoreSlim GetSourceWriteLock(string sourceId) =>
+            _sourceWriteLocks.GetOrAdd(sourceId, _ => new SemaphoreSlim(1, 1));
         private static readonly Dictionary<string, List<Channel>> _decryptedChannelsCache = new();
 
-        private void SaveChannelsForSource(string sourceId)
+        private void SaveChannelsForSource(string sourceId, List<Channel>? channelsToSave = null)
         {
-            var snapshot = _allChannels.ToList();
+            List<Channel> snapshot;
+            if (channelsToSave != null)
+            {
+                snapshot = channelsToSave.ToList();
+            }
+            else
+            {
+                var src = _sources.FirstOrDefault(s => s.Id == sourceId);
+                if (src != null && src.IsActive)
+                    snapshot = _allChannels.ToList();
+                else if (_decryptedChannelsCache.TryGetValue(sourceId, out var cached))
+                    snapshot = cached.ToList();
+                else
+                    return;
+            }
+
             var path = GetChannelsPath(sourceId);
 
             CancellationTokenSource cts;
@@ -217,6 +237,7 @@ namespace GlyphTV
                 if (_saveDebounceTokens.TryGetValue(sourceId, out var existing))
                 {
                     try { existing.Cancel(); } catch { }
+                    try { existing.Dispose(); } catch { }
                 }
 
                 cts = new CancellationTokenSource();
@@ -230,6 +251,7 @@ namespace GlyphTV
                 try
                 {
                     await Task.Delay(400, token);
+                    if (token.IsCancellationRequested) return;
                     WritePendingChannelSave(sourceId);
                 }
                 catch (TaskCanceledException) { }
@@ -251,22 +273,44 @@ namespace GlyphTV
             }
             if (entry == null) return;
 
+            var sem = GetSourceWriteLock(sourceId);
+            sem.Wait();
+            string? tempPath = null;
             try
             {
+                lock (_saveDebounceLock)
+                {
+                    if (_pendingChannelSaves.TryGetValue(sourceId, out var newerPending))
+                    {
+                        entry = newerPending;
+                        _pendingChannelSaves.Remove(sourceId);
+                        _saveDebounceTokens.Remove(sourceId);
+                    }
+                }
+
                 foreach (var ch in entry.Value.Snapshot)
                 {
                     if (string.IsNullOrEmpty(ch.UrlEncrypted) && !string.IsNullOrEmpty(ch.Url))
                         ch.UrlEncrypted = ProtectString(ch.Url);
                 }
 
-                string tempPath = entry.Value.Path + ".tmp";
+                tempPath = $"{entry.Value.Path}.{Guid.NewGuid():N}.tmp";
                 using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536))
                 {
                     JsonSerializer.Serialize(fs, entry.Value.Snapshot, JsonOptions);
                 }
                 File.Move(tempPath, entry.Value.Path, overwrite: true);
+                tempPath = null;
             }
             catch (Exception ex) { LogError($"WritePendingChannelSave({sourceId})", ex); }
+            finally
+            {
+                if (tempPath != null)
+                {
+                    try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                }
+                sem.Release();
+            }
         }
 
         internal static void FlushPendingChannelSaves()
@@ -558,6 +602,7 @@ namespace GlyphTV
 
             var oldStates = new Dictionary<string, (bool isFavorite, bool isHidden)>();
             var oldEpisodeAddedDates = new Dictionary<string, DateTime>();
+            var oldVodAddedDates = new Dictionary<string, DateTime>();
 
             if (source.IsActive)
             {
@@ -567,6 +612,8 @@ namespace GlyphTV
                         oldStates[ch.Url] = (ch.IsFavorite, ch.IsHidden);
                     if (ch.Type == "Dizi")
                         oldEpisodeAddedDates[$"{ch.ShowName}|{ch.Season}|{ch.EpisodeNumber}"] = ch.AddedDate;
+                    if (ch.Type == "VOD" && ch.AddedDate != DateTime.MinValue)
+                        oldVodAddedDates[ch.Url] = ch.AddedDate;
                 }
             }
             else
@@ -576,9 +623,7 @@ namespace GlyphTV
                     List<Channel>? relevant = null;
                     if (_decryptedChannelsCache.TryGetValue(source.Id, out var cachedList))
                     {
-                        relevant = cachedList.Where(c => c.IsFavorite || c.IsHidden).ToList();
-                        foreach (var ch in cachedList.Where(c => c.Type == "Dizi"))
-                            oldEpisodeAddedDates[$"{ch.ShowName}|{ch.Season}|{ch.EpisodeNumber}"] = ch.AddedDate;
+                        relevant = cachedList;
                     }
                     else
                     {
@@ -591,10 +636,7 @@ namespace GlyphTV
                                 var list = JsonSerializer.Deserialize<List<Channel>>(fs, JsonOptions);
                                 if (list == null) return null;
 
-                                foreach (var ch in list.Where(c => c.Type == "Dizi"))
-                                    oldEpisodeAddedDates[$"{ch.ShowName}|{ch.Season}|{ch.EpisodeNumber}"] = ch.AddedDate;
-
-                                var subset = list.Where(c => c.IsFavorite || c.IsHidden).ToList();
+                                var subset = list.Where(c => c.IsFavorite || c.IsHidden || c.Type == "Dizi" || c.Type == "VOD").ToList();
                                 System.Threading.Tasks.Parallel.ForEach(subset, ch =>
                                 {
                                     ch.Url = !string.IsNullOrEmpty(ch.UrlEncrypted)
@@ -611,7 +653,14 @@ namespace GlyphTV
                     if (relevant != null)
                     {
                         foreach (var ch in relevant)
-                            oldStates[ch.Url] = (ch.IsFavorite, ch.IsHidden);
+                        {
+                            if (ch.IsFavorite || ch.IsHidden)
+                                oldStates[ch.Url] = (ch.IsFavorite, ch.IsHidden);
+                            if (ch.Type == "Dizi")
+                                oldEpisodeAddedDates[$"{ch.ShowName}|{ch.Season}|{ch.EpisodeNumber}"] = ch.AddedDate;
+                            if (ch.Type == "VOD" && ch.AddedDate != DateTime.MinValue)
+                                oldVodAddedDates[ch.Url] = ch.AddedDate;
+                        }
                     }
                 }
                 catch { }
@@ -625,24 +674,45 @@ namespace GlyphTV
                 int restoredFav = 0, restoredHidden = 0;
                 foreach (var ch in newChannels)
                 {
-                    if (!oldStates.TryGetValue(ch.Url, out var state)) continue;
-                    ch.IsFavorite = state.isFavorite;
-                    ch.IsHidden = state.isHidden;
-                    if (state.isFavorite) restoredFav++;
-                    if (state.isHidden) restoredHidden++;
+                    if (oldStates.TryGetValue(ch.Url, out var state))
+                    {
+                        ch.IsFavorite = state.isFavorite;
+                        ch.IsHidden = state.isHidden;
+                        if (state.isFavorite) restoredFav++;
+                        if (state.isHidden) restoredHidden++;
+                    }
+                    if (ch.Type == "Dizi" && !string.IsNullOrEmpty(ch.ShowName))
+                    {
+                        string epSig = $"{ch.ShowName}|{ch.Season}|{ch.EpisodeNumber}";
+                        if (oldEpisodeAddedDates.TryGetValue(epSig, out var knownDate) && knownDate != DateTime.MinValue)
+                            ch.AddedDate = knownDate;
+                    }
+                    else if (ch.Type == "VOD")
+                    {
+                        if (oldVodAddedDates.TryGetValue(ch.Url, out var vodDate) && vodDate != DateTime.MinValue)
+                            ch.AddedDate = vodDate;
+                    }
                 }
 
                 _decryptedChannelsCache[source.Id] = newChannels;
                 if (source.IsActive)
                 {
                     _allChannels = newChannels;
-                    _contentCache.Clear();
-                    _seriesCardCache.Clear();
-                    _seriesSelections.Clear();
-                    UpdateView();
+                    ClearContentAndSeriesCaches();
+                    RebuildCategoriesCache(source.Id, saveDisk: true);
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        UpdateView();
+                        _ = MatchPopularItemsWithChannelsAsync(_displayPopularItems.ToList());
+                    });
+                }
+                else
+                {
+                    RebuildCategoriesCache(source.Id, saveDisk: true, channels: newChannels);
                 }
 
-                SaveChannelsForSource(source.Id);
+                SaveChannelsForSource(source.Id, newChannels);
                 SaveSources();
 
                 ShowToast($"'{source.Name}' yenilendi: {newChannels.Count} içerik ({restoredFav} favori korundu).");
@@ -683,7 +753,10 @@ namespace GlyphTV
                 case "Link":
                     {
                         EnsureDownloadHttpClient();
-                        using var response = await _downloadHttpClient!.GetAsync(source.PathOrUrl, HttpCompletionOption.ResponseHeadersRead);
+                        using var req = new HttpRequestMessage(HttpMethod.Get, source.PathOrUrl);
+                        req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                        req.Headers.Pragma.ParseAdd("no-cache");
+                        using var response = await _downloadHttpClient!.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                         response.EnsureSuccessStatusCode();
                         using var stream = await response.Content.ReadAsStreamAsync();
                         using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -692,11 +765,15 @@ namespace GlyphTV
                 case "Xtream":
                     {
                         EnsureDownloadHttpClient();
+                        long ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                         string url = $"{source.PathOrUrl.TrimEnd('/')}/get.php" +
                                      $"?username={Uri.EscapeDataString(source.Username)}" +
                                      $"&password={Uri.EscapeDataString(source.Password)}" +
-                                     $"&type=m3u_plus&output=ts";
-                        using var response = await _downloadHttpClient!.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                                     $"&type=m3u_plus&output=ts&_t={ts}";
+                        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                        req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                        req.Headers.Pragma.ParseAdd("no-cache");
+                        using var response = await _downloadHttpClient!.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                         response.EnsureSuccessStatusCode();
                         using var stream = await response.Content.ReadAsStreamAsync();
                         using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -718,10 +795,15 @@ namespace GlyphTV
                 string server = source.PathOrUrl.TrimEnd('/');
                 string userEnc = Uri.EscapeDataString(source.Username);
                 string passEnc = Uri.EscapeDataString(source.Password);
-                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}";
+                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}&_t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
                 EnsureDownloadHttpClient();
-                string json = await _downloadHttpClient!.GetStringAsync(url);
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                req.Headers.Pragma.ParseAdd("no-cache");
+                using var resp = await _downloadHttpClient!.SendAsync(req);
+                resp.EnsureSuccessStatusCode();
+                string json = await resp.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
 
                 if (doc.RootElement.TryGetProperty("user_info", out var userInfo) &&
@@ -812,10 +894,11 @@ namespace GlyphTV
                 if (stillExists.IsActive)
                 {
                     _allChannels.AddRange(seriesChannels);
-                    _contentCache.Clear();
-                    _seriesCardCache.Clear();
+                    ClearContentAndSeriesCaches();
                     finalListToSave = _allChannels;
                     _decryptedChannelsCache[source.Id] = _allChannels;
+
+                    RebuildCategoriesCache(source.Id, saveDisk: true);
 
                     Dispatcher.UIThread.Post(UpdateView);
                 }
@@ -831,9 +914,10 @@ namespace GlyphTV
                         finalListToSave = seriesChannels;
                     }
                     _decryptedChannelsCache[source.Id] = finalListToSave;
+                    RebuildCategoriesCache(source.Id, saveDisk: true, channels: finalListToSave);
                 }
 
-                SaveChannelsForSource(source.Id);
+                SaveChannelsForSource(source.Id, finalListToSave);
                 Dispatcher.UIThread.Post(() => TrimProcessMemory(), DispatcherPriority.Background);
             }
             finally
@@ -853,14 +937,19 @@ namespace GlyphTV
             string baseApi = $"{server}/player_api.php?username={userEnc}&password={passEnc}";
 
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-            client.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+            client.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
 
             var seriesCats = await GetXtreamCategoryMap(client, baseApi, "get_series_categories");
 
             string seriesJson;
             try
             {
-                seriesJson = await client.GetStringAsync($"{baseApi}&action=get_series");
+                using var req = new HttpRequestMessage(HttpMethod.Get, $"{baseApi}&action=get_series&_t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}");
+                req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                req.Headers.Pragma.ParseAdd("no-cache");
+                using var resp = await client.SendAsync(req);
+                resp.EnsureSuccessStatusCode();
+                seriesJson = await resp.Content.ReadAsStringAsync();
             }
             catch { return result; }
 
@@ -903,7 +992,7 @@ namespace GlyphTV
 
             var semaphore = new SemaphoreSlim(10);
             using var epClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            epClient.DefaultRequestHeaders.Add("User-Agent", "GlyphTV/1.1.0");
+            epClient.DefaultRequestHeaders.Add("User-Agent", "VLC/3.0.20 LibVLC/3.0.20");
 
             var tasks = seriesList.Select(async series =>
             {
@@ -916,7 +1005,8 @@ namespace GlyphTV
                 string logoUrl = XtreamStr(series, "cover");
 
                 // Disk önbelleğinde bu dizi varsa doğrudan kullan
-                if (cachedChannelsBySeriesId.TryGetValue(seriesId, out var cachedEpisodes) && cachedEpisodes.Count > 0)
+                if ((cachedChannelsBySeriesId.TryGetValue(seriesId, out var cachedEpisodes) ||
+                     cachedChannelsBySeriesId.TryGetValue(showName, out cachedEpisodes)) && cachedEpisodes.Count > 0)
                 {
                     lock (result)
                     {
@@ -998,6 +1088,7 @@ namespace GlyphTV
                                             Group = catName,
                                             Type = "Dizi",
                                             LogoUrl = logoUrl,
+                                            XuiId = seriesId,
                                             ShowName = showName,
                                             Season = season,
                                             EpisodeNumber = int.TryParse(epNum, out var en) ? en : 0,
@@ -1105,10 +1196,13 @@ namespace GlyphTV
                 string server = source.PathOrUrl.TrimEnd('/');
                 string userEnc = Uri.EscapeDataString(source.Username);
                 string passEnc = Uri.EscapeDataString(source.Password);
-                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}&action=get_vod_streams";
+                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}&action=get_vod_streams&_t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
                 EnsureDownloadHttpClient();
-                using var response = await _downloadHttpClient!.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                req.Headers.Pragma.ParseAdd("no-cache");
+                using var response = await _downloadHttpClient!.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var doc = await JsonDocument.ParseAsync(stream);
@@ -1163,8 +1257,8 @@ namespace GlyphTV
 
                 if (!changed) return;
 
-                _contentCache.Clear();
-                SaveChannelsForSource(source.Id);
+                ClearContentAndSeriesCaches();
+                SaveChannelsForSource(source.Id, targetList);
 
                 if (stillExists.IsActive)
                     Dispatcher.UIThread.Post(UpdateView);
@@ -1185,10 +1279,13 @@ namespace GlyphTV
                 string server = source.PathOrUrl.TrimEnd('/');
                 string userEnc = Uri.EscapeDataString(source.Username);
                 string passEnc = Uri.EscapeDataString(source.Password);
-                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}&action=get_series";
+                string url = $"{server}/player_api.php?username={userEnc}&password={passEnc}&action=get_series&_t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
                 EnsureDownloadHttpClient();
-                using var response = await _downloadHttpClient!.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true, MustRevalidate = true };
+                req.Headers.Pragma.ParseAdd("no-cache");
+                using var response = await _downloadHttpClient!.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var doc = await JsonDocument.ParseAsync(stream);
@@ -1258,9 +1355,8 @@ namespace GlyphTV
 
                 if (!changed) return;
 
-                _seriesCardCache.Clear();
-                _contentCache.Clear();
-                SaveChannelsForSource(source.Id);
+                ClearContentAndSeriesCaches();
+                SaveChannelsForSource(source.Id, targetList);
 
                 if (stillExists.IsActive)
                     Dispatcher.UIThread.Post(UpdateView);
