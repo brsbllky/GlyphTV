@@ -85,9 +85,9 @@ Certain heuristic antivirus algorithms may trigger false positives due to:
 |---|---|
 | Release | `v2.1.2` |
 | Binary | `GlyphTV.exe` |
-| SHA256 | `1983decd1c337d04af7d4134d2645426f40a47e056b70e5a1ccaf815f35893d3` |
+| SHA256 | `26bd36e0b56a0179aa99afaacb415c6172c7561f038a4c3e59cf9e2ebd3d0335` |
 | Detection Rate | **0 / 70 Clean** |
-| VirusTotal Report | https://www.virustotal.com/gui/file/1983decd1c337d04af7d4134d2645426f40a47e056b70e5a1ccaf815f35893d3?nocache=1 |
+| VirusTotal Report | https://www.virustotal.com/gui/file/26bd36e0b56a0179aa99afaacb415c6172c7561f038a4c3e59cf9e2ebd3d0335?nocache=1 |
 
 ---
 
